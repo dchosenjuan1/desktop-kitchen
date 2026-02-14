@@ -14,19 +14,19 @@ class MyDocument extends Document {
           />
           <meta
             name="description"
-            content="Juanbertos - Massive burritos, bold flavors, zero compromise. The freshest fast food burrito experience."
+            content="Juanbertos is coming to Mexico City. Massive burritos, bold flavors, zero compromise. Sign up to be the first to know."
           />
           <meta property="og:site_name" content="juanbertos.com" />
           <meta
             property="og:description"
-            content="Massive burritos, bold flavors, zero compromise. The freshest fast food burrito experience."
+            content="Juanbertos is coming to Mexico City. Massive burritos, bold flavors, zero compromise."
           />
-          <meta property="og:title" content="Juanbertos | Burritos As Big As Your Dreams" />
+          <meta property="og:title" content="Juanbertos | Coming Soon to Mexico City" />
           <meta name="twitter:card" content="summary_large_image" />
-          <meta name="twitter:title" content="Juanbertos | Burritos As Big As Your Dreams" />
+          <meta name="twitter:title" content="Juanbertos | Coming Soon to Mexico City" />
           <meta
             name="twitter:description"
-            content="Massive burritos, bold flavors, zero compromise."
+            content="We're bringing the heat to CDMX. Massive burritos, bold flavors, zero compromise."
           />
         </Head>
         <body className="bg-brand-dark antialiased">

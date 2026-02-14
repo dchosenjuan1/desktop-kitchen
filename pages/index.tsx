@@ -1,671 +1,323 @@
 import type { NextPage } from "next";
 import Head from "next/head";
-import { useEffect, useRef, useState } from "react";
-import { motion, useInView, useScroll, useTransform } from "framer-motion";
+import { useEffect, useState } from "react";
+import { motion } from "framer-motion";
 
-const menuItems = [
-  {
-    name: "El Clásico",
-    description:
-      "Carne asada, cilantro rice, black beans, pico de gallo, sour cream, guacamole. The OG.",
-    price: "$12.99",
-    tag: "BEST SELLER",
-    emoji: "🥩",
-  },
-  {
-    name: "Pollo Loco",
-    description:
-      "Grilled chicken, chipotle crema, roasted corn salsa, queso fresco, pickled jalapeños.",
-    price: "$11.99",
-    tag: "SPICY",
-    emoji: "🍗",
-  },
-  {
-    name: "El Vegano",
-    description:
-      "Sofritas, coconut lime rice, black beans, mango habanero salsa, cashew crema.",
-    price: "$11.49",
-    tag: "PLANT-BASED",
-    emoji: "🌱",
-  },
-  {
-    name: "Breakfast Beast",
-    description:
-      "Scrambled eggs, chorizo, crispy hash browns, melted cheese, salsa verde. Available all day.",
-    price: "$10.99",
-    tag: "ALL DAY",
-    emoji: "🍳",
-  },
-  {
-    name: "Mar y Tierra",
-    description:
-      "Grilled shrimp & steak, garlic butter rice, cabbage slaw, chipotle aioli, cotija cheese.",
-    price: "$14.99",
-    tag: "PREMIUM",
-    emoji: "🦐",
-  },
-  {
-    name: "El Diablo",
-    description:
-      "Double carne asada, ghost pepper salsa, habanero cheese, pickled onions. Sign the waiver.",
-    price: "$13.99",
-    tag: "🔥 EXTREME",
-    emoji: "👹",
-  },
-];
-
-const stats = [
-  { value: "2LB", label: "Average burrito weight" },
-  { value: "100%", label: "Fresh ingredients daily" },
-  { value: "5min", label: "Average order time" },
-  { value: "50K+", label: "Burritos sold monthly" },
-];
-
-function AnimatedSection({
-  children,
-  className = "",
-  delay = 0,
-}: {
-  children: React.ReactNode;
-  className?: string;
-  delay?: number;
-}) {
-  const ref = useRef(null);
-  const isInView = useInView(ref, { once: true, margin: "-100px" });
-
-  return (
-    <motion.div
-      ref={ref}
-      initial={{ opacity: 0, y: 40 }}
-      animate={isInView ? { opacity: 1, y: 0 } : { opacity: 0, y: 40 }}
-      transition={{ duration: 0.8, delay, ease: [0.25, 0.4, 0.25, 1] }}
-      className={className}
-    >
-      {children}
-    </motion.div>
-  );
-}
-
-const Home: NextPage = () => {
-  const [isScrolled, setIsScrolled] = useState(false);
-  const heroRef = useRef(null);
-  const { scrollYProgress } = useScroll();
-  const heroOpacity = useTransform(scrollYProgress, [0, 0.15], [1, 0]);
-  const heroScale = useTransform(scrollYProgress, [0, 0.15], [1, 0.95]);
+function useCountdown(targetDate: Date) {
+  const [timeLeft, setTimeLeft] = useState({
+    days: 0,
+    hours: 0,
+    minutes: 0,
+    seconds: 0,
+  });
 
   useEffect(() => {
-    const handleScroll = () => setIsScrolled(window.scrollY > 50);
-    window.addEventListener("scroll", handleScroll);
-    return () => window.removeEventListener("scroll", handleScroll);
-  }, []);
+    const tick = () => {
+      const now = new Date().getTime();
+      const diff = targetDate.getTime() - now;
+      if (diff <= 0) {
+        setTimeLeft({ days: 0, hours: 0, minutes: 0, seconds: 0 });
+        return;
+      }
+      setTimeLeft({
+        days: Math.floor(diff / (1000 * 60 * 60 * 24)),
+        hours: Math.floor((diff / (1000 * 60 * 60)) % 24),
+        minutes: Math.floor((diff / (1000 * 60)) % 60),
+        seconds: Math.floor((diff / 1000) % 60),
+      });
+    };
+    tick();
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+  }, [targetDate]);
+
+  return timeLeft;
+}
+
+const LAUNCH_DATE = new Date("2025-09-15T00:00:00");
+
+const ease = [0.25, 0.4, 0.25, 1];
+
+const Home: NextPage = () => {
+  const countdown = useCountdown(LAUNCH_DATE);
+  const [email, setEmail] = useState("");
+  const [submitted, setSubmitted] = useState(false);
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (email) {
+      setSubmitted(true);
+      setEmail("");
+    }
+  };
 
   return (
     <>
       <Head>
-        <title>Juanbertos | Burritos As Big As Your Dreams</title>
+        <title>Juanbertos | Coming Soon to Mexico City</title>
       </Head>
 
       <div className="noise-overlay" />
 
-      {/* Navigation */}
-      <nav
-        className={`fixed top-0 left-0 right-0 z-40 transition-all duration-500 ${
-          isScrolled
-            ? "border-b border-white/10 bg-brand-dark/80 py-4 backdrop-blur-xl"
-            : "bg-transparent py-6"
-        }`}
-      >
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-6">
-          <a href="#" className="flex items-center gap-3">
-            <span className="text-4xl">🌯</span>
-            <span className="font-display text-2xl font-black tracking-tight text-white">
-              JUANBERTOS
-            </span>
-          </a>
-          <div className="hidden items-center gap-8 md:flex">
-            <a
-              href="#menu"
-              className="text-sm font-medium uppercase tracking-wider text-white/70 transition hover:text-brand-orange"
-            >
-              Menu
-            </a>
-            <a
-              href="#about"
-              className="text-sm font-medium uppercase tracking-wider text-white/70 transition hover:text-brand-orange"
-            >
-              About
-            </a>
-            <a
-              href="#locations"
-              className="text-sm font-medium uppercase tracking-wider text-white/70 transition hover:text-brand-orange"
-            >
-              Locations
-            </a>
-            <a href="#order" className="btn-primary !px-6 !py-2.5 !text-sm">
-              Order Now
-            </a>
-          </div>
-          {/* Mobile menu button */}
-          <button className="text-white md:hidden">
-            <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M4 6h16M4 12h16M4 18h16"
-              />
-            </svg>
-          </button>
-        </div>
-      </nav>
-
-      {/* Hero Section */}
-      <motion.section
-        ref={heroRef}
-        style={{ opacity: heroOpacity, scale: heroScale }}
-        className="hero-gradient relative flex min-h-screen items-center justify-center overflow-hidden px-6"
-      >
+      {/* Full-screen coming soon */}
+      <main className="hero-gradient relative flex min-h-screen flex-col items-center justify-center overflow-hidden px-6">
         {/* Floating background elements */}
         <div className="pointer-events-none absolute inset-0 overflow-hidden">
-          <div className="animate-float absolute top-20 left-[10%] text-8xl opacity-10">
+          <div className="animate-float absolute top-16 left-[8%] text-8xl opacity-10">
             🌶️
           </div>
-          <div className="animate-float-delayed absolute top-40 right-[15%] text-7xl opacity-10">
+          <div className="animate-float-delayed absolute top-32 right-[12%] text-7xl opacity-10">
             🥑
           </div>
-          <div className="animate-float absolute bottom-32 left-[20%] text-6xl opacity-10">
+          <div className="animate-float absolute bottom-40 left-[15%] text-6xl opacity-10">
             🍅
           </div>
-          <div className="animate-float-delayed absolute bottom-20 right-[25%] text-8xl opacity-10">
+          <div className="animate-float-delayed absolute bottom-24 right-[20%] text-9xl opacity-10">
             🌯
           </div>
-          <div className="animate-float absolute top-1/2 left-[5%] text-5xl opacity-5">
+          <div className="animate-float absolute top-1/2 left-[4%] text-5xl opacity-5">
             🧅
           </div>
-          <div className="animate-float-delayed absolute top-1/3 right-[8%] text-6xl opacity-5">
+          <div className="animate-float-delayed absolute top-1/4 right-[6%] text-6xl opacity-5">
             🌽
+          </div>
+          <div className="animate-float absolute bottom-1/3 right-[40%] text-7xl opacity-[0.04]">
+            🇲🇽
           </div>
         </div>
 
         {/* Radial gradient orbs */}
-        <div className="animate-pulse-slow absolute top-1/4 left-1/4 h-96 w-96 rounded-full bg-brand-orange/5 blur-3xl" />
-        <div className="animate-pulse-slow absolute bottom-1/4 right-1/4 h-96 w-96 rounded-full bg-brand-red/5 blur-3xl" />
+        <div className="animate-pulse-slow absolute top-1/4 left-1/4 h-[500px] w-[500px] rounded-full bg-brand-orange/5 blur-3xl" />
+        <div className="animate-pulse-slow absolute bottom-1/4 right-1/4 h-[500px] w-[500px] rounded-full bg-brand-red/5 blur-3xl" />
+        <div className="animate-pulse-slow absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-[600px] w-[600px] rounded-full bg-brand-green/[0.03] blur-3xl" />
 
-        <div className="relative z-10 mx-auto max-w-5xl text-center">
+        <div className="relative z-10 mx-auto max-w-4xl text-center">
+          {/* Logo */}
           <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 1, ease: [0.25, 0.4, 0.25, 1] }}
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 1, ease }}
+            className="mb-8 flex items-center justify-center gap-4"
           >
-            <span className="mb-6 inline-block rounded-full border border-brand-orange/30 bg-brand-orange/10 px-4 py-2 text-sm font-medium tracking-wider text-brand-orange">
-              NOW OPEN — FIRST 100 CUSTOMERS GET A FREE DRINK
+            <span className="text-6xl md:text-7xl">🌯</span>
+            <span className="font-display text-4xl font-black tracking-tight text-white md:text-5xl">
+              JUANBERTOS
             </span>
           </motion.div>
 
+          {/* Coming Soon badge */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8, delay: 0.3, ease }}
+          >
+            <span className="inline-flex items-center gap-2 rounded-full border border-brand-green/30 bg-brand-green/10 px-5 py-2.5 text-sm font-semibold uppercase tracking-widest text-brand-green">
+              <span className="relative flex h-2 w-2">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-brand-green opacity-75" />
+                <span className="relative inline-flex h-2 w-2 rounded-full bg-brand-green" />
+              </span>
+              Coming Soon
+            </span>
+          </motion.div>
+
+          {/* Main headline */}
           <motion.h1
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 1, delay: 0.2, ease: [0.25, 0.4, 0.25, 1] }}
-            className="font-display text-6xl font-black leading-[0.9] tracking-tight text-white sm:text-7xl md:text-8xl lg:text-9xl"
+            transition={{ duration: 1, delay: 0.5, ease }}
+            className="font-display mt-8 text-5xl font-black leading-[0.9] tracking-tight text-white sm:text-6xl md:text-7xl lg:text-8xl"
           >
-            BURRITOS
+            WE&apos;RE BRINGING
             <br />
-            <span className="text-gradient">AS BIG AS</span>
+            <span className="text-gradient">THE HEAT</span>
             <br />
-            YOUR DREAMS
+            TO CDMX
           </motion.h1>
 
+          {/* Subtitle */}
           <motion.p
-            initial={{ opacity: 0, y: 30 }}
+            initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 1, delay: 0.4, ease: [0.25, 0.4, 0.25, 1] }}
-            className="mx-auto mt-8 max-w-2xl text-lg text-white/60 md:text-xl"
+            transition={{ duration: 0.8, delay: 0.7, ease }}
+            className="mx-auto mt-8 max-w-2xl text-lg text-white/50 md:text-xl"
           >
-            Massive flavor. Fresh ingredients. Zero compromise.
+            Massive burritos. Bold flavors. Zero compromise.
             <br className="hidden sm:block" />
-            Welcome to the burrito revolution.
+            Mexico City, get ready for the burrito revolution.
           </motion.p>
 
+          {/* Location pin */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8, delay: 0.85, ease }}
+            className="mt-6 flex items-center justify-center gap-2 text-white/40"
+          >
+            <svg className="h-5 w-5 text-brand-red" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" />
+            </svg>
+            <span className="text-sm font-medium tracking-wider uppercase">
+              Ciudad de M&eacute;xico, M&eacute;xico
+            </span>
+          </motion.div>
+
+          {/* Countdown */}
           <motion.div
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 1, delay: 0.6, ease: [0.25, 0.4, 0.25, 1] }}
-            className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row"
+            transition={{ duration: 1, delay: 1, ease }}
+            className="mx-auto mt-14 grid max-w-lg grid-cols-4 gap-4"
           >
-            <a href="#order" className="btn-primary">
-              <span>Order Now</span>
+            {[
+              { value: countdown.days, label: "Days" },
+              { value: countdown.hours, label: "Hours" },
+              { value: countdown.minutes, label: "Minutes" },
+              { value: countdown.seconds, label: "Seconds" },
+            ].map((unit) => (
+              <div
+                key={unit.label}
+                className="rounded-2xl border border-white/10 bg-white/5 px-2 py-5 backdrop-blur-sm"
+              >
+                <div className="text-gradient font-display text-4xl font-black md:text-5xl">
+                  {String(unit.value).padStart(2, "0")}
+                </div>
+                <div className="mt-1 text-[10px] uppercase tracking-widest text-white/30 md:text-xs">
+                  {unit.label}
+                </div>
+              </div>
+            ))}
+          </motion.div>
+
+          {/* Email signup */}
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 1, delay: 1.2, ease }}
+            className="mt-14"
+          >
+            {submitted ? (
+              <motion.div
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className="mx-auto max-w-md rounded-2xl border border-brand-green/30 bg-brand-green/10 p-6"
+              >
+                <span className="text-4xl">🎉</span>
+                <p className="mt-3 font-display text-xl font-bold text-white">
+                  You&apos;re on the list!
+                </p>
+                <p className="mt-1 text-sm text-white/50">
+                  We&apos;ll let you know the moment we open our doors in CDMX.
+                </p>
+              </motion.div>
+            ) : (
+              <>
+                <p className="mb-4 text-sm font-medium uppercase tracking-widest text-white/30">
+                  Be the first to know
+                </p>
+                <form
+                  onSubmit={handleSubmit}
+                  className="mx-auto flex max-w-md flex-col gap-3 sm:flex-row"
+                >
+                  <input
+                    type="email"
+                    required
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="your@email.com"
+                    className="flex-1 rounded-xl border border-white/10 bg-white/5 px-5 py-4 text-white placeholder-white/30 outline-none backdrop-blur-sm transition-colors focus:border-brand-orange/50 focus:bg-white/10"
+                  />
+                  <button
+                    type="submit"
+                    className="btn-primary !rounded-xl !px-8 !py-4 whitespace-nowrap"
+                  >
+                    Notify Me
+                  </button>
+                </form>
+              </>
+            )}
+          </motion.div>
+
+          {/* Socials */}
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 1, delay: 1.5, ease }}
+            className="mt-16 flex items-center justify-center gap-6"
+          >
+            {/* Instagram */}
+            <a
+              href="#"
+              className="group flex h-12 w-12 items-center justify-center rounded-full border border-white/10 bg-white/5 transition-all duration-300 hover:border-brand-orange/30 hover:bg-brand-orange/10"
+              aria-label="Instagram"
+            >
               <svg
-                className="h-5 w-5"
-                fill="none"
-                stroke="currentColor"
+                className="h-5 w-5 text-white/40 transition-colors group-hover:text-brand-orange"
+                fill="currentColor"
                 viewBox="0 0 24 24"
               >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M17 8l4 4m0 0l-4 4m4-4H3"
-                />
+                <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z" />
               </svg>
             </a>
-            <a href="#menu" className="btn-outline">
-              View Menu
+
+            {/* TikTok */}
+            <a
+              href="#"
+              className="group flex h-12 w-12 items-center justify-center rounded-full border border-white/10 bg-white/5 transition-all duration-300 hover:border-brand-orange/30 hover:bg-brand-orange/10"
+              aria-label="TikTok"
+            >
+              <svg
+                className="h-5 w-5 text-white/40 transition-colors group-hover:text-brand-orange"
+                fill="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path d="M19.59 6.69a4.83 4.83 0 01-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 01-2.88 2.5 2.89 2.89 0 01-2.89-2.89 2.89 2.89 0 012.89-2.89c.28 0 .54.04.79.1v-3.5a6.37 6.37 0 00-.79-.05A6.34 6.34 0 003.15 15.2a6.34 6.34 0 0010.86 4.43v-7.15a8.16 8.16 0 005.58 2.2V11.2a4.85 4.85 0 01-3.77-1.74V6.69h3.77z" />
+              </svg>
+            </a>
+
+            {/* X / Twitter */}
+            <a
+              href="#"
+              className="group flex h-12 w-12 items-center justify-center rounded-full border border-white/10 bg-white/5 transition-all duration-300 hover:border-brand-orange/30 hover:bg-brand-orange/10"
+              aria-label="X"
+            >
+              <svg
+                className="h-5 w-5 text-white/40 transition-colors group-hover:text-brand-orange"
+                fill="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
+              </svg>
             </a>
           </motion.div>
-
-          {/* Stats bar */}
-          <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 1, delay: 0.8, ease: [0.25, 0.4, 0.25, 1] }}
-            className="mx-auto mt-20 grid max-w-3xl grid-cols-2 gap-8 border-t border-white/10 pt-10 md:grid-cols-4"
-          >
-            {stats.map((stat) => (
-              <div key={stat.label} className="text-center">
-                <div className="text-gradient font-display text-3xl font-black md:text-4xl">
-                  {stat.value}
-                </div>
-                <div className="mt-1 text-xs uppercase tracking-wider text-white/40">
-                  {stat.label}
-                </div>
-              </div>
-            ))}
-          </motion.div>
         </div>
 
-        {/* Scroll indicator */}
-        <motion.div
-          animate={{ y: [0, 10, 0] }}
-          transition={{ duration: 2, repeat: Infinity }}
-          className="absolute bottom-10 left-1/2 -translate-x-1/2"
-        >
-          <svg
-            className="h-6 w-6 text-white/30"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M19 14l-7 7m0 0l-7-7m7 7V3"
-            />
-          </svg>
-        </motion.div>
-      </motion.section>
-
-      {/* Menu Section */}
-      <section id="menu" className="relative py-32 px-6">
-        <div className="mx-auto max-w-7xl">
-          <AnimatedSection className="text-center">
-            <span className="text-sm font-medium uppercase tracking-[0.2em] text-brand-orange">
-              Our Menu
-            </span>
-            <h2 className="font-display mt-4 text-5xl font-black text-white md:text-6xl">
-              PICK YOUR <span className="text-gradient">WEAPON</span>
-            </h2>
-            <p className="mx-auto mt-4 max-w-xl text-white/50">
-              Every burrito is hand-rolled, loaded to the brim, and wrapped
-              tight. Choose your fighter.
-            </p>
-            <div className="section-divider mt-8" />
-          </AnimatedSection>
-
-          <div className="mt-16 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-            {menuItems.map((item, i) => (
-              <AnimatedSection key={item.name} delay={i * 0.1}>
-                <div className="menu-card group h-full">
-                  {/* Tag */}
-                  <span className="mb-4 inline-block rounded-full bg-brand-orange/10 px-3 py-1 text-xs font-bold uppercase tracking-wider text-brand-orange">
-                    {item.tag}
-                  </span>
-
-                  {/* Emoji */}
-                  <div className="mb-3 text-5xl transition-transform duration-500 group-hover:scale-110">
-                    {item.emoji}
-                  </div>
-
-                  {/* Name & Price */}
-                  <div className="flex items-baseline justify-between">
-                    <h3 className="font-display text-2xl font-bold text-white">
-                      {item.name}
-                    </h3>
-                    <span className="text-gradient font-display text-2xl font-black">
-                      {item.price}
-                    </span>
-                  </div>
-
-                  {/* Description */}
-                  <p className="mt-3 text-sm leading-relaxed text-white/50">
-                    {item.description}
-                  </p>
-
-                  {/* Order button */}
-                  <button className="mt-6 w-full rounded-xl bg-white/5 py-3 text-sm font-semibold text-white/70 transition-all duration-300 hover:bg-brand-orange hover:text-white">
-                    Add to Order
-                  </button>
-                </div>
-              </AnimatedSection>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* About / Story Section */}
-      <section id="about" className="relative overflow-hidden py-32 px-6">
-        {/* Background accent */}
-        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-brand-orange/5 to-transparent" />
-
-        <div className="relative mx-auto max-w-7xl">
-          <div className="grid items-center gap-16 lg:grid-cols-2">
-            <AnimatedSection>
-              <span className="text-sm font-medium uppercase tracking-[0.2em] text-brand-orange">
-                Our Story
+        {/* Scrolling marquee at bottom */}
+        <div className="absolute bottom-0 left-0 right-0 overflow-hidden border-t border-white/5 py-4">
+          <div className="flex animate-[scroll_25s_linear_infinite] whitespace-nowrap">
+            {[...Array(10)].map((_, i) => (
+              <span
+                key={i}
+                className="mx-8 font-display text-sm font-black uppercase tracking-[0.3em] text-white/[0.06]"
+              >
+                JUANBERTOS ★ COMING SOON ★ MEXICO CITY ★ CDMX ★ BURRITOS ★
               </span>
-              <h2 className="font-display mt-4 text-5xl font-black leading-tight text-white md:text-6xl">
-                BORN FROM
-                <br />
-                <span className="text-gradient">LATE-NIGHT</span>
-                <br />
-                CRAVINGS
-              </h2>
-              <div className="section-divider mt-8 !mx-0" />
-              <p className="mt-8 text-lg leading-relaxed text-white/60">
-                It started with a simple idea: what if a burrito spot actually
-                cared about every single ingredient? No frozen meats. No
-                pre-made salsas. No shortcuts. Just honest, massive, incredibly
-                delicious burritos.
-              </p>
-              <p className="mt-4 text-lg leading-relaxed text-white/60">
-                We source from local farms, roast our peppers daily, and make
-                our tortillas from scratch every morning. This isn&apos;t fast
-                food — it&apos;s <em className="text-brand-orange">fresh</em>{" "}
-                food, served fast.
-              </p>
-              <div className="mt-10 flex gap-6">
-                <div className="text-center">
-                  <div className="text-gradient font-display text-4xl font-black">
-                    2024
-                  </div>
-                  <div className="mt-1 text-xs uppercase tracking-wider text-white/40">
-                    Founded
-                  </div>
-                </div>
-                <div className="h-16 w-px bg-white/10" />
-                <div className="text-center">
-                  <div className="text-gradient font-display text-4xl font-black">
-                    12
-                  </div>
-                  <div className="mt-1 text-xs uppercase tracking-wider text-white/40">
-                    Locations
-                  </div>
-                </div>
-                <div className="h-16 w-px bg-white/10" />
-                <div className="text-center">
-                  <div className="text-gradient font-display text-4xl font-black">
-                    1M+
-                  </div>
-                  <div className="mt-1 text-xs uppercase tracking-wider text-white/40">
-                    Burritos Served
-                  </div>
-                </div>
-              </div>
-            </AnimatedSection>
-
-            <AnimatedSection delay={0.2}>
-              <div className="relative">
-                {/* Decorative card stack */}
-                <div className="relative mx-auto aspect-square max-w-md">
-                  <div className="absolute inset-4 rotate-3 rounded-3xl border border-brand-orange/20 bg-brand-orange/5" />
-                  <div className="absolute inset-2 -rotate-2 rounded-3xl border border-brand-yellow/20 bg-brand-yellow/5" />
-                  <div className="relative flex h-full items-center justify-center rounded-3xl border border-white/10 bg-white/5 backdrop-blur-sm">
-                    <div className="text-center p-8">
-                      <div className="animate-float text-[120px] leading-none">
-                        🌯
-                      </div>
-                      <p className="font-display mt-6 text-3xl font-black text-white">
-                        Made Fresh
-                      </p>
-                      <p className="mt-2 text-white/50">
-                        Every. Single. Day.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </AnimatedSection>
-          </div>
-        </div>
-      </section>
-
-      {/* Marquee / Social Proof */}
-      <section className="overflow-hidden border-y border-white/5 py-6">
-        <div className="flex animate-[scroll_20s_linear_infinite] whitespace-nowrap">
-          {[...Array(10)].map((_, i) => (
-            <span
-              key={i}
-              className="mx-8 font-display text-2xl font-black uppercase tracking-wider text-white/10"
-            >
-              JUANBERTOS ★ BURRITOS ★ FRESH DAILY ★ MASSIVE FLAVOR ★
-            </span>
-          ))}
-        </div>
-        <style dangerouslySetInnerHTML={{ __html: `
-          @keyframes scroll {
-            0% { transform: translateX(0); }
-            100% { transform: translateX(-50%); }
-          }
-        `}} />
-      </section>
-
-      {/* Locations Section */}
-      <section id="locations" className="relative py-32 px-6">
-        <div className="mx-auto max-w-7xl">
-          <AnimatedSection className="text-center">
-            <span className="text-sm font-medium uppercase tracking-[0.2em] text-brand-orange">
-              Find Us
-            </span>
-            <h2 className="font-display mt-4 text-5xl font-black text-white md:text-6xl">
-              COME <span className="text-gradient">GET SOME</span>
-            </h2>
-            <p className="mx-auto mt-4 max-w-xl text-white/50">
-              Open 7 days a week. Late-night hours on Fridays and Saturdays.
-            </p>
-            <div className="section-divider mt-8" />
-          </AnimatedSection>
-
-          <div className="mt-16 grid gap-6 md:grid-cols-3">
-            {[
-              {
-                name: "Downtown",
-                address: "123 Main Street, Suite 100",
-                hours: "10AM - 11PM Daily",
-                tag: "FLAGSHIP",
-              },
-              {
-                name: "Westside",
-                address: "456 Ocean Ave, Unit 2B",
-                hours: "10AM - 10PM Daily",
-                tag: "NEW",
-              },
-              {
-                name: "University",
-                address: "789 College Blvd",
-                hours: "10AM - 2AM Fri-Sat",
-                tag: "LATE NIGHT",
-              },
-            ].map((location, i) => (
-              <AnimatedSection key={location.name} delay={i * 0.15}>
-                <div className="menu-card text-center">
-                  <span className="mb-4 inline-block rounded-full bg-brand-green/10 px-3 py-1 text-xs font-bold uppercase tracking-wider text-brand-green">
-                    {location.tag}
-                  </span>
-                  <h3 className="font-display text-2xl font-bold text-white">
-                    {location.name}
-                  </h3>
-                  <p className="mt-2 text-sm text-white/50">
-                    {location.address}
-                  </p>
-                  <p className="mt-1 text-sm font-medium text-brand-orange">
-                    {location.hours}
-                  </p>
-                  <button className="mt-6 w-full rounded-xl bg-white/5 py-3 text-sm font-semibold text-white/70 transition-all duration-300 hover:bg-brand-green hover:text-white">
-                    Get Directions
-                  </button>
-                </div>
-              </AnimatedSection>
             ))}
           </div>
+          <style dangerouslySetInnerHTML={{ __html: `
+            @keyframes scroll {
+              0% { transform: translateX(0); }
+              100% { transform: translateX(-50%); }
+            }
+          `}} />
         </div>
-      </section>
 
-      {/* CTA Section */}
-      <section id="order" className="relative py-32 px-6">
-        <div className="absolute inset-0 bg-gradient-to-t from-brand-orange/10 via-transparent to-transparent" />
-        <div className="relative mx-auto max-w-4xl text-center">
-          <AnimatedSection>
-            <div className="animate-float text-8xl">🌯</div>
-            <h2 className="font-display mt-8 text-5xl font-black text-white md:text-7xl">
-              READY TO
-              <br />
-              <span className="text-gradient">GET WRAPPED?</span>
-            </h2>
-            <p className="mx-auto mt-6 max-w-xl text-lg text-white/50">
-              Order online for pickup or delivery. Your burrito is waiting.
-            </p>
-            <div className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row">
-              <a href="#" className="btn-primary text-xl">
-                🛒 Order Online
-              </a>
-              <a href="#" className="btn-outline">
-                📱 Download App
-              </a>
-            </div>
-          </AnimatedSection>
+        {/* Footer line */}
+        <div className="absolute bottom-14 left-0 right-0 text-center">
+          <p className="text-xs text-white/20">
+            &copy; {new Date().getFullYear()} Juanbertos. All rights reserved.
+          </p>
         </div>
-      </section>
-
-      {/* Footer */}
-      <footer className="border-t border-white/5 px-6 py-16">
-        <div className="mx-auto max-w-7xl">
-          <div className="grid gap-12 md:grid-cols-4">
-            {/* Brand */}
-            <div className="md:col-span-1">
-              <div className="flex items-center gap-3">
-                <span className="text-3xl">🌯</span>
-                <span className="font-display text-xl font-black text-white">
-                  JUANBERTOS
-                </span>
-              </div>
-              <p className="mt-4 text-sm text-white/40">
-                Burritos as big as your dreams.
-                <br />
-                Made fresh daily since 2024.
-              </p>
-            </div>
-
-            {/* Links */}
-            <div>
-              <h4 className="text-sm font-bold uppercase tracking-wider text-white/60">
-                Menu
-              </h4>
-              <ul className="mt-4 space-y-2">
-                <li>
-                  <a href="#" className="text-sm text-white/40 transition hover:text-brand-orange">
-                    Burritos
-                  </a>
-                </li>
-                <li>
-                  <a href="#" className="text-sm text-white/40 transition hover:text-brand-orange">
-                    Bowls
-                  </a>
-                </li>
-                <li>
-                  <a href="#" className="text-sm text-white/40 transition hover:text-brand-orange">
-                    Tacos
-                  </a>
-                </li>
-                <li>
-                  <a href="#" className="text-sm text-white/40 transition hover:text-brand-orange">
-                    Sides & Drinks
-                  </a>
-                </li>
-              </ul>
-            </div>
-
-            <div>
-              <h4 className="text-sm font-bold uppercase tracking-wider text-white/60">
-                Company
-              </h4>
-              <ul className="mt-4 space-y-2">
-                <li>
-                  <a href="#" className="text-sm text-white/40 transition hover:text-brand-orange">
-                    Our Story
-                  </a>
-                </li>
-                <li>
-                  <a href="#" className="text-sm text-white/40 transition hover:text-brand-orange">
-                    Careers
-                  </a>
-                </li>
-                <li>
-                  <a href="#" className="text-sm text-white/40 transition hover:text-brand-orange">
-                    Franchise
-                  </a>
-                </li>
-                <li>
-                  <a href="#" className="text-sm text-white/40 transition hover:text-brand-orange">
-                    Press
-                  </a>
-                </li>
-              </ul>
-            </div>
-
-            <div>
-              <h4 className="text-sm font-bold uppercase tracking-wider text-white/60">
-                Connect
-              </h4>
-              <ul className="mt-4 space-y-2">
-                <li>
-                  <a href="#" className="text-sm text-white/40 transition hover:text-brand-orange">
-                    Instagram
-                  </a>
-                </li>
-                <li>
-                  <a href="#" className="text-sm text-white/40 transition hover:text-brand-orange">
-                    TikTok
-                  </a>
-                </li>
-                <li>
-                  <a href="#" className="text-sm text-white/40 transition hover:text-brand-orange">
-                    Twitter / X
-                  </a>
-                </li>
-                <li>
-                  <a href="#" className="text-sm text-white/40 transition hover:text-brand-orange">
-                    Contact Us
-                  </a>
-                </li>
-              </ul>
-            </div>
-          </div>
-
-          <div className="mt-16 flex flex-col items-center justify-between gap-4 border-t border-white/5 pt-8 md:flex-row">
-            <p className="text-xs text-white/30">
-              &copy; {new Date().getFullYear()} Juanbertos. All rights reserved.
-            </p>
-            <div className="flex gap-6">
-              <a href="#" className="text-xs text-white/30 transition hover:text-white/60">
-                Privacy Policy
-              </a>
-              <a href="#" className="text-xs text-white/30 transition hover:text-white/60">
-                Terms of Service
-              </a>
-            </div>
-          </div>
-        </div>
-      </footer>
+      </main>
     </>
   );
 };
