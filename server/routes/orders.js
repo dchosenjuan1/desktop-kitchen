@@ -1,10 +1,11 @@
 import { Router } from 'express';
 import { all, get, run } from '../db.js';
 import { recordOrderItemPairs } from '../ai/data-pipeline.js';
+import { requireAuth } from '../middleware/auth.js';
 
 const router = Router();
 
-const TAX_RATE = 0.16; // 16% IVA (Mexico)
+const TAX_RATE = 0.16; // 16% IVA (Mexico) — prices already include tax
 
 function generateOrderNumber() {
   const now = new Date();
@@ -29,7 +30,7 @@ router.get('/', (req, res) => {
     const { status, date } = req.query;
     let query = `
       SELECT o.id, o.order_number, o.employee_id, o.status, o.subtotal, o.tax, o.tip, o.total,
-             o.payment_status, o.created_at, e.name as employee_name
+             o.payment_status, o.payment_method, o.source, o.created_at, e.name as employee_name
       FROM orders o
       JOIN employees e ON o.employee_id = e.id
       WHERE 1=1
@@ -63,7 +64,7 @@ router.get('/:id', (req, res) => {
 
     const order = get(`
       SELECT o.id, o.order_number, o.employee_id, o.status, o.subtotal, o.tax, o.tip, o.total,
-             o.payment_intent_id, o.payment_status, o.created_at, o.completed_at, e.name as employee_name
+             o.payment_intent_id, o.payment_status, o.payment_method, o.source, o.created_at, o.completed_at, e.name as employee_name
       FROM orders o
       JOIN employees e ON o.employee_id = e.id
       WHERE o.id = ?
@@ -74,12 +75,22 @@ router.get('/:id', (req, res) => {
     }
 
     const items = all(`
-      SELECT id, order_id, menu_item_id, item_name, quantity, unit_price, notes
+      SELECT id, order_id, menu_item_id, item_name, quantity, unit_price, notes, combo_instance_id
       FROM order_items
       WHERE order_id = ?
     `, [id]);
 
-    res.json({ ...order, items });
+    // Attach modifiers to each item
+    const itemsWithModifiers = items.map(item => {
+      const modifiers = all(`
+        SELECT id, modifier_id, modifier_name, price_adjustment
+        FROM order_item_modifiers
+        WHERE order_item_id = ?
+      `, [item.id]);
+      return { ...item, modifiers };
+    });
+
+    res.json({ ...order, items: itemsWithModifiers });
   } catch (error) {
     console.error('Error fetching order:', error);
     res.status(500).json({ error: 'Failed to fetch order' });
@@ -87,12 +98,19 @@ router.get('/:id', (req, res) => {
 });
 
 // POST /api/orders - create order
-router.post('/', (req, res) => {
+router.post('/', requireAuth('pos_access'), (req, res) => {
   try {
     const { employee_id, items } = req.body;
 
     if (!employee_id || !items || items.length === 0) {
       return res.status(400).json({ error: 'Missing required fields' });
+    }
+
+    // Validate item quantities
+    for (const item of items) {
+      if (!item.quantity || item.quantity <= 0) {
+        return res.status(400).json({ error: `Invalid quantity for item ${item.menu_item_id}. Quantity must be greater than 0.` });
+      }
     }
 
     // Verify employee exists
@@ -101,8 +119,8 @@ router.post('/', (req, res) => {
       return res.status(404).json({ error: 'Employee not found' });
     }
 
-    // Calculate totals
-    let subtotal = 0;
+    // Calculate totals (prices include IVA)
+    let itemsTotal = 0;
     const orderItems = [];
 
     for (const item of items) {
@@ -111,20 +129,38 @@ router.post('/', (req, res) => {
         return res.status(404).json({ error: `Menu item ${item.menu_item_id} not found` });
       }
 
-      const itemTotal = menuItem.price * item.quantity;
-      subtotal += itemTotal;
+      // Calculate modifier price adjustments
+      let modifierTotal = 0;
+      const resolvedModifiers = [];
+      if (item.modifiers && item.modifiers.length > 0) {
+        for (const modId of item.modifiers) {
+          const mod = get('SELECT id, name, price_adjustment FROM modifiers WHERE id = ?', [modId]);
+          if (mod) {
+            modifierTotal += mod.price_adjustment;
+            resolvedModifiers.push(mod);
+          }
+        }
+      }
+
+      const unitPrice = menuItem.price + modifierTotal;
+      const itemTotal = unitPrice * item.quantity;
+      itemsTotal += itemTotal;
 
       orderItems.push({
         menu_item_id: item.menu_item_id,
         item_name: menuItem.name,
         quantity: item.quantity,
-        unit_price: menuItem.price,
+        unit_price: unitPrice,
         notes: item.notes || null,
+        combo_instance_id: item.combo_instance_id || null,
+        modifiers: resolvedModifiers,
       });
     }
 
-    const tax = Math.round(subtotal * TAX_RATE * 100) / 100;
-    const total = subtotal + tax;
+    // Prices already include IVA — extract tax from the total
+    const total = itemsTotal; // what the customer pays (IVA included)
+    const tax = Math.round((total - total / (1 + TAX_RATE)) * 100) / 100;
+    const subtotal = Math.round((total - tax) * 100) / 100;
     const orderNumber = generateOrderNumber();
 
     // Create order
@@ -135,12 +171,24 @@ router.post('/', (req, res) => {
 
     const orderId = result.lastInsertRowid;
 
-    // Insert order items
+    // Insert order items and their modifiers
     for (const item of orderItems) {
-      run(`
-        INSERT INTO order_items (order_id, menu_item_id, item_name, quantity, unit_price, notes)
-        VALUES (?, ?, ?, ?, ?, ?)
-      `, [orderId, item.menu_item_id, item.item_name, item.quantity, item.unit_price, item.notes]);
+      const itemResult = run(`
+        INSERT INTO order_items (order_id, menu_item_id, item_name, quantity, unit_price, notes, combo_instance_id)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+      `, [orderId, item.menu_item_id, item.item_name, item.quantity, item.unit_price, item.notes, item.combo_instance_id]);
+
+      const orderItemId = itemResult.lastInsertRowid;
+
+      // Insert selected modifiers
+      if (item.modifiers && item.modifiers.length > 0) {
+        for (const mod of item.modifiers) {
+          run(`
+            INSERT INTO order_item_modifiers (order_item_id, modifier_id, modifier_name, price_adjustment)
+            VALUES (?, ?, ?, ?)
+          `, [orderItemId, mod.id, mod.name, mod.price_adjustment]);
+        }
+      }
     }
 
     // Fire-and-forget: record item pairs for AI analysis
@@ -170,14 +218,31 @@ router.put('/:id/status', (req, res) => {
     const { id } = req.params;
     const { status } = req.body;
 
-    const validStatuses = ['pending', 'preparing', 'ready', 'completed', 'cancelled'];
+    const validStatuses = ['pending', 'confirmed', 'preparing', 'ready', 'completed', 'cancelled'];
     if (!validStatuses.includes(status)) {
       return res.status(400).json({ error: 'Invalid status' });
     }
 
-    const order = get('SELECT id FROM orders WHERE id = ?', [id]);
+    const order = get('SELECT id, status FROM orders WHERE id = ?', [id]);
     if (!order) {
       return res.status(404).json({ error: 'Order not found' });
+    }
+
+    // Enforce valid status transitions
+    const validTransitions = {
+      pending:    ['confirmed', 'preparing', 'cancelled'],
+      confirmed:  ['preparing', 'cancelled'],
+      preparing:  ['ready', 'cancelled'],
+      ready:      ['completed', 'cancelled'],
+      completed:  [],
+      cancelled:  [],
+    };
+
+    const allowed = validTransitions[order.status] || [];
+    if (!allowed.includes(status)) {
+      return res.status(400).json({
+        error: `Cannot transition from '${order.status}' to '${status}'`,
+      });
     }
 
     const completedAt = status === 'completed' ? new Date().toISOString() : null;
@@ -199,21 +264,31 @@ router.put('/:id/status', (req, res) => {
 router.get('/kitchen/active', (req, res) => {
   try {
     const orders = all(`
-      SELECT o.id, o.order_number, o.status, o.created_at, e.name as employee_name
+      SELECT o.id, o.order_number, o.status, o.payment_method, o.source, o.created_at, e.name as employee_name
       FROM orders o
       JOIN employees e ON o.employee_id = e.id
-      WHERE o.status IN ('pending', 'preparing')
+      WHERE o.status IN ('pending', 'confirmed', 'preparing')
       ORDER BY o.created_at ASC
     `);
 
-    // Get detailed items for each order
+    // Get detailed items for each order (with modifiers and combo info)
     const ordersWithItems = orders.map(order => {
       const items = all(`
-        SELECT item_name, quantity, notes
+        SELECT id, item_name, quantity, notes, combo_instance_id
         FROM order_items
         WHERE order_id = ?
       `, [order.id]);
-      return { ...order, items };
+
+      const itemsWithModifiers = items.map(item => {
+        const modifiers = all(`
+          SELECT modifier_name, price_adjustment
+          FROM order_item_modifiers
+          WHERE order_item_id = ?
+        `, [item.id]);
+        return { ...item, modifiers };
+      });
+
+      return { ...order, items: itemsWithModifiers };
     });
 
     res.json(ordersWithItems);

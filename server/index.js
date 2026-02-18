@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
 import path from 'path';
@@ -12,6 +13,12 @@ import inventoryRoutes from './routes/inventory.js';
 import employeesRoutes from './routes/employees.js';
 import reportsRoutes from './routes/reports.js';
 import aiRoutes from './routes/ai.js';
+import modifiersRoutes from './routes/modifiers.js';
+import combosRoutes from './routes/combos.js';
+import printersRoutes from './routes/printers.js';
+import deliveryRoutes from './routes/delivery.js';
+import purchaseOrdersRoutes from './routes/purchase-orders.js';
+import loyaltyRoutes from './routes/loyalty.js';
 import { initAI } from './ai/index.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -36,6 +43,12 @@ app.use('/api/inventory', inventoryRoutes);
 app.use('/api/employees', employeesRoutes);
 app.use('/api/reports', reportsRoutes);
 app.use('/api/ai', aiRoutes);
+app.use('/api/modifiers', modifiersRoutes);
+app.use('/api/combos', combosRoutes);
+app.use('/api/printers', printersRoutes);
+app.use('/api/delivery', deliveryRoutes);
+app.use('/api/purchase-orders', purchaseOrdersRoutes);
+app.use('/api/loyalty', loyaltyRoutes);
 
 // Serve index.html for all other routes (SPA)
 app.get('*', (req, res) => {

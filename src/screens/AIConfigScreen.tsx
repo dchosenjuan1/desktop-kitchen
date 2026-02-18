@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import {
   ArrowLeft,
   Sparkles,
@@ -34,10 +35,12 @@ import {
   CategoryRole,
 } from '../types';
 import { formatPrice } from '../utils/currency';
+import { formatDateTime } from '../utils/dateFormat';
 
 type Tab = 'dashboard' | 'upsell' | 'inventory' | 'pricing' | 'config';
 
 export default function AIConfigScreen() {
+  const { t } = useTranslation('reports');
   const [activeTab, setActiveTab] = useState<Tab>('dashboard');
   const [insights, setInsights] = useState<AIInsights | null>(null);
   const [analytics, setAnalytics] = useState<AIAnalytics | null>(null);
@@ -85,7 +88,7 @@ export default function AIConfigScreen() {
         setAnalytics(analyticsData);
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to fetch data');
+      setError(err instanceof Error ? err.message : t('errors.fetchData'));
     } finally {
       setLoading(false);
     }
@@ -99,7 +102,7 @@ export default function AIConfigScreen() {
         prev ? { ...prev, [key]: { ...prev[key], value } } : prev
       );
     } catch (err) {
-      setError('Failed to update config');
+      setError(t('errors.updateConfig'));
     } finally {
       setSaving(false);
     }
@@ -110,7 +113,7 @@ export default function AIConfigScreen() {
       await applyPricingSuggestion(suggestion.id, suggestion.menu_item_id, suggestion.suggested_price);
       setPricingSuggestions((prev) => prev.filter((s) => s.id !== suggestion.id));
     } catch (err) {
-      setError('Failed to apply pricing');
+      setError(t('errors.applyPricing'));
     }
   };
 
@@ -121,7 +124,7 @@ export default function AIConfigScreen() {
         prev.map((r) => (r.category_id === categoryId ? { ...r, role } : r))
       );
     } catch (err) {
-      setError('Failed to update role');
+      setError(t('errors.updateRole'));
     }
   };
 
@@ -132,7 +135,7 @@ export default function AIConfigScreen() {
       const result = await runGrokAnalysis('all');
       setGrokInsights(result);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to run Claude analysis');
+      setError(err instanceof Error ? err.message : t('errors.runAnalysis'));
     } finally {
       setAnalyzingGrok(false);
     }
@@ -149,7 +152,7 @@ export default function AIConfigScreen() {
       a.click();
       URL.revokeObjectURL(url);
     } catch (err) {
-      setError('Failed to export config');
+      setError(t('errors.exportConfig'));
     }
   };
 
@@ -166,18 +169,18 @@ export default function AIConfigScreen() {
         await importAIConfig(data);
         fetchData();
       } catch (err) {
-        setError('Failed to import config');
+        setError(t('errors.importConfig'));
       }
     };
     input.click();
   };
 
   const tabs: { id: Tab; label: string; icon: React.ReactNode }[] = [
-    { id: 'dashboard', label: 'Dashboard', icon: <Sparkles size={18} /> },
-    { id: 'upsell', label: 'Upsell', icon: <BarChart3 size={18} /> },
-    { id: 'inventory', label: 'Inventory AI', icon: <Package size={18} /> },
-    { id: 'pricing', label: 'Pricing', icon: <DollarSign size={18} /> },
-    { id: 'config', label: 'Config', icon: <Settings size={18} /> },
+    { id: 'dashboard', label: t('ai.tabs.dashboard'), icon: <Sparkles size={18} /> },
+    { id: 'upsell', label: t('ai.tabs.upsell'), icon: <BarChart3 size={18} /> },
+    { id: 'inventory', label: t('ai.tabs.inventoryAi'), icon: <Package size={18} /> },
+    { id: 'pricing', label: t('ai.tabs.pricing'), icon: <DollarSign size={18} /> },
+    { id: 'config', label: t('ai.tabs.config'), icon: <Settings size={18} /> },
   ];
 
   const getRiskColor = (risk: string) => {
@@ -199,7 +202,7 @@ export default function AIConfigScreen() {
             <ArrowLeft size={24} />
           </Link>
           <Sparkles className="text-red-500" size={28} />
-          <h1 className="text-3xl font-black tracking-tighter">AI Intelligence</h1>
+          <h1 className="text-3xl font-black tracking-tighter">{t('ai.title')}</h1>
         </div>
       </div>
 
@@ -246,27 +249,27 @@ export default function AIConfigScreen() {
                 {/* KPI Cards */}
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                   <div className="bg-neutral-900 p-6 rounded-lg border border-neutral-800">
-                    <p className="text-neutral-400 text-sm">Suggestion Acceptance</p>
+                    <p className="text-neutral-400 text-sm">{t('ai.kpi.suggestionAcceptance')}</p>
                     <p className="text-3xl font-bold text-red-500 mt-2">{insights.suggestions.acceptanceRate}%</p>
-                    <p className="text-neutral-500 text-xs mt-1">{insights.suggestions.totalEvents} total events</p>
+                    <p className="text-neutral-500 text-xs mt-1">{insights.suggestions.totalEvents} {t('ai.kpi.totalEvents')}</p>
                   </div>
                   <div className="bg-neutral-900 p-6 rounded-lg border border-neutral-800">
-                    <p className="text-neutral-400 text-sm">Items to Push</p>
+                    <p className="text-neutral-400 text-sm">{t('ai.kpi.itemsToPush')}</p>
                     <p className="text-3xl font-bold text-green-500 mt-2">{insights.inventory.pushItems}</p>
-                    <p className="text-neutral-500 text-xs mt-1">Good stock alternatives</p>
+                    <p className="text-neutral-500 text-xs mt-1">{t('ai.kpi.pushDesc')}</p>
                   </div>
                   <div className="bg-neutral-900 p-6 rounded-lg border border-neutral-800">
-                    <p className="text-neutral-400 text-sm">Items to Avoid</p>
+                    <p className="text-neutral-400 text-sm">{t('ai.kpi.itemsToAvoid')}</p>
                     <p className="text-3xl font-bold text-amber-500 mt-2">{insights.inventory.avoidItems}</p>
-                    <p className="text-neutral-500 text-xs mt-1">Low ingredient items</p>
+                    <p className="text-neutral-500 text-xs mt-1">{t('ai.kpi.avoidDesc')}</p>
                   </div>
                   <div className="bg-neutral-900 p-6 rounded-lg border border-neutral-800">
-                    <p className="text-neutral-400 text-sm">Grok API</p>
+                    <p className="text-neutral-400 text-sm">{t('ai.kpi.grokApi')}</p>
                     <p className="text-3xl font-bold text-white mt-2">
-                      {insights.grokStats.enabled ? 'Active' : 'Off'}
+                      {insights.grokStats.enabled ? t('ai.kpi.active') : t('ai.kpi.off')}
                     </p>
                     <p className="text-neutral-500 text-xs mt-1">
-                      {insights.grokStats.callsThisHour}/{insights.grokStats.maxCallsPerHour} calls/hr
+                      {insights.grokStats.callsThisHour}/{insights.grokStats.maxCallsPerHour} {t('ai.kpi.callsPerHour')}
                     </p>
                   </div>
                 </div>
@@ -274,14 +277,14 @@ export default function AIConfigScreen() {
                 {/* AI Revenue */}
                 {analytics && (
                   <div className="bg-neutral-900 p-6 rounded-lg border border-neutral-800">
-                    <h3 className="text-lg font-bold text-white mb-4">AI-Driven Revenue</h3>
+                    <h3 className="text-lg font-bold text-white mb-4">{t('ai.upsell.aiDrivenRevenue')}</h3>
                     <div className="grid grid-cols-2 gap-4">
                       <div className="p-4 bg-neutral-800 rounded-lg">
-                        <p className="text-neutral-400 text-sm">AI-Suggested Items Sold</p>
+                        <p className="text-neutral-400 text-sm">{t('ai.upsell.aiSuggestedSold')}</p>
                         <p className="text-2xl font-bold text-white">{analytics.aiRevenue.itemsSold}</p>
                       </div>
                       <div className="p-4 bg-neutral-800 rounded-lg">
-                        <p className="text-neutral-400 text-sm">Revenue from AI Suggestions</p>
+                        <p className="text-neutral-400 text-sm">{t('ai.upsell.revenueFromSuggestions')}</p>
                         <p className="text-2xl font-bold text-red-500">{formatPrice(analytics.aiRevenue.revenue)}</p>
                       </div>
                     </div>
@@ -291,24 +294,24 @@ export default function AIConfigScreen() {
                 {/* Top Item Pairs */}
                 {insights.topItemPairs.length > 0 && (
                   <div className="bg-neutral-900 p-6 rounded-lg border border-neutral-800">
-                    <h3 className="text-lg font-bold text-white mb-4">Frequently Ordered Together</h3>
+                    <h3 className="text-lg font-bold text-white mb-4">{t('ai.upsell.frequentlyTogether')}</h3>
                     <div className="space-y-2">
                       {insights.topItemPairs.slice(0, 5).map((pair, i) => (
                         <div key={i} className="flex items-center justify-between p-3 bg-neutral-800 rounded-lg">
                           <span className="text-white">
                             {pair.item_a_name} + {pair.item_b_name}
                           </span>
-                          <span className="text-neutral-400 text-sm">{pair.pair_count}x together</span>
+                          <span className="text-neutral-400 text-sm">{pair.pair_count}x {t('ai.upsell.together')}</span>
                         </div>
                       ))}
                     </div>
                   </div>
                 )}
 
-                {/* Claude Analysis */}
+                {/* Grok Analysis */}
                 <div className="bg-neutral-900 p-6 rounded-lg border border-neutral-800">
                   <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-lg font-bold text-white">Grok AI Analysis</h3>
+                    <h3 className="text-lg font-bold text-white">{t('ai.upsell.grokAnalysis')}</h3>
                     <button
                       onClick={handleRunAnalysis}
                       disabled={analyzingGrok || !insights.grokStats.enabled}
@@ -317,12 +320,12 @@ export default function AIConfigScreen() {
                       {analyzingGrok ? (
                         <>
                           <RefreshCw size={16} className="animate-spin" />
-                          Analyzing...
+                          {t('ai.upsell.analyzing')}
                         </>
                       ) : (
                         <>
                           <Sparkles size={16} />
-                          Run Analysis
+                          {t('ai.upsell.runAnalysis')}
                         </>
                       )}
                     </button>
@@ -330,7 +333,7 @@ export default function AIConfigScreen() {
 
                   {!insights.grokStats.enabled && (
                     <p className="text-neutral-500 text-sm">
-                      Enable Grok API in the Config tab and set XAI_API_KEY to use AI analysis.
+                      {t('ai.upsell.enableGrok')}
                     </p>
                   )}
 
@@ -338,7 +341,7 @@ export default function AIConfigScreen() {
                     <div className="space-y-4 mt-4">
                       {grokInsights.upsell && (
                         <div className="p-4 bg-neutral-800 rounded-lg">
-                          <p className="text-sm font-semibold text-amber-400 mb-2">Upsell Patterns</p>
+                          <p className="text-sm font-semibold text-amber-400 mb-2">{t('ai.upsell.upsellPatterns')}</p>
                           {Array.isArray(grokInsights.upsell) ? (
                             <div className="space-y-2">
                               {grokInsights.upsell.map((item: any, i: number) => (
@@ -349,14 +352,14 @@ export default function AIConfigScreen() {
                               ))}
                             </div>
                           ) : (
-                            <p className="text-neutral-400 text-sm">{grokInsights.upsell.message || 'No data'}</p>
+                            <p className="text-neutral-400 text-sm">{grokInsights.upsell.message || t('ai.upsell.noData')}</p>
                           )}
                         </div>
                       )}
 
                       {grokInsights.inventory && (
                         <div className="p-4 bg-neutral-800 rounded-lg">
-                          <p className="text-sm font-semibold text-blue-400 mb-2">Inventory Trends</p>
+                          <p className="text-sm font-semibold text-blue-400 mb-2">{t('ai.inventoryAi.inventoryTrends')}</p>
                           {grokInsights.inventory.insights ? (
                             <ul className="space-y-1">
                               {grokInsights.inventory.insights.map((insight: string, i: number) => (
@@ -364,11 +367,11 @@ export default function AIConfigScreen() {
                               ))}
                             </ul>
                           ) : (
-                            <p className="text-neutral-400 text-sm">{grokInsights.inventory.message || 'No data'}</p>
+                            <p className="text-neutral-400 text-sm">{grokInsights.inventory.message || t('ai.upsell.noData')}</p>
                           )}
                           {grokInsights.inventory.recommendations && (
                             <div className="mt-2 pt-2 border-t border-neutral-700">
-                              <p className="text-xs font-semibold text-neutral-500 mb-1">Recommendations:</p>
+                              <p className="text-xs font-semibold text-neutral-500 mb-1">{t('ai.upsell.recommendations')}</p>
                               {grokInsights.inventory.recommendations.map((rec: string, i: number) => (
                                 <p key={i} className="text-sm text-green-400">- {rec}</p>
                               ))}
@@ -379,15 +382,15 @@ export default function AIConfigScreen() {
 
                       {grokInsights.forecast && (
                         <div className="p-4 bg-neutral-800 rounded-lg">
-                          <p className="text-sm font-semibold text-purple-400 mb-2">Supply Chain Forecast</p>
+                          <p className="text-sm font-semibold text-purple-400 mb-2">{t('ai.inventoryAi.supplyChainForecast')}</p>
                           {grokInsights.forecast.summary ? (
                             <p className="text-sm text-neutral-300">{grokInsights.forecast.summary}</p>
                           ) : (
-                            <p className="text-neutral-400 text-sm">{grokInsights.forecast.message || 'No data'}</p>
+                            <p className="text-neutral-400 text-sm">{grokInsights.forecast.message || t('ai.upsell.noData')}</p>
                           )}
                           {grokInsights.forecast.urgent_actions && grokInsights.forecast.urgent_actions.length > 0 && (
                             <div className="mt-2 pt-2 border-t border-neutral-700">
-                              <p className="text-xs font-semibold text-red-400 mb-1">Urgent Actions:</p>
+                              <p className="text-xs font-semibold text-red-400 mb-1">{t('ai.inventoryAi.urgentActions')}</p>
                               {grokInsights.forecast.urgent_actions.map((action: string, i: number) => (
                                 <p key={i} className="text-sm text-red-300">- {action}</p>
                               ))}
@@ -397,8 +400,8 @@ export default function AIConfigScreen() {
                       )}
 
                       <p className="text-xs text-neutral-600">
-                        Analysis ran at {new Date(grokInsights.timestamp).toLocaleString()}
-                        {grokInsights.grokStats && ` | ${grokInsights.grokStats.callsThisHour}/${grokInsights.grokStats.maxCallsPerHour} calls/hr`}
+                        {t('ai.upsell.analysisRanAt')} {formatDateTime(new Date(grokInsights.timestamp))}
+                        {grokInsights.grokStats && ` | ${grokInsights.grokStats.callsThisHour}/${grokInsights.grokStats.maxCallsPerHour} ${t('ai.kpi.callsPerHour')}`}
                       </p>
                     </div>
                   )}
@@ -406,20 +409,20 @@ export default function AIConfigScreen() {
 
                 {/* Scheduler Status */}
                 <div className="bg-neutral-900 p-6 rounded-lg border border-neutral-800">
-                  <h3 className="text-lg font-bold text-white mb-4">Background Jobs</h3>
+                  <h3 className="text-lg font-bold text-white mb-4">{t('ai.config.backgroundJobs')}</h3>
                   <div className="space-y-2">
                     {insights.aiStatus.scheduler.jobs.map((job, i) => (
                       <div key={i} className="flex items-center justify-between p-3 bg-neutral-800 rounded-lg">
                         <div>
                           <p className="text-white font-medium">{job.name}</p>
                           <p className="text-neutral-500 text-xs">
-                            Every {Math.round(job.intervalMs / 60000)}min | Runs: {job.runCount}
+                            {t('ai.config.every')} {Math.round(job.intervalMs / 60000)}{t('ai.config.min')} | {t('ai.config.runs')} {job.runCount}
                           </p>
                         </div>
                         <span className={`px-2 py-1 rounded text-xs ${
                           job.lastRun ? 'bg-green-900/30 text-green-400' : 'bg-neutral-700 text-neutral-400'
                         }`}>
-                          {job.lastRun ? 'Active' : 'Pending'}
+                          {job.lastRun ? t('ai.config.active') : t('ai.config.pending')}
                         </span>
                       </div>
                     ))}
@@ -432,15 +435,15 @@ export default function AIConfigScreen() {
             {activeTab === 'upsell' && analytics && (
               <div className="space-y-6">
                 <div className="bg-neutral-900 p-6 rounded-lg border border-neutral-800">
-                  <h3 className="text-lg font-bold text-white mb-4">Suggestion Performance</h3>
+                  <h3 className="text-lg font-bold text-white mb-4">{t('ai.config.suggestionPerformance')}</h3>
                   {analytics.byType.length > 0 ? (
                     <div className="overflow-x-auto">
                       <table className="w-full">
                         <thead className="bg-neutral-800">
                           <tr>
-                            <th className="px-4 py-3 text-left text-sm font-semibold text-neutral-300">Rule</th>
-                            <th className="px-4 py-3 text-left text-sm font-semibold text-neutral-300">Action</th>
-                            <th className="px-4 py-3 text-left text-sm font-semibold text-neutral-300">Count</th>
+                            <th className="px-4 py-3 text-left text-sm font-semibold text-neutral-300">{t('ai.config.columns.rule')}</th>
+                            <th className="px-4 py-3 text-left text-sm font-semibold text-neutral-300">{t('ai.config.columns.action')}</th>
+                            <th className="px-4 py-3 text-left text-sm font-semibold text-neutral-300">{t('ai.config.columns.count')}</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -461,7 +464,7 @@ export default function AIConfigScreen() {
                       </table>
                     </div>
                   ) : (
-                    <p className="text-neutral-500 text-center py-8">No suggestion data yet. Suggestions will appear as cashiers interact with the POS.</p>
+                    <p className="text-neutral-500 text-center py-8">{t('ai.upsell.noSuggestionData')}</p>
                   )}
                 </div>
               </div>
@@ -472,7 +475,7 @@ export default function AIConfigScreen() {
               <div className="space-y-6">
                 <div className="bg-neutral-900 p-6 rounded-lg border border-neutral-800">
                   <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-lg font-bold text-white">Inventory Forecast</h3>
+                    <h3 className="text-lg font-bold text-white">{t('ai.inventoryAi.inventoryForecast')}</h3>
                     <button onClick={fetchData} className="p-2 hover:bg-neutral-800 rounded-lg text-neutral-400">
                       <RefreshCw size={18} />
                     </button>
@@ -494,21 +497,21 @@ export default function AIConfigScreen() {
                               </span>
                               {f.days_until_stockout !== null && (
                                 <p className="text-sm text-neutral-400 mt-1">
-                                  ~{f.days_until_stockout} days left
+                                  ~{f.days_until_stockout} {t('ai.inventoryAi.daysLeft')}
                                 </p>
                               )}
                             </div>
                           </div>
                           {f.suggested_reorder_qty && (
                             <p className="text-xs text-neutral-500 mt-2">
-                              Suggested reorder: {f.suggested_reorder_qty} {f.unit}
+                              {t('ai.inventoryAi.suggestedReorder')} {f.suggested_reorder_qty} {f.unit}
                             </p>
                           )}
                         </div>
                       ))}
                     </div>
                   ) : (
-                    <p className="text-neutral-500 text-center py-8">Not enough data for forecasts yet. Continue taking orders to build velocity data.</p>
+                    <p className="text-neutral-500 text-center py-8">{t('ai.inventoryAi.noDataYet')}</p>
                   )}
                 </div>
               </div>
@@ -518,7 +521,7 @@ export default function AIConfigScreen() {
             {activeTab === 'pricing' && (
               <div className="space-y-6">
                 <div className="bg-neutral-900 p-6 rounded-lg border border-neutral-800">
-                  <h3 className="text-lg font-bold text-white mb-4">Dynamic Pricing Suggestions</h3>
+                  <h3 className="text-lg font-bold text-white mb-4">{t('ai.pricing.dynamicPricing')}</h3>
                   {pricingSuggestions.length > 0 ? (
                     <div className="space-y-3">
                       {pricingSuggestions.map((s) => (
@@ -542,7 +545,7 @@ export default function AIConfigScreen() {
                               onClick={() => handleApplyPricing(s)}
                               className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-sm font-medium"
                             >
-                              Approve
+                              {t('ai.pricing.approve')}
                             </button>
                           </div>
                         </div>
@@ -550,7 +553,7 @@ export default function AIConfigScreen() {
                     </div>
                   ) : (
                     <p className="text-neutral-500 text-center py-8">
-                      No pricing suggestions right now. Enable dynamic pricing in Config and suggestions will appear during rush/slow periods.
+                      {t('ai.pricing.noPricing')}
                     </p>
                   )}
                 </div>
@@ -566,19 +569,19 @@ export default function AIConfigScreen() {
                     onClick={handleExport}
                     className="flex items-center gap-2 px-4 py-2 bg-neutral-800 text-neutral-300 rounded-lg hover:bg-neutral-700 transition-colors"
                   >
-                    <Download size={16} /> Export Config
+                    <Download size={16} /> {t('ai.config.exportConfig')}
                   </button>
                   <button
                     onClick={handleImport}
                     className="flex items-center gap-2 px-4 py-2 bg-neutral-800 text-neutral-300 rounded-lg hover:bg-neutral-700 transition-colors"
                   >
-                    <Upload size={16} /> Import Config
+                    <Upload size={16} /> {t('ai.config.importConfig')}
                   </button>
                 </div>
 
                 {/* Category Role Mapping */}
                 <div className="bg-neutral-900 p-6 rounded-lg border border-neutral-800">
-                  <h3 className="text-lg font-bold text-white mb-4">Category Role Mapping</h3>
+                  <h3 className="text-lg font-bold text-white mb-4">{t('ai.config.categoryRoleMapping')}</h3>
                   <div className="space-y-3">
                     {categoryRoles.map((cr) => (
                       <div key={cr.category_id} className="flex items-center justify-between p-3 bg-neutral-800 rounded-lg">
@@ -588,12 +591,12 @@ export default function AIConfigScreen() {
                           onChange={(e) => handleRoleUpdate(cr.category_id, e.target.value)}
                           className="px-3 py-1 bg-neutral-700 border border-neutral-600 rounded-lg text-white text-sm"
                         >
-                          <option value="main">Main</option>
-                          <option value="side">Side</option>
-                          <option value="drink">Drink</option>
-                          <option value="combo">Combo</option>
-                          <option value="dessert">Dessert</option>
-                          <option value="addon">Add-on</option>
+                          <option value="main">{t('ai.config.roles.main')}</option>
+                          <option value="side">{t('ai.config.roles.side')}</option>
+                          <option value="drink">{t('ai.config.roles.drink')}</option>
+                          <option value="combo">{t('ai.config.roles.combo')}</option>
+                          <option value="dessert">{t('ai.config.roles.dessert')}</option>
+                          <option value="addon">{t('ai.config.roles.addon')}</option>
                         </select>
                       </div>
                     ))}
@@ -602,7 +605,7 @@ export default function AIConfigScreen() {
 
                 {/* Config Key-Value Editor */}
                 <div className="bg-neutral-900 p-6 rounded-lg border border-neutral-800">
-                  <h3 className="text-lg font-bold text-white mb-4">AI Settings</h3>
+                  <h3 className="text-lg font-bold text-white mb-4">{t('ai.config.aiSettings')}</h3>
                   <div className="space-y-3">
                     {Object.entries(config).map(([key, entry]) => (
                       <div key={key} className="flex items-center gap-4 p-3 bg-neutral-800 rounded-lg">
@@ -622,7 +625,7 @@ export default function AIConfigScreen() {
                                 : 'bg-neutral-700 text-neutral-400 hover:bg-neutral-600'
                             }`}
                           >
-                            {entry.value === '1' ? 'ON' : 'OFF'}
+                            {entry.value === '1' ? t('ai.config.on') : t('ai.config.off')}
                           </button>
                         ) : (
                           <input

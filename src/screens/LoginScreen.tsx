@@ -1,10 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useTranslation } from 'react-i18next';
+import LanguageSwitcher from '../components/LanguageSwitcher';
 
 const LoginScreen: React.FC = () => {
   const navigate = useNavigate();
   const { login, isLoading, error } = useAuth();
+  const { t } = useTranslation();
   const [pin, setPin] = useState('');
   const [shake, setShake] = useState(false);
   const [localError, setLocalError] = useState('');
@@ -65,7 +68,7 @@ const LoginScreen: React.FC = () => {
         <p className="text-xl font-semibold text-red-600 tracking-tight">
           California Burritos
         </p>
-        <p className="text-lg text-neutral-400 mt-2">Employee Login</p>
+        <p className="text-lg text-neutral-400 mt-2">{t('login.employeeLogin')}</p>
       </div>
 
       {/* PIN Entry Display */}
@@ -118,14 +121,14 @@ const LoginScreen: React.FC = () => {
             disabled={isLoading || pin.length === 0}
             className="flex-1 h-16 bg-neutral-800 text-white text-lg font-bold rounded-xl hover:bg-neutral-700 active:bg-neutral-600 transition-all duration-75 disabled:opacity-50 disabled:cursor-not-allowed border border-neutral-700 touch-manipulation"
           >
-            Back
+            {t('buttons.back')}
           </button>
           <button
             onClick={handleClear}
             disabled={isLoading}
             className="flex-1 h-16 bg-red-600 text-white text-lg font-bold rounded-xl hover:bg-red-700 active:bg-red-800 transition-all duration-75 disabled:opacity-50 disabled:cursor-not-allowed touch-manipulation"
           >
-            Clear
+            {t('buttons.clear')}
           </button>
         </div>
       </div>
@@ -138,7 +141,7 @@ const LoginScreen: React.FC = () => {
             <div className="w-2.5 h-2.5 bg-red-600 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
             <div className="w-2.5 h-2.5 bg-red-600 rounded-full animate-bounce" style={{ animationDelay: '0.4s' }}></div>
           </div>
-          <p className="text-center text-neutral-400 mt-2 text-sm">Logging in...</p>
+          <p className="text-center text-neutral-400 mt-2 text-sm">{t('login.loggingIn')}</p>
         </div>
       )}
 
@@ -148,14 +151,17 @@ const LoginScreen: React.FC = () => {
           onClick={handleKitchenDisplay}
           className="px-6 py-3 bg-neutral-800 text-white text-sm font-semibold rounded-lg border border-neutral-700 hover:bg-neutral-700 active:bg-neutral-600 transition-all duration-75 touch-manipulation"
         >
-          Kitchen Display
+          {t('login.kitchenDisplay')}
         </button>
       </div>
 
       {/* Footer */}
       <div className="mt-12 text-center text-neutral-600 text-xs">
-        <p>Tap a 4-digit PIN to login</p>
-        <p className="mt-1">POS System v1.0</p>
+        <p>{t('login.tapPin')}</p>
+        <p className="mt-1">{t('login.posVersion')}</p>
+        <div className="mt-4">
+          <LanguageSwitcher variant="login" />
+        </div>
       </div>
     </div>
   );

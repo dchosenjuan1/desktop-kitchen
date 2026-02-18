@@ -405,6 +405,47 @@ import { initDb, run, exec, saveDbSync } from './db.js';
 
     console.log('✓ Seeded 3 delivery platforms');
 
+    // Seed loyalty test customers
+    try {
+      exec(`
+        DELETE FROM stamp_events;
+        DELETE FROM referral_events;
+        DELETE FROM loyalty_messages;
+        DELETE FROM stamp_cards;
+        DELETE FROM loyalty_customers;
+      `);
+    } catch (e) {
+      // Tables may not exist yet
+    }
+
+    try {
+      // Customer 1: Maria Lopez — 7 stamps, regular
+      run('INSERT INTO loyalty_customers (phone, name, referral_code, stamps_earned, orders_count, total_spent, sms_opt_in) VALUES (?, ?, ?, ?, ?, ?, ?)',
+        ['5551234567', 'Maria Lopez', 'JBMR42', 7, 7, 1540, 1]);
+      run('INSERT INTO stamp_cards (customer_id, stamps_earned, stamps_required, reward_description) VALUES (?, ?, ?, ?)',
+        [1, 7, 10, 'Free item of your choice']);
+
+      // Customer 2: Carlos Hernandez — completed card + 3 on new card
+      run('INSERT INTO loyalty_customers (phone, name, referral_code, stamps_earned, orders_count, total_spent, sms_opt_in) VALUES (?, ?, ?, ?, ?, ?, ?)',
+        ['5559876543', 'Carlos Hernandez', 'JBCH88', 13, 13, 2890, 1]);
+      run('INSERT INTO stamp_cards (customer_id, stamps_earned, stamps_required, reward_description, completed, completed_at) VALUES (?, ?, ?, ?, 1, datetime(\'now\',\'localtime\'))',
+        [2, 10, 10, 'Free item of your choice']);
+      run('INSERT INTO stamp_cards (customer_id, stamps_earned, stamps_required, reward_description) VALUES (?, ?, ?, ?)',
+        [2, 3, 10, 'Free item of your choice']);
+
+      // Customer 3: Ana Garcia — new customer, 2 stamps (referred by Maria)
+      run('INSERT INTO loyalty_customers (phone, name, referral_code, referred_by, stamps_earned, orders_count, total_spent, sms_opt_in) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+        ['5555551234', 'Ana Garcia', 'JBAG55', 1, 4, 2, 420, 1]);
+      run('INSERT INTO stamp_cards (customer_id, stamps_earned, stamps_required, reward_description) VALUES (?, ?, ?, ?)',
+        [3, 4, 10, 'Free item of your choice']);
+      run('INSERT INTO referral_events (referrer_id, referee_id, referrer_stamps_added, referee_stamps_added) VALUES (?, ?, ?, ?)',
+        [1, 3, 2, 2]);
+
+      console.log('✓ Seeded 3 loyalty test customers');
+    } catch (e) {
+      console.log('⚠ Loyalty tables not ready, skipping loyalty seed');
+    }
+
     saveDbSync(); // Flush to disk immediately
     console.log('\n✅ Database seeding complete!');
   } catch (error) {

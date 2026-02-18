@@ -1,0 +1,89 @@
+{
+  "buttons": {
+    "save": "Save",
+    "cancel": "Cancel",
+    "close": "Close",
+    "delete": "Delete",
+    "edit": "Edit",
+    "add": "Add",
+    "back": "Back",
+    "confirm": "Confirm",
+    "done": "Done",
+    "search": "Search",
+    "ok": "OK",
+    "clear": "Clear",
+    "logout": "Logout",
+    "admin": "Admin",
+    "kitchen": "Kitchen",
+    "restock": "Restock",
+    "refresh": "Refresh",
+    "reset": "Reset",
+    "apply": "Apply",
+    "create": "Create",
+    "update": "Update",
+    "remove": "Remove",
+    "enable": "Enable",
+    "disable": "Disable",
+    "view": "View",
+    "print": "Print"
+  },
+  "states": {
+    "loading": "Loading...",
+    "error": "Error",
+    "success": "Success",
+    "noData": "No data available",
+    "noResults": "No results found"
+  },
+  "roles": {
+    "cashier": "Cashier",
+    "kitchen": "Kitchen",
+    "bar": "Bar",
+    "manager": "Manager",
+    "admin": "Admin"
+  },
+  "orderStatus": {
+    "pending": "Pending",
+    "confirmed": "Confirmed",
+    "preparing": "Preparing",
+    "ready": "Ready",
+    "completed": "Completed",
+    "cancelled": "Cancelled"
+  },
+  "paymentStatus": {
+    "unpaid": "Unpaid",
+    "processing": "Processing",
+    "paid": "Paid",
+    "completed": "Completed",
+    "failed": "Failed",
+    "refunded": "Refunded"
+  },
+  "paymentMethods": {
+    "card": "Card",
+    "cash": "Cash",
+    "crypto": "Crypto",
+    "split": "Split"
+  },
+  "login": {
+    "employeeLogin": "Employee Login",
+    "tapPin": "Tap a 4-digit PIN to login",
+    "loggingIn": "Logging in...",
+    "kitchenDisplay": "Kitchen Display",
+    "posVersion": "POS System v1.0"
+  },
+  "time": {
+    "secondsAgo": "{{count}}s ago",
+    "minuteAgo": "{{count}} min ago",
+    "minutesAgo": "{{count}} mins ago",
+    "hoursAgo": "{{hours}}h {{minutes}}m ago"
+  },
+  "validation": {
+    "required": "This field is required",
+    "invalidPin": "Invalid PIN"
+  },
+  "currency": {
+    "subtotalBeforeTax": "Subtotal (before tax)",
+    "taxIncluded": "IVA (16%) included",
+    "total": "Total",
+    "tip": "Tip"
+  }
+}

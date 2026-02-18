@@ -1,12 +1,18 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getKitchenOrders, updateOrderStatus } from '../api';
-import { Order, OrderItem } from '../types';
+import { useTranslation } from 'react-i18next';
+import { getKitchenOrders, updateOrderStatus, getCategoryRoles } from '../api';
+import { useAuth } from '../context/AuthContext';
+import { Order, OrderItem, CategoryRole } from '../types';
+import { formatTime, formatDate } from '../utils/dateFormat';
+import LanguageSwitcher from '../components/LanguageSwitcher';
 import {
   Clock,
   ArrowLeft,
   Volume2,
   Maximize,
+  Wine,
+  ChefHat,
 } from 'lucide-react';
 
 interface OrderWithElapsed extends Order {
@@ -15,14 +21,25 @@ interface OrderWithElapsed extends Order {
 
 export default function KitchenDisplay() {
   const navigate = useNavigate();
+  const { t } = useTranslation('kitchen');
+  const { currentEmployee } = useAuth();
   const [orders, setOrders] = useState<OrderWithElapsed[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [currentTime, setCurrentTime] = useState(new Date());
   const [lastOrderCount, setLastOrderCount] = useState(0);
+  const [displayFilter, setDisplayFilter] = useState<'all' | 'kitchen' | 'bar'>(
+    currentEmployee?.role === 'bar' ? 'bar' : 'all'
+  );
+  const [categoryRoles, setCategoryRoles] = useState<CategoryRole[]>([]);
   const audioContextRef = useRef<AudioContext | null>(null);
   const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const timeIntervalRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Load category roles for filtering
+  useEffect(() => {
+    getCategoryRoles().then(setCategoryRoles).catch(() => {});
+  }, []);
 
   const calculateElapsedSeconds = useCallback((createdAt: string): number => {
     const created = new Date(createdAt);
@@ -88,7 +105,7 @@ export default function KitchenDisplay() {
       setLastOrderCount(newOrderCount);
       setError(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to fetch orders');
+      setError(err instanceof Error ? err.message : t('errors.fetchFailed'));
       console.error('Error fetching kitchen orders:', err);
     } finally {
       setLoading(false);
@@ -136,7 +153,7 @@ export default function KitchenDisplay() {
       await updateOrderStatus(orderId, 'preparing');
       fetchOrders();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to start order');
+      setError(err instanceof Error ? err.message : t('errors.startFailed'));
     }
   };
 
@@ -145,7 +162,7 @@ export default function KitchenDisplay() {
       await updateOrderStatus(orderId, 'ready');
       fetchOrders();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to mark order as ready');
+      setError(err instanceof Error ? err.message : t('errors.readyFailed'));
     }
   };
 
@@ -164,14 +181,16 @@ export default function KitchenDisplay() {
 
   const formatElapsedTime = (seconds: number): string => {
     if (seconds < 60) {
-      return `${seconds}s ago`;
+      return t('time.secondsAgo', { count: seconds });
     }
     const minutes = Math.floor(seconds / 60);
     if (minutes < 60) {
-      return `${minutes} min${minutes > 1 ? 's' : ''} ago`;
+      return minutes > 1
+        ? t('time.minutesAgo', { count: minutes })
+        : t('time.minuteAgo', { count: minutes });
     }
     const hours = Math.floor(minutes / 60);
-    return `${hours}h ${minutes % 60}m ago`;
+    return t('time.hoursMinutesAgo', { hours, minutes: minutes % 60 });
   };
 
   const getStatusColor = (status: Order['status']): string => {
@@ -221,20 +240,41 @@ export default function KitchenDisplay() {
           <button
             onClick={() => navigate('/pos')}
             className="flex items-center gap-2 hover:bg-neutral-800 px-4 py-2 rounded-lg transition-colors text-lg font-semibold"
-            title="Back to POS"
+            title={t('header.back')}
           >
             <ArrowLeft size={32} />
-            <span className="hidden sm:inline">Back</span>
+            <span className="hidden sm:inline">{t('header.back')}</span>
           </button>
           <img src="/logo.png" alt="Juanberto's" className="h-8" />
-          <h1 className="text-3xl font-black tracking-tighter">KITCHEN DISPLAY</h1>
+          <h1 className="text-3xl font-black tracking-tighter">{t('header.title')}</h1>
+          <div className="flex gap-1 ml-4">
+            <button
+              onClick={() => setDisplayFilter('all')}
+              className={`px-3 py-1.5 rounded-lg text-sm font-bold transition-colors ${displayFilter === 'all' ? 'bg-red-600 text-white' : 'bg-neutral-800 text-neutral-400 hover:bg-neutral-700'}`}
+            >
+              {t('header.all')}
+            </button>
+            <button
+              onClick={() => setDisplayFilter('kitchen')}
+              className={`px-3 py-1.5 rounded-lg text-sm font-bold transition-colors flex items-center gap-1 ${displayFilter === 'kitchen' ? 'bg-red-600 text-white' : 'bg-neutral-800 text-neutral-400 hover:bg-neutral-700'}`}
+            >
+              <ChefHat size={14} /> {t('header.kitchen')}
+            </button>
+            <button
+              onClick={() => setDisplayFilter('bar')}
+              className={`px-3 py-1.5 rounded-lg text-sm font-bold transition-colors flex items-center gap-1 ${displayFilter === 'bar' ? 'bg-red-600 text-white' : 'bg-neutral-800 text-neutral-400 hover:bg-neutral-700'}`}
+            >
+              <Wine size={14} /> {t('header.bar')}
+            </button>
+          </div>
         </div>
 
         <div className="flex items-center gap-4">
+          <LanguageSwitcher variant="nav" />
           <div className="text-center">
-            <div className="text-3xl font-bold">{currentTime.toLocaleTimeString()}</div>
+            <div className="text-3xl font-bold">{formatTime(currentTime)}</div>
             <div className="text-xs text-neutral-500">
-              {currentTime.toLocaleDateString(undefined, {
+              {formatDate(currentTime, {
                 weekday: 'short',
                 month: 'short',
                 day: 'numeric',
@@ -251,7 +291,7 @@ export default function KitchenDisplay() {
           <button
             onClick={handleFullscreen}
             className="bg-neutral-800 hover:bg-neutral-700 p-3 rounded-lg transition-colors border border-neutral-700"
-            title="Fullscreen"
+            title={t('header.fullscreen')}
           >
             <Maximize size={28} />
           </button>
@@ -274,14 +314,14 @@ export default function KitchenDisplay() {
               <div className="animate-spin mb-4">
                 <Clock size={64} className="text-red-500" />
               </div>
-              <p className="text-xl text-neutral-400">Loading orders...</p>
+              <p className="text-xl text-neutral-400">{t('orders.loadingOrders')}</p>
             </div>
           </div>
         ) : orders.length === 0 ? (
           <div className="flex items-center justify-center min-h-[400px]">
             <div className="text-center">
-              <p className="text-3xl font-bold text-green-400 mb-2">All clear</p>
-              <p className="text-xl text-neutral-500">No pending orders</p>
+              <p className="text-3xl font-bold text-green-400 mb-2">{t('orders.allClear')}</p>
+              <p className="text-xl text-neutral-500">{t('orders.noPending')}</p>
             </div>
           </div>
         ) : (
@@ -327,6 +367,7 @@ function OrderCard({
   getStatusBadgeColor,
   isUrgent,
 }: OrderCardProps) {
+  const { t } = useTranslation('kitchen');
   const [isLoading, setIsLoading] = useState(false);
 
   const handleAction = async (action: 'start' | 'ready') => {
@@ -342,7 +383,7 @@ function OrderCard({
     }
   };
 
-  const statusLabel = order.status === 'pending' ? 'PENDING' : 'PREPARING';
+  const statusLabel = order.status === 'pending' ? t('status.pending') : t('status.preparing');
 
   return (
     <div
@@ -352,7 +393,7 @@ function OrderCard({
       <div className="flex items-start justify-between mb-4 border-b border-neutral-800 pb-4">
         <div>
           <h2 className="text-5xl font-black tracking-tighter text-white mb-1">#{order.order_number}</h2>
-          <p className="text-sm text-neutral-500">Order ID: {String(order.id).slice(0, 8)}</p>
+          <p className="text-sm text-neutral-500">{t('orders.orderId', { id: String(order.id).slice(0, 8) })}</p>
         </div>
         <span
           className={`${getStatusBadgeColor(order.status)} px-4 py-2 rounded-full font-bold text-sm whitespace-nowrap`}
@@ -369,17 +410,42 @@ function OrderCard({
       >
         <Clock size={24} />
         <span>{formatTime(order.elapsedSeconds)}</span>
-        {isUrgent(order.elapsedSeconds) && <span className="text-red-500">URGENT</span>}
+        {isUrgent(order.elapsedSeconds) && <span className="text-red-500">{t('status.urgent')}</span>}
       </div>
 
       {/* Items List */}
       <div className="flex-1 mb-6 space-y-3">
         {order.items && order.items.length > 0 ? (
-          order.items.map((item, index) => (
-            <ItemDisplay key={index} item={item} />
-          ))
+          (() => {
+            // Group combo items together
+            const comboGroups: Record<string, OrderItem[]> = {};
+            const regularItems: OrderItem[] = [];
+            for (const item of order.items) {
+              if (item.combo_instance_id) {
+                if (!comboGroups[item.combo_instance_id]) comboGroups[item.combo_instance_id] = [];
+                comboGroups[item.combo_instance_id].push(item);
+              } else {
+                regularItems.push(item);
+              }
+            }
+            return (
+              <>
+                {regularItems.map((item, index) => (
+                  <ItemDisplay key={`reg-${index}`} item={item} />
+                ))}
+                {Object.entries(comboGroups).map(([comboId, items]) => (
+                  <div key={comboId} className="border border-amber-700/50 rounded-lg p-2 bg-amber-900/10">
+                    <p className="text-xs font-bold text-amber-400 uppercase mb-2">{t('orders.combo')}</p>
+                    {items.map((item, index) => (
+                      <ItemDisplay key={`combo-${index}`} item={item} />
+                    ))}
+                  </div>
+                ))}
+              </>
+            );
+          })()
         ) : (
-          <p className="text-neutral-500 italic">No items</p>
+          <p className="text-neutral-500 italic">{t('orders.noItems')}</p>
         )}
       </div>
 
@@ -392,9 +458,9 @@ function OrderCard({
             className="bg-red-600 hover:bg-red-700 disabled:bg-red-800 disabled:opacity-50 text-white font-bold py-3 px-4 rounded-lg transition-colors text-lg min-h-[48px] flex items-center justify-center"
           >
             {isLoading ? (
-              <span className="animate-pulse">Starting...</span>
+              <span className="animate-pulse">{t('actions.starting')}</span>
             ) : (
-              <span>Start</span>
+              <span>{t('actions.start')}</span>
             )}
           </button>
         )}
@@ -405,9 +471,9 @@ function OrderCard({
             className="bg-green-600 hover:bg-green-500 disabled:bg-green-700 disabled:opacity-50 text-white font-bold py-3 px-4 rounded-lg transition-colors text-lg min-h-[48px] flex items-center justify-center col-span-2"
           >
             {isLoading ? (
-              <span className="animate-pulse">Marking Ready...</span>
+              <span className="animate-pulse">{t('actions.markingReady')}</span>
             ) : (
-              <span>Ready for Pickup</span>
+              <span>{t('actions.readyForPickup')}</span>
             )}
           </button>
         )}
@@ -416,7 +482,7 @@ function OrderCard({
             disabled
             className="col-span-2 bg-neutral-800 text-neutral-600 font-bold py-3 px-4 rounded-lg cursor-not-allowed text-lg min-h-[48px] flex items-center justify-center"
           >
-            Click "Start" First
+            {t('actions.clickStartFirst')}
           </button>
         )}
       </div>
@@ -430,6 +496,7 @@ interface ItemDisplayProps {
 
 function ItemDisplay({ item }: ItemDisplayProps) {
   const hasNotes = item.notes && item.notes.trim().length > 0;
+  const hasModifiers = item.modifiers && item.modifiers.length > 0;
 
   return (
     <div className="bg-neutral-800/50 rounded-lg p-3 border border-neutral-700">
@@ -439,6 +506,16 @@ function ItemDisplay({ item }: ItemDisplayProps) {
           x{item.quantity}
         </span>
       </div>
+
+      {hasModifiers && (
+        <div className="mt-1 space-y-0.5">
+          {item.modifiers!.map((mod, i) => (
+            <p key={i} className="text-red-400 font-semibold text-sm bg-red-900/20 px-2 py-0.5 rounded">
+              + {mod.modifier_name}
+            </p>
+          ))}
+        </div>
+      )}
 
       {hasNotes && (
         <p className="text-red-300 italic text-base bg-red-900/20 px-2 py-1 rounded mt-2 border-l-2 border-red-500">

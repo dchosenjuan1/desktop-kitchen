@@ -3,9 +3,16 @@ export interface Employee {
   id: number;
   name: string;
   pin?: string;
-  role: 'cashier' | 'kitchen' | 'manager' | 'admin';
+  role: 'cashier' | 'kitchen' | 'bar' | 'manager' | 'admin';
   active: boolean;
   created_at: string;
+  permissions?: string[];
+}
+
+export interface RolePermission {
+  role: string;
+  permission: string;
+  granted: boolean;
 }
 
 /* Menu Types */
@@ -58,7 +65,7 @@ export interface Order {
   total: number;
   payment_intent_id?: string;
   payment_status: 'unpaid' | 'processing' | 'paid' | 'completed' | 'failed' | 'refunded';
-  payment_method?: 'card' | 'cash' | 'split' | null;
+  payment_method?: 'card' | 'cash' | 'split' | 'crypto' | null;
   source?: 'pos' | 'uber_eats' | 'rappi' | 'didi_food';
   created_at: string;
   completed_at?: string;
@@ -422,6 +429,284 @@ export interface DeliveryOrder {
   platform_commission: number;
   customer_name: string;
   delivery_address: string;
+}
+
+/* Refund Types */
+export interface Refund {
+  id: number;
+  order_id: number;
+  stripe_refund_id?: string;
+  amount: number;
+  reason: string;
+  refund_type: 'full' | 'partial_items' | 'partial_amount';
+  refunded_by?: number;
+  refunded_by_name?: string;
+  items_json?: string;
+  inventory_restored: boolean;
+  created_at: string;
+}
+
+/* Crypto Payment Types */
+export type CryptoPaymentStatus =
+  | 'waiting'
+  | 'confirming'
+  | 'confirmed'
+  | 'sending'
+  | 'partially_paid'
+  | 'finished'
+  | 'failed'
+  | 'expired'
+  | 'refunded';
+
+export interface CryptoPayment {
+  crypto_payment_id: number;
+  nowpayments_payment_id: string;
+  order_id: number;
+  pay_address: string;
+  pay_amount: number;
+  pay_currency: string;
+  price_amount: number;
+  status: CryptoPaymentStatus;
+  actually_paid: number;
+}
+
+export interface CryptoEstimate {
+  estimated_amount: number;
+  currency_from: string;
+  currency_to: string;
+}
+
+export interface ReconciliationRow {
+  order_id: number;
+  order_number: string;
+  order_total: number;
+  stripe_amount: number;
+  stripe_fee: number;
+  net_amount: number;
+  matched: boolean;
+  payment_intent_id: string;
+}
+
+export interface PaymentFeeSummary {
+  period: string;
+  total_revenue: number;
+  total_fees: number;
+  net_revenue: number;
+  fee_percent: number;
+  daily: Array<{
+    date: string;
+    revenue: number;
+    fees: number;
+    net: number;
+    order_count: number;
+  }>;
+}
+
+export interface RefundSummary {
+  total_refunds: number;
+  total_refunded_amount: number;
+  by_reason: Array<{ reason: string; count: number; amount: number }>;
+  by_employee: Array<{ employee_name: string; count: number; amount: number }>;
+  daily: Array<{ date: string; count: number; amount: number }>;
+}
+
+/* Advanced Inventory Types */
+export interface InventoryCount {
+  id: number;
+  inventory_item_id: number;
+  item_name?: string;
+  unit?: string;
+  counted_quantity: number;
+  system_quantity: number;
+  variance: number;
+  variance_percent: number;
+  counted_by?: number;
+  counted_by_name?: string;
+  notes?: string;
+  created_at: string;
+}
+
+export interface ShrinkageAlert {
+  id: number;
+  inventory_item_id: number;
+  item_name?: string;
+  unit?: string;
+  alert_type: string;
+  severity: 'low' | 'medium' | 'high' | 'critical';
+  message: string;
+  variance_amount: number;
+  acknowledged: boolean;
+  acknowledged_by?: number;
+  created_at: string;
+}
+
+export interface VarianceReport {
+  inventory_item_id: number;
+  name: string;
+  unit: string;
+  category: string;
+  count_sessions: number;
+  avg_variance: number;
+  avg_variance_percent: number;
+  total_variance: number;
+  last_counted: string;
+}
+
+export interface Vendor {
+  id: number;
+  name: string;
+  contact_name?: string;
+  phone?: string;
+  email?: string;
+  address?: string;
+  notes?: string;
+  active: boolean;
+  created_at: string;
+}
+
+export interface PurchaseOrder {
+  id: number;
+  po_number: string;
+  vendor_id: number;
+  vendor_name?: string;
+  status: 'draft' | 'submitted' | 'partial' | 'received' | 'cancelled';
+  total_amount: number;
+  notes?: string;
+  created_by?: number;
+  created_by_name?: string;
+  submitted_at?: string;
+  received_at?: string;
+  created_at: string;
+  items?: PurchaseOrderItem[];
+}
+
+export interface PurchaseOrderItem {
+  id: number;
+  po_id: number;
+  inventory_item_id: number;
+  item_name?: string;
+  unit?: string;
+  quantity_ordered: number;
+  unit_cost: number;
+  quantity_received: number;
+  line_total: number;
+}
+
+export interface PrepForecast {
+  target_date: string;
+  day_of_week: string;
+  estimated_orders: number;
+  items: Array<{
+    inventory_item_id: number;
+    item_name: string;
+    unit: string;
+    expected_quantity_needed: number;
+    current_stock: number;
+    deficit: number;
+    prep_action: 'restock_needed' | 'prep_extra' | 'sufficient';
+    velocity_estimate: number;
+    menu_items_using: Array<{
+      menu_item_name: string;
+      avg_sold: number;
+      ingredient_per_item: number;
+    }>;
+  }>;
+}
+
+/* Financial Projection Types */
+export interface FinancialTargetRow {
+  category: string;
+  label: string;
+  auto_calculated: boolean;
+  target_percent: number;
+  target_amount: number;
+  actual_amount: number;
+  diff_amount: number;
+  diff_percent: number;
+}
+
+export interface FinancialProjection {
+  month: string;
+  revenue: number;
+  rows: FinancialTargetRow[];
+  net_profit: number;
+  target_net_profit: number;
+}
+
+/* Loyalty / CRM Types */
+export interface LoyaltyCustomer {
+  id: number;
+  phone: string;
+  name: string;
+  referral_code: string;
+  referred_by: number | null;
+  store_id: number;
+  stamps_earned: number;
+  orders_count: number;
+  total_spent: number;
+  last_visit: string | null;
+  sms_opt_in: number;
+  created_at: string;
+  activeCard?: StampCard;
+}
+
+export interface StampCard {
+  id: number;
+  customer_id: number;
+  stamps_earned: number;
+  stamps_required: number;
+  reward_description: string;
+  completed: number;
+  redeemed: number;
+  completed_at: string | null;
+  redeemed_at: string | null;
+  created_at: string;
+}
+
+export interface StampEvent {
+  id: number;
+  stamp_card_id: number;
+  order_id: number | null;
+  stamps_added: number;
+  event_type: 'purchase' | 'referral_bonus' | 'manual';
+  created_at: string;
+  stamps_required?: number;
+}
+
+export interface ReferralEvent {
+  id: number;
+  referrer_id: number;
+  referee_id: number;
+  referrer_stamps_added: number;
+  referee_stamps_added: number;
+  referrer_name?: string;
+  referee_name?: string;
+  created_at: string;
+}
+
+export interface LoyaltyAnalytics {
+  totalMembers: number;
+  newThisMonth: number;
+  activeCards: number;
+  completedCards: number;
+  redeemedCards: number;
+  redemptionRate: number;
+  topCustomers: LoyaltyCustomer[];
+  signupsByMonth: Array<{ month: string; count: number }>;
+}
+
+export interface LoyaltyConfig {
+  [key: string]: {
+    value: string;
+    description: string | null;
+    updated_at: string | null;
+  };
+}
+
+export interface StampResult {
+  stampCard: StampCard;
+  cardCompleted: boolean;
+  customer: LoyaltyCustomer;
 }
 
 /* API Response Types */

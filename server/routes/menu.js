@@ -1,21 +1,110 @@
 import { Router } from 'express';
 import { all, get, run } from '../db.js';
+import { requireAuth } from '../middleware/auth.js';
 
 const router = Router();
 
-// GET /api/menu/categories - list active categories
+// GET /api/menu/categories - list categories (all by default, ?active_only=1 for active only)
 router.get('/categories', (req, res) => {
   try {
+    const activeOnly = req.query.active_only === '1';
     const categories = all(`
-      SELECT id, name, sort_order
+      SELECT id, name, sort_order, active
       FROM menu_categories
-      WHERE active = 1
+      ${activeOnly ? 'WHERE active = 1' : ''}
       ORDER BY sort_order ASC
     `);
     res.json(categories);
   } catch (error) {
     console.error('Error fetching categories:', error);
     res.status(500).json({ error: 'Failed to fetch categories' });
+  }
+});
+
+// POST /api/menu/categories - create category
+router.post('/categories', requireAuth('manage_menu'), (req, res) => {
+  try {
+    const { name, sort_order, printer_target } = req.body;
+
+    if (!name || !name.trim()) {
+      return res.status(400).json({ error: 'Category name is required' });
+    }
+
+    const maxSort = get('SELECT MAX(sort_order) as max_sort FROM menu_categories');
+    const order = sort_order !== undefined ? sort_order : (maxSort?.max_sort || 0) + 1;
+
+    const result = run(`
+      INSERT INTO menu_categories (name, sort_order, active)
+      VALUES (?, ?, 1)
+    `, [name.trim(), order]);
+
+    res.status(201).json({
+      id: result.lastInsertRowid,
+      name: name.trim(),
+      sort_order: order,
+      active: 1,
+    });
+  } catch (error) {
+    console.error('Error creating category:', error);
+    res.status(500).json({ error: 'Failed to create category' });
+  }
+});
+
+// PUT /api/menu/categories/:id - update category
+router.put('/categories/:id', requireAuth('manage_menu'), (req, res) => {
+  try {
+    const { id } = req.params;
+    const { name, sort_order } = req.body;
+
+    const category = get('SELECT id FROM menu_categories WHERE id = ?', [id]);
+    if (!category) {
+      return res.status(404).json({ error: 'Category not found' });
+    }
+
+    const updates = [];
+    const values = [];
+
+    if (name !== undefined) {
+      if (!name.trim()) return res.status(400).json({ error: 'Category name cannot be empty' });
+      updates.push('name = ?');
+      values.push(name.trim());
+    }
+    if (sort_order !== undefined) {
+      updates.push('sort_order = ?');
+      values.push(sort_order);
+    }
+
+    if (updates.length === 0) {
+      return res.status(400).json({ error: 'No fields to update' });
+    }
+
+    values.push(id);
+    run(`UPDATE menu_categories SET ${updates.join(', ')} WHERE id = ?`, values);
+
+    res.json({ message: 'Category updated successfully' });
+  } catch (error) {
+    console.error('Error updating category:', error);
+    res.status(500).json({ error: 'Failed to update category' });
+  }
+});
+
+// PUT /api/menu/categories/:id/toggle - activate/deactivate category
+router.put('/categories/:id/toggle', requireAuth('manage_menu'), (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const category = get('SELECT id, active FROM menu_categories WHERE id = ?', [id]);
+    if (!category) {
+      return res.status(404).json({ error: 'Category not found' });
+    }
+
+    const newActive = category.active === 1 ? 0 : 1;
+    run('UPDATE menu_categories SET active = ? WHERE id = ?', [newActive, id]);
+
+    res.json({ id: parseInt(id), active: newActive === 1 });
+  } catch (error) {
+    console.error('Error toggling category:', error);
+    res.status(500).json({ error: 'Failed to toggle category' });
   }
 });
 
@@ -67,7 +156,7 @@ router.get('/items/:id', (req, res) => {
 });
 
 // POST /api/menu/items - create item (admin)
-router.post('/items', (req, res) => {
+router.post('/items', requireAuth('manage_menu'), (req, res) => {
   try {
     const { category_id, name, price, description, image_url } = req.body;
 
@@ -95,7 +184,7 @@ router.post('/items', (req, res) => {
 });
 
 // PUT /api/menu/items/:id - update item (admin)
-router.put('/items/:id', (req, res) => {
+router.put('/items/:id', requireAuth('manage_menu'), (req, res) => {
   try {
     const { id } = req.params;
     const { category_id, name, price, description, image_url } = req.body;
@@ -150,7 +239,7 @@ router.put('/items/:id', (req, res) => {
 });
 
 // PUT /api/menu/items/:id/toggle - toggle active status
-router.put('/items/:id/toggle', (req, res) => {
+router.put('/items/:id/toggle', requireAuth('manage_menu'), (req, res) => {
   try {
     const { id } = req.params;
 

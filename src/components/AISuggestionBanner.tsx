@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { AISuggestion } from '../types';
 import { formatPrice } from '../utils/currency';
 
@@ -15,6 +16,7 @@ const AISuggestionBanner: React.FC<AISuggestionBannerProps> = ({
   onDismiss,
   displayTimeout = 15,
 }) => {
+  const { t } = useTranslation('pos');
   const [visible, setVisible] = useState(true);
 
   // Auto-hide after timeout
@@ -52,7 +54,7 @@ const AISuggestionBanner: React.FC<AISuggestionBannerProps> = ({
             </p>
             {suggestion.data.savings && (
               <p className="text-red-400 text-xs">
-                Save {formatPrice(suggestion.data.savings)}
+                {t('suggestion.save', { amount: formatPrice(suggestion.data.savings) })}
               </p>
             )}
           </div>
@@ -67,7 +69,7 @@ const AISuggestionBanner: React.FC<AISuggestionBannerProps> = ({
             onClick={() => onAccept(suggestion)}
             className="flex-shrink-0 px-3 py-1.5 bg-red-600 text-white text-sm font-bold rounded-lg hover:bg-red-700 transition-all active:scale-95 touch-manipulation"
           >
-            + Add
+            {t('suggestion.add')}
           </button>
 
           {/* Dismiss */}

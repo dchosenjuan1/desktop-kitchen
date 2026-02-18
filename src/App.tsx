@@ -1,10 +1,11 @@
 import React from 'react';
 import {
-  BrowserRouter as Router,
+  HashRouter as Router,
   Routes,
   Route,
   Navigate,
 } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { AuthProvider, useAuth } from './context/AuthContext';
 
 // Screens - these will be created as separate components
@@ -63,6 +64,54 @@ const AIConfigScreen = React.lazy(() =>
   }))
 );
 
+const LiveDashboardScreen = React.lazy(() =>
+  import('./screens/LiveDashboardScreen').then((module) => ({
+    default: module.default || (() => <div>Live Dashboard</div>),
+  }))
+);
+
+const ModifierManagement = React.lazy(() =>
+  import('./screens/ModifierManagement').then((module) => ({
+    default: module.default || (() => <div>Modifier Management</div>),
+  }))
+);
+
+const PrinterManagement = React.lazy(() =>
+  import('./screens/PrinterManagement').then((module) => ({
+    default: module.default || (() => <div>Printer Management</div>),
+  }))
+);
+
+const DeliveryScreen = React.lazy(() =>
+  import('./screens/DeliveryScreen').then((module) => ({
+    default: module.default || (() => <div>Delivery Screen</div>),
+  }))
+);
+
+const PermissionsScreen = React.lazy(() =>
+  import('./screens/PermissionsScreen').then((module) => ({
+    default: module.default || (() => <div>Permissions Screen</div>),
+  }))
+);
+
+const PurchaseOrderScreen = React.lazy(() =>
+  import('./screens/PurchaseOrderScreen').then((module) => ({
+    default: module.default || (() => <div>Purchase Orders</div>),
+  }))
+);
+
+const PrepForecastScreen = React.lazy(() =>
+  import('./screens/PrepForecastScreen').then((module) => ({
+    default: module.default || (() => <div>Prep Forecast</div>),
+  }))
+);
+
+const LoyaltyScreen = React.lazy(() =>
+  import('./screens/LoyaltyScreen').then((module) => ({
+    default: module.default || (() => <div>Loyalty</div>),
+  }))
+);
+
 /* ==================== Protected Route ==================== */
 
 interface ProtectedRouteProps {
@@ -89,12 +138,21 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
 
 /* ==================== App Component ==================== */
 
+const LoadingFallback: React.FC = () => {
+  const { t } = useTranslation();
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-neutral-950">
+      <div className="text-2xl text-red-600 font-bold animate-pulse">{t('states.loading')}</div>
+    </div>
+  );
+};
+
 const AppContent: React.FC = () => {
   const { currentEmployee } = useAuth();
 
   return (
     <Router>
-      <React.Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-gray-100"><div className="text-2xl text-orange-600 font-bold animate-pulse">Loading...</div></div>}>
+      <React.Suspense fallback={<LoadingFallback />}>
       <Routes>
         {/* Login Route - accessible to everyone */}
         <Route path="/" element={<LoginScreen />} />
@@ -116,7 +174,7 @@ const AppContent: React.FC = () => {
           element={
             <ProtectedRoute
               element={<KitchenDisplay />}
-              requiredRole={['kitchen', 'manager', 'admin']}
+              requiredRole={['kitchen', 'bar', 'manager', 'admin']}
             />
           }
         />
@@ -182,6 +240,94 @@ const AppContent: React.FC = () => {
           element={
             <ProtectedRoute
               element={<AIConfigScreen />}
+              requiredRole={['manager', 'admin']}
+            />
+          }
+        />
+
+        {/* Live Dashboard */}
+        <Route
+          path="/admin/dashboard"
+          element={
+            <ProtectedRoute
+              element={<LiveDashboardScreen />}
+              requiredRole={['manager', 'admin']}
+            />
+          }
+        />
+
+        {/* Modifier Management */}
+        <Route
+          path="/admin/modifiers"
+          element={
+            <ProtectedRoute
+              element={<ModifierManagement />}
+              requiredRole={['manager', 'admin']}
+            />
+          }
+        />
+
+        {/* Printer Management */}
+        <Route
+          path="/admin/printers"
+          element={
+            <ProtectedRoute
+              element={<PrinterManagement />}
+              requiredRole={['manager', 'admin']}
+            />
+          }
+        />
+
+        {/* Delivery Management */}
+        <Route
+          path="/admin/delivery"
+          element={
+            <ProtectedRoute
+              element={<DeliveryScreen />}
+              requiredRole={['manager', 'admin']}
+            />
+          }
+        />
+
+        {/* Permissions - admin only */}
+        <Route
+          path="/admin/permissions"
+          element={
+            <ProtectedRoute
+              element={<PermissionsScreen />}
+              requiredRole={['admin']}
+            />
+          }
+        />
+
+        {/* Purchase Orders */}
+        <Route
+          path="/admin/purchase-orders"
+          element={
+            <ProtectedRoute
+              element={<PurchaseOrderScreen />}
+              requiredRole={['manager', 'admin']}
+            />
+          }
+        />
+
+        {/* Prep Forecast */}
+        <Route
+          path="/admin/prep-forecast"
+          element={
+            <ProtectedRoute
+              element={<PrepForecastScreen />}
+              requiredRole={['manager', 'admin']}
+            />
+          }
+        />
+
+        {/* Loyalty & CRM */}
+        <Route
+          path="/admin/loyalty"
+          element={
+            <ProtectedRoute
+              element={<LoyaltyScreen />}
               requiredRole={['manager', 'admin']}
             />
           }

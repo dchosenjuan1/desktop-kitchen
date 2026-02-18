@@ -31,7 +31,34 @@ import {
   PricingSuggestion,
   InventoryForecast,
   CategoryRole,
+  Refund,
+  CryptoPayment,
+  CryptoEstimate,
+  ReconciliationRow,
+  PaymentFeeSummary,
+  RefundSummary,
+  InventoryCount,
+  ShrinkageAlert,
+  VarianceReport,
+  Vendor,
+  PurchaseOrder,
+  PrepForecast,
+  FinancialProjection,
+  LoyaltyCustomer,
+  StampCard,
+  StampResult,
+  LoyaltyAnalytics,
+  LoyaltyConfig,
+  ReferralEvent,
+  PaginatedResponse,
 } from '../types';
+
+// Employee ID for auth header - set after login
+let currentEmployeeId: number | null = null;
+
+export function setCurrentEmployeeId(id: number | null) {
+  currentEmployeeId = id;
+}
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || '/api';
 
@@ -83,6 +110,9 @@ async function apiRequest<T>(
   const defaultHeaders: Record<string, string> = {
     'Content-Type': 'application/json',
   };
+  if (currentEmployeeId) {
+    defaultHeaders['x-employee-id'] = String(currentEmployeeId);
+  }
 
   const response = await fetch(url, {
     ...options,
@@ -250,6 +280,8 @@ export async function confirmPayment(data: ConfirmPaymentData): Promise<any> {
 interface RefundPaymentData {
   order_id: number;
   amount?: number;
+  items?: Array<{ order_item_id: number; quantity: number }>;
+  reason?: string;
 }
 
 export async function refundPayment(data: RefundPaymentData): Promise<any> {
@@ -257,6 +289,18 @@ export async function refundPayment(data: RefundPaymentData): Promise<any> {
     method: 'POST',
     body: JSON.stringify(data),
   });
+}
+
+export async function getOrderRefunds(orderId: number): Promise<Refund[]> {
+  return apiRequest<Refund[]>(`/payments/refunds/${orderId}`);
+}
+
+export async function getAllRefunds(startDate?: string, endDate?: string): Promise<Refund[]> {
+  const params = new URLSearchParams();
+  if (startDate) params.append('start_date', startDate);
+  if (endDate) params.append('end_date', endDate);
+  const qs = params.toString();
+  return apiRequest<Refund[]>(`/payments/refunds${qs ? `?${qs}` : ''}`);
 }
 
 export async function cashPayment(data: {
@@ -272,6 +316,31 @@ export async function cashPayment(data: {
 
 export async function getPaymentStatus(orderId: number): Promise<any> {
   return apiRequest(`/payments/${orderId}`);
+}
+
+/* ==================== Crypto Payment Endpoints ==================== */
+
+export async function getCryptoEstimate(amount: number, currency: string): Promise<CryptoEstimate> {
+  return apiRequest<CryptoEstimate>(`/payments/crypto/estimate?amount=${amount}&currency=${currency}`);
+}
+
+export async function getCryptoMinAmount(currency: string): Promise<{ min_amount: number }> {
+  return apiRequest(`/payments/crypto/min-amount?currency=${currency}`);
+}
+
+export async function createCryptoPayment(data: {
+  order_id: number;
+  pay_currency: string;
+  tip?: number;
+}): Promise<CryptoPayment> {
+  return apiRequest<CryptoPayment>('/payments/crypto/create', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function getCryptoPaymentStatus(paymentId: string): Promise<CryptoPayment> {
+  return apiRequest<CryptoPayment>(`/payments/crypto/status/${paymentId}`);
 }
 
 /* ==================== Inventory Endpoints ==================== */
@@ -643,5 +712,246 @@ export async function runGrokAnalysis(type?: string): Promise<any> {
   return apiRequest('/ai/analyze', {
     method: 'POST',
     body: JSON.stringify({ type: type || 'all' }),
+  });
+}
+
+/* ==================== Reports - Reconciliation, Fees, Refunds ==================== */
+
+export async function getReconciliation(startDate: string, endDate: string): Promise<{ rows: ReconciliationRow[]; summary: any }> {
+  return apiRequest(`/reports/reconciliation?start_date=${startDate}&end_date=${endDate}`);
+}
+
+export async function getPaymentFees(period: string): Promise<PaymentFeeSummary> {
+  return apiRequest<PaymentFeeSummary>(`/reports/payment-fees?period=${period}`);
+}
+
+export async function getRefundSummary(startDate?: string, endDate?: string): Promise<RefundSummary> {
+  const params = new URLSearchParams();
+  if (startDate) params.append('start_date', startDate);
+  if (endDate) params.append('end_date', endDate);
+  const qs = params.toString();
+  return apiRequest<RefundSummary>(`/reports/refund-summary${qs ? `?${qs}` : ''}`);
+}
+
+/* ==================== Reports - Financial Projection ==================== */
+
+export async function getFinancialProjection(month: string): Promise<FinancialProjection> {
+  return apiRequest<FinancialProjection>(`/reports/financial-projection?month=${month}`);
+}
+
+export async function updateFinancialTargets(targets: Array<{ category: string; target_percent: number }>): Promise<any> {
+  return apiRequest('/reports/financial-targets', {
+    method: 'PUT',
+    body: JSON.stringify({ targets }),
+  });
+}
+
+export async function updateFinancialActual(data: { period: string; category: string; amount: number }): Promise<any> {
+  return apiRequest('/reports/financial-actuals', {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  });
+}
+
+/* ==================== Inventory - Counts, Variance, Alerts ==================== */
+
+export async function recordInventoryCount(id: number, data: { counted_quantity: number; notes?: string }): Promise<InventoryCount> {
+  return apiRequest<InventoryCount>(`/inventory/${id}/count`, {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function getInventoryCounts(params?: { item_id?: number; start_date?: string; end_date?: string }): Promise<InventoryCount[]> {
+  const qs = new URLSearchParams();
+  if (params?.item_id) qs.append('item_id', String(params.item_id));
+  if (params?.start_date) qs.append('start_date', params.start_date);
+  if (params?.end_date) qs.append('end_date', params.end_date);
+  const s = qs.toString();
+  return apiRequest<InventoryCount[]>(`/inventory/counts${s ? `?${s}` : ''}`);
+}
+
+export async function getVarianceReport(): Promise<VarianceReport[]> {
+  return apiRequest<VarianceReport[]>('/inventory/variance-report');
+}
+
+export async function getShrinkageAlerts(acknowledged?: boolean): Promise<ShrinkageAlert[]> {
+  const endpoint = acknowledged !== undefined
+    ? `/inventory/shrinkage-alerts?acknowledged=${acknowledged ? '1' : '0'}`
+    : '/inventory/shrinkage-alerts';
+  return apiRequest<ShrinkageAlert[]>(endpoint);
+}
+
+export async function acknowledgeShrinkageAlert(id: number): Promise<any> {
+  return apiRequest(`/inventory/shrinkage-alerts/${id}/acknowledge`, { method: 'PUT' });
+}
+
+/* ==================== Vendors ==================== */
+
+export async function getVendors(): Promise<Vendor[]> {
+  return apiRequest<Vendor[]>('/purchase-orders/vendors');
+}
+
+export async function createVendor(data: Partial<Vendor>): Promise<Vendor> {
+  return apiRequest<Vendor>('/purchase-orders/vendors', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function updateVendor(id: number, data: Partial<Vendor>): Promise<any> {
+  return apiRequest(`/purchase-orders/vendors/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  });
+}
+
+/* ==================== Purchase Orders ==================== */
+
+export async function getPurchaseOrders(status?: string): Promise<PurchaseOrder[]> {
+  const endpoint = status ? `/purchase-orders?status=${status}` : '/purchase-orders';
+  return apiRequest<PurchaseOrder[]>(endpoint);
+}
+
+export async function getPurchaseOrder(id: number): Promise<PurchaseOrder> {
+  return apiRequest<PurchaseOrder>(`/purchase-orders/${id}`);
+}
+
+export async function createPurchaseOrder(data: {
+  vendor_id: number;
+  items?: Array<{ inventory_item_id: number; quantity_ordered: number; unit_cost: number }>;
+  notes?: string;
+}): Promise<PurchaseOrder> {
+  return apiRequest<PurchaseOrder>('/purchase-orders', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function updatePurchaseOrder(id: number, data: {
+  items?: Array<{ inventory_item_id: number; quantity_ordered: number; unit_cost: number }>;
+  notes?: string;
+}): Promise<any> {
+  return apiRequest(`/purchase-orders/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function submitPurchaseOrder(id: number): Promise<any> {
+  return apiRequest(`/purchase-orders/${id}/submit`, { method: 'POST' });
+}
+
+export async function receivePurchaseOrder(id: number, items: Array<{ po_item_id: number; quantity_received: number }>): Promise<any> {
+  return apiRequest(`/purchase-orders/${id}/receive`, {
+    method: 'POST',
+    body: JSON.stringify({ items }),
+  });
+}
+
+export async function cancelPurchaseOrder(id: number): Promise<any> {
+  return apiRequest(`/purchase-orders/${id}/cancel`, { method: 'POST' });
+}
+
+/* ==================== Prep Forecast ==================== */
+
+export async function getPrepForecast(date?: string): Promise<PrepForecast> {
+  const endpoint = date ? `/ai/prep-forecast?date=${date}` : '/ai/prep-forecast';
+  return apiRequest<PrepForecast>(endpoint);
+}
+
+/* ==================== Permissions ==================== */
+
+export async function getAllPermissions(): Promise<Record<string, Record<string, boolean>>> {
+  return apiRequest('/employees/permissions');
+}
+
+export async function updateRolePermissions(role: string, permissions: Record<string, boolean>): Promise<any> {
+  return apiRequest(`/employees/permissions/${role}`, {
+    method: 'PUT',
+    body: JSON.stringify({ permissions }),
+  });
+}
+
+/* ==================== Loyalty / CRM Endpoints ==================== */
+
+export async function lookupLoyaltyCustomer(phone: string): Promise<LoyaltyCustomer> {
+  return apiRequest<LoyaltyCustomer>(`/loyalty/customers/phone/${encodeURIComponent(phone)}`);
+}
+
+export async function createLoyaltyCustomer(data: {
+  phone: string;
+  name: string;
+  referral_code_used?: string;
+  sms_opt_in?: boolean;
+}): Promise<LoyaltyCustomer & { created: boolean }> {
+  return apiRequest('/loyalty/customers', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function getLoyaltyCustomers(params?: {
+  search?: string;
+  page?: number;
+  limit?: number;
+}): Promise<PaginatedResponse<LoyaltyCustomer>> {
+  const qs = new URLSearchParams();
+  if (params?.search) qs.append('search', params.search);
+  if (params?.page) qs.append('page', String(params.page));
+  if (params?.limit) qs.append('limit', String(params.limit));
+  const s = qs.toString();
+  return apiRequest(`/loyalty/customers${s ? `?${s}` : ''}`);
+}
+
+export async function getLoyaltyCustomer(id: number): Promise<LoyaltyCustomer & { cards: any[]; recentEvents: any[] }> {
+  return apiRequest(`/loyalty/customers/${id}`);
+}
+
+export async function updateLoyaltyCustomer(id: number, data: { name?: string; sms_opt_in?: boolean }): Promise<LoyaltyCustomer> {
+  return apiRequest(`/loyalty/customers/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function addStampsForOrder(customerId: number, orderId: number): Promise<StampResult> {
+  return apiRequest<StampResult>(`/loyalty/customers/${customerId}/stamps`, {
+    method: 'POST',
+    body: JSON.stringify({ order_id: orderId }),
+  });
+}
+
+export async function addManualStamps(customerId: number, count: number): Promise<{ stampCard: any; customer: LoyaltyCustomer }> {
+  return apiRequest(`/loyalty/customers/${customerId}/stamps/manual`, {
+    method: 'POST',
+    body: JSON.stringify({ count }),
+  });
+}
+
+export async function redeemLoyaltyReward(customerId: number): Promise<any> {
+  return apiRequest(`/loyalty/customers/${customerId}/redeem`, { method: 'POST' });
+}
+
+export async function getLoyaltyAnalytics(): Promise<LoyaltyAnalytics> {
+  return apiRequest<LoyaltyAnalytics>('/loyalty/analytics');
+}
+
+export async function getLoyaltyReferrals(): Promise<{
+  leaderboard: any[];
+  recentReferrals: ReferralEvent[];
+  totalReferrals: number;
+}> {
+  return apiRequest('/loyalty/referrals');
+}
+
+export async function getLoyaltyConfig(): Promise<LoyaltyConfig> {
+  return apiRequest<LoyaltyConfig>('/loyalty/config');
+}
+
+export async function updateLoyaltyConfig(key: string, value: string): Promise<LoyaltyConfig> {
+  return apiRequest<LoyaltyConfig>('/loyalty/config', {
+    method: 'PUT',
+    body: JSON.stringify({ key, value }),
   });
 }

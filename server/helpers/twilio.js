@@ -1,0 +1,83 @@
+import { run } from '../db.js';
+
+const TWILIO_SID = process.env.TWILIO_ACCOUNT_SID;
+const TWILIO_TOKEN = process.env.TWILIO_AUTH_TOKEN;
+const TWILIO_PHONE = process.env.TWILIO_PHONE_NUMBER;
+
+function isConfigured() {
+  return !!(TWILIO_SID && TWILIO_TOKEN && TWILIO_PHONE);
+}
+
+/**
+ * Format a 10-digit MX number to E.164 (+521XXXXXXXXXX) for Twilio.
+ */
+function toE164(phone) {
+  const digits = phone.replace(/\D/g, '');
+  if (digits.startsWith('+')) return digits;
+  if (digits.length === 10) return `+521${digits}`;
+  if (digits.length === 12 && digits.startsWith('52')) return `+${digits}`;
+  if (digits.length === 13 && digits.startsWith('521')) return `+${digits}`;
+  return `+521${digits.slice(-10)}`;
+}
+
+/**
+ * Send SMS via Twilio REST API (no SDK).
+ * Returns the message SID on success, null on failure or when unconfigured.
+ */
+export async function sendSMS(to, body, customerId = null, messageType = 'general') {
+  if (!isConfigured()) return null;
+
+  const e164 = toE164(to);
+  const url = `https://api.twilio.com/2010-04-01/Accounts/${TWILIO_SID}/Messages.json`;
+  const auth = Buffer.from(`${TWILIO_SID}:${TWILIO_TOKEN}`).toString('base64');
+
+  try {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Basic ${auth}`,
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: new URLSearchParams({ To: e164, From: TWILIO_PHONE, Body: body }),
+    });
+
+    const data = await res.json();
+
+    if (customerId) {
+      run(
+        `INSERT INTO loyalty_messages (customer_id, message_type, twilio_sid, status) VALUES (?, ?, ?, ?)`,
+        [customerId, messageType, data.sid || null, res.ok ? 'sent' : 'failed']
+      );
+    }
+
+    if (!res.ok) {
+      console.error('[Twilio] SMS send failed:', data.message || data);
+      return null;
+    }
+
+    return data.sid;
+  } catch (err) {
+    console.error('[Twilio] SMS error:', err.message);
+    return null;
+  }
+}
+
+export async function sendWelcomeSMS(phone, name, referralCode) {
+  const body = `Welcome to Juanberto's Rewards, ${name}! You'll earn a stamp with every order. Share your code ${referralCode} with friends — you both get 2 bonus stamps!`;
+  return sendSMS(phone, body, null, 'welcome');
+}
+
+export async function sendStampEarnedSMS(phone, name, earned, required, customerId) {
+  const body = `Hey ${name}! You earned a stamp at Juanberto's! ${earned}/${required} stamps collected. Keep going!`;
+  return sendSMS(phone, body, customerId, 'stamp_earned');
+}
+
+export async function sendCardCompletedSMS(phone, name, reward, customerId) {
+  const body = `Congrats ${name}! You completed your stamp card at Juanberto's! Your reward: ${reward}. Redeem it on your next visit!`;
+  return sendSMS(phone, body, customerId, 'card_completed');
+}
+
+export async function sendReferralSuccessSMS(phone, name, refereeName, bonus, customerId) {
+  const body = `Hey ${name}! Your friend ${refereeName} joined Juanberto's Rewards using your code. You both earned ${bonus} bonus stamps!`;
+  return sendSMS(phone, body, customerId, 'referral_success');
+}

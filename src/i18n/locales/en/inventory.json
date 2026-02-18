@@ -1,0 +1,306 @@
+{
+  "inventory": {
+    "title": "Inventory",
+    "tabs": {
+      "stock": "Stock",
+      "count": "Count",
+      "variance": "Variance",
+      "alerts": "Alerts"
+    },
+    "search": "Search items...",
+    "allCategories": "All Categories",
+    "sortByName": "Sort by Name",
+    "sortByQuantity": "Sort by Quantity",
+    "sortByStatus": "Sort by Status",
+    "columns": {
+      "itemName": "Item Name",
+      "currentStock": "Current Stock",
+      "threshold": "Threshold",
+      "status": "Status",
+      "actions": "Actions"
+    },
+    "status": {
+      "outOfStock": "Out of Stock",
+      "lowStock": "Low Stock",
+      "inStock": "In Stock"
+    },
+    "summary": {
+      "title": "Summary",
+      "totalItems": "Total Items",
+      "lowStock": "Low Stock",
+      "outOfStock": "Out of Stock"
+    },
+    "aiPredictions": "AI Stockout Predictions",
+    "insufficientData": "Insufficient data",
+    "daysLeft": "~{{days}} days left | {{usage}} {{unit}}/day",
+    "reorder": "Reorder: {{qty}} {{unit}}",
+    "hide": "Hide",
+    "showAll": "Show All",
+    "noItemsFound": "No items found",
+    "restockQty": "Qty",
+    "restock": "Restock",
+    "invalidRestockAmount": "Invalid restock amount",
+    "invalidThreshold": "Invalid threshold value",
+    "failedRestock": "Failed to restock item",
+    "failedUpdateThreshold": "Failed to update threshold",
+    "failedLoadCounts": "Failed to load count history",
+    "failedLoadForecast": "Failed to load forecast",
+    "varianceUnits": "Variance: {{amount}} units"
+  },
+  "count": {
+    "title": "Record Physical Count",
+    "selectItem": "Select Item...",
+    "countedQuantity": "Counted quantity",
+    "notes": "Notes (optional)",
+    "recordCount": "Record Count",
+    "history": "Count History",
+    "noCountsYet": "No counts recorded yet",
+    "useFormAbove": "Use the form above to record a physical inventory count",
+    "inSystem": "{{qty}} {{unit}} in system",
+    "columns": {
+      "item": "Item",
+      "counted": "Counted",
+      "system": "System",
+      "variance": "Variance",
+      "variancePercent": "Variance %",
+      "notes": "Notes",
+      "date": "Date"
+    }
+  },
+  "variance": {
+    "title": "Variance Report",
+    "noData": "No variance data available",
+    "recordCountsHint": "Record physical counts to see variance analysis",
+    "countSessions": "Count Sessions",
+    "avgVariance": "Avg Variance",
+    "avgVariancePercent": "Avg Variance %",
+    "totalVariance": "Total Variance",
+    "risk": "Risk"
+  },
+  "alerts": {
+    "title": "Shrinkage Alerts",
+    "noAlerts": "No active shrinkage alerts",
+    "withinRanges": "All inventory variance is within acceptable ranges",
+    "acknowledge": "Acknowledge",
+    "acknowledged": "Acknowledged"
+  },
+  "menu": {
+    "title": "Menu",
+    "items": "Items",
+    "categories": "Categories",
+    "addItem": "Add Item",
+    "addFirstItem": "Add First Item",
+    "manageCategories": "Manage Categories",
+    "addCategory": "Add Category",
+    "addMenuItem": "Add Menu Item",
+    "editMenuItem": "Edit Menu Item",
+    "form": {
+      "itemName": "Item Name",
+      "itemNamePlaceholder": "e.g., Carne Asada Burrito",
+      "price": "Price",
+      "category": "Category",
+      "selectCategory": "Select category",
+      "description": "Description (Optional)",
+      "descriptionPlaceholder": "Item description",
+      "saving": "Saving...",
+      "saveChanges": "Save Changes",
+      "itemNameRequired": "Item name is required",
+      "priceRequired": "Price is required",
+      "pricePositive": "Price must be greater than 0",
+      "categoryRequired": "Category is required"
+    },
+    "categoryForm": {
+      "namePlaceholder": "Category name",
+      "order": "Order"
+    },
+    "active": "Active",
+    "inactive": "Inactive",
+    "deactivate": "Deactivate",
+    "activate": "Activate",
+    "noCategories": "No categories available",
+    "noCategoriesYet": "No categories yet. Create one to get started.",
+    "noItemsIn": "No items in",
+    "dismiss": "Dismiss",
+    "creating": "Creating..."
+  },
+  "prepForecast": {
+    "title": "Prep Forecast",
+    "date": "Date:",
+    "day": "Day",
+    "estOrders": "Est. Orders",
+    "needRestock": "Need Restock",
+    "prepExtra": "Prep Extra",
+    "loading": "Loading forecast...",
+    "noData": "No ingredient data available for forecast.",
+    "linkHint": "Make sure menu items have ingredients linked.",
+    "columns": {
+      "needed": "Needed",
+      "inStock": "In Stock",
+      "deficit": "Deficit",
+      "usedBy": "Used by:"
+    },
+    "status": {
+      "restockNeeded": "Restock Needed",
+      "prepExtra": "Prep Extra",
+      "sufficient": "Sufficient"
+    },
+    "ok": "OK"
+  },
+  "purchaseOrders": {
+    "title": "Purchase Orders",
+    "newPo": "New PO",
+    "filters": {
+      "all": "All",
+      "draft": "Draft",
+      "submitted": "Submitted",
+      "partial": "Partial",
+      "received": "Received",
+      "cancelled": "Cancelled"
+    },
+    "noPOs": "No purchase orders found",
+    "loading": "Loading...",
+    "form": {
+      "vendor": "Vendor",
+      "selectVendor": "Select vendor...",
+      "notes": "Notes",
+      "notesPlaceholder": "Optional notes...",
+      "lineItems": "Line Items",
+      "addItem": "Add Item",
+      "selectItem": "Select item...",
+      "qty": "Qty",
+      "cost": "Cost",
+      "total": "Total:",
+      "createPo": "Create PO",
+      "creating": "Creating..."
+    },
+    "detail": {
+      "total": "Total",
+      "created": "Created",
+      "submitted": "Submitted",
+      "received": "Received",
+      "items": "Items",
+      "receivedCount": "Received",
+      "by": "by"
+    },
+    "actions": {
+      "submitPo": "Submit PO",
+      "receiveItems": "Receive Items",
+      "receiving": "Receiving...",
+      "cancelPo": "Cancel PO",
+      "enterReceived": "Enter received quantities"
+    },
+    "toast": {
+      "created": "Purchase order created",
+      "submitted": "PO submitted",
+      "received": "Items received and inventory updated",
+      "cancelled": "PO cancelled",
+      "vendorRequired": "Select a vendor and add at least one item"
+    }
+  },
+  "delivery": {
+    "title": "Delivery Platforms",
+    "tabs": {
+      "orders": "Delivery Orders",
+      "config": "Platform Config"
+    },
+    "orderNumber": "Order #{{number}}",
+    "noOrders": "No delivery orders",
+    "ordersHint": "Orders from Uber Eats, Rappi, and DiDi Food will appear here",
+    "commission": "Commission:",
+    "active": "Active",
+    "inactive": "Inactive",
+    "noPlatforms": "No delivery platforms configured",
+    "actions": {
+      "confirm": "Confirm",
+      "readyForPickup": "Ready for Pickup",
+      "pickedUp": "Picked Up"
+    }
+  },
+  "modifiers": {
+    "title": "Modifiers & Combos",
+    "tabs": {
+      "modifierGroups": "Modifier Groups",
+      "combos": "Combos"
+    },
+    "addGroup": "Add Modifier Group",
+    "groupNamePlaceholder": "Group name (e.g., Protein, Salsa)",
+    "singleSelect": "Single Select",
+    "multiSelect": "Multi Select",
+    "singleSelectLabel": "Single select",
+    "multiSelectLabel": "Multi select",
+    "required": "Required",
+    "optional": "Optional",
+    "optionsCount": "options",
+    "modifierNamePlaceholder": "Modifier name",
+    "priceAdj": "Price adj",
+    "addModifier": "Add modifier",
+    "combos": {
+      "title": "Combos",
+      "newCombo": "New Combo",
+      "editCombo": "Edit Combo",
+      "createCombo": "Create Combo",
+      "createFirstCombo": "Create First Combo",
+      "noCombos": "No combos configured",
+      "backToCombos": "Back to Combos",
+      "comboNameRequired": "Combo name is required",
+      "pricePositive": "Price must be greater than 0",
+      "slotRequired": "At least one slot with a label is required",
+      "failedSave": "Failed to save combo",
+      "form": {
+        "name": "Combo name",
+        "description": "Description",
+        "price": "Price",
+        "slots": "Slots",
+        "addSlot": "Add Slot",
+        "slotLabel": "Slot label (e.g., Main, Side, Drink)",
+        "anyCategory": "Any category",
+        "anyItem": "Any item"
+      },
+      "active": "Active",
+      "inactive": "Inactive",
+      "fixed": "Fixed:",
+      "slots": "Slots:"
+    }
+  },
+  "printers": {
+    "title": "Printer Management",
+    "printers": "Printers",
+    "addPrinter": "Add Printer",
+    "categoryRouting": "Category Routing",
+    "namePlaceholder": "Printer name (e.g., Kitchen Printer)",
+    "ipPlaceholder": "IP/Address (optional)",
+    "types": {
+      "receipt": "Receipt",
+      "kitchen": "Kitchen",
+      "bar": "Bar"
+    },
+    "default": "Default",
+    "active": "Active",
+    "inactive": "Inactive",
+    "noPrinters": "No printers configured",
+    "routingHint": "Assign each menu category to a printer for ticket routing."
+  },
+  "errors": {
+    "fetchInventory": "Failed to fetch inventory",
+    "recordCount": "Failed to record count",
+    "loadVariance": "Failed to load variance report",
+    "loadAlerts": "Failed to load alerts",
+    "acknowledgeAlert": "Failed to acknowledge alert",
+    "fetchCategories": "Failed to fetch categories",
+    "fetchMenuItems": "Failed to fetch menu items",
+    "addItem": "Failed to add item",
+    "editItem": "Failed to edit item",
+    "toggleItem": "Failed to toggle item",
+    "createCategory": "Failed to create category",
+    "updateCategory": "Failed to update category",
+    "toggleCategory": "Failed to toggle category",
+    "reorder": "Failed to reorder",
+    "fetchData": "Failed to fetch data",
+    "loadPo": "Failed to load PO",
+    "createPo": "Failed to create PO",
+    "submitPo": "Failed to submit PO",
+    "receivePo": "Failed to receive",
+    "cancelPo": "Failed to cancel PO",
+    "loadData": "Failed to load data"
+  }
+}

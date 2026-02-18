@@ -1,0 +1,89 @@
+{
+  "buttons": {
+    "save": "Guardar",
+    "cancel": "Cancelar",
+    "close": "Cerrar",
+    "delete": "Eliminar",
+    "edit": "Editar",
+    "add": "Agregar",
+    "back": "Atrás",
+    "confirm": "Confirmar",
+    "done": "Listo",
+    "search": "Buscar",
+    "ok": "OK",
+    "clear": "Borrar",
+    "logout": "Cerrar Sesión",
+    "admin": "Admin",
+    "kitchen": "Cocina",
+    "restock": "Reabastecer",
+    "refresh": "Actualizar",
+    "reset": "Reiniciar",
+    "apply": "Aplicar",
+    "create": "Crear",
+    "update": "Actualizar",
+    "remove": "Quitar",
+    "enable": "Activar",
+    "disable": "Desactivar",
+    "view": "Ver",
+    "print": "Imprimir"
+  },
+  "states": {
+    "loading": "Cargando...",
+    "error": "Error",
+    "success": "Éxito",
+    "noData": "Sin datos disponibles",
+    "noResults": "Sin resultados"
+  },
+  "roles": {
+    "cashier": "Cajero",
+    "kitchen": "Cocina",
+    "bar": "Bar",
+    "manager": "Gerente",
+    "admin": "Admin"
+  },
+  "orderStatus": {
+    "pending": "Pendiente",
+    "confirmed": "Confirmada",
+    "preparing": "Preparando",
+    "ready": "Lista",
+    "completed": "Completada",
+    "cancelled": "Cancelada"
+  },
+  "paymentStatus": {
+    "unpaid": "Sin Pagar",
+    "processing": "Procesando",
+    "paid": "Pagado",
+    "completed": "Completado",
+    "failed": "Fallido",
+    "refunded": "Reembolsado"
+  },
+  "paymentMethods": {
+    "card": "Tarjeta",
+    "cash": "Efectivo",
+    "crypto": "Cripto",
+    "split": "Dividido"
+  },
+  "login": {
+    "employeeLogin": "Inicio de Sesión",
+    "tapPin": "Ingresa tu PIN de 4 dígitos",
+    "loggingIn": "Iniciando sesión...",
+    "kitchenDisplay": "Pantalla de Cocina",
+    "posVersion": "Sistema POS v1.0"
+  },
+  "time": {
+    "secondsAgo": "hace {{count}}s",
+    "minuteAgo": "hace {{count}} min",
+    "minutesAgo": "hace {{count}} min",
+    "hoursAgo": "hace {{hours}}h {{minutes}}m"
+  },
+  "validation": {
+    "required": "Este campo es obligatorio",
+    "invalidPin": "PIN inválido"
+  },
+  "currency": {
+    "subtotalBeforeTax": "Subtotal (sin IVA)",
+    "taxIncluded": "IVA (16%) incluido",
+    "total": "Total",
+    "tip": "Propina"
+  }
+}

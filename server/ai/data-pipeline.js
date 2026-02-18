@@ -199,6 +199,61 @@ export function logRestockEvent(inventoryItemId, quantityBefore, quantityAdded) 
 }
 
 /**
+ * Detect shrinkage patterns by analyzing inventory counts for recurring high-variance items.
+ * Runs daily to flag items with consistently high variance across multiple counts.
+ */
+export function detectShrinkagePatterns() {
+  try {
+    // Find items with multiple high-variance counts in the last 30 days
+    const patterns = all(`
+      SELECT
+        ic.inventory_item_id,
+        ii.name,
+        ii.unit,
+        COUNT(*) as high_variance_count,
+        AVG(ic.variance) as avg_variance,
+        AVG(ic.variance_percent) as avg_variance_percent,
+        MIN(ic.created_at) as first_occurrence,
+        MAX(ic.created_at) as last_occurrence
+      FROM inventory_counts ic
+      JOIN inventory_items ii ON ic.inventory_item_id = ii.id
+      WHERE ABS(ic.variance_percent) > 5
+        AND ic.created_at >= datetime('now', '-30 days', 'localtime')
+      GROUP BY ic.inventory_item_id
+      HAVING high_variance_count >= 2
+      ORDER BY ABS(avg_variance_percent) DESC
+    `);
+
+    for (const pattern of patterns) {
+      // Check if we already have an unacknowledged alert for this item
+      const existingAlert = get(`
+        SELECT id FROM shrinkage_alerts
+        WHERE inventory_item_id = ? AND acknowledged = 0 AND alert_type = 'pattern'
+      `, [pattern.inventory_item_id]);
+
+      if (existingAlert) continue;
+
+      const severity = Math.abs(pattern.avg_variance_percent) > 15 ? 'high' : 'medium';
+      const direction = pattern.avg_variance < 0 ? 'shrinkage' : 'surplus';
+
+      run(`
+        INSERT INTO shrinkage_alerts (inventory_item_id, alert_type, severity, message, variance_amount)
+        VALUES (?, 'pattern', ?, ?, ?)
+      `, [
+        pattern.inventory_item_id,
+        severity,
+        `${pattern.name}: Recurring ${direction} pattern detected — ${pattern.high_variance_count} counts with avg ${Math.abs(pattern.avg_variance_percent).toFixed(1)}% variance in last 30 days`,
+        pattern.avg_variance,
+      ]);
+    }
+
+    console.log(`[AI Pipeline] Shrinkage pattern detection: ${patterns.length} items flagged`);
+  } catch (error) {
+    console.error('[AI Pipeline] Error detecting shrinkage patterns:', error.message);
+  }
+}
+
+/**
  * Get top item pairs for analysis
  */
 export function getTopItemPairs(limit = 20) {

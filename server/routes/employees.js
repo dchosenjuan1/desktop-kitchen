@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { all, get, run } from '../db.js';
+import { requireAuth } from '../middleware/auth.js';
 
 const router = Router();
 
@@ -28,7 +29,7 @@ router.post('/', (req, res) => {
       return res.status(400).json({ error: 'Missing required fields' });
     }
 
-    const validRoles = ['admin', 'cashier', 'manager'];
+    const validRoles = ['admin', 'cashier', 'manager', 'kitchen', 'bar'];
     if (!validRoles.includes(role)) {
       return res.status(400).json({ error: 'Invalid role' });
     }
@@ -73,16 +74,83 @@ router.post('/login', (req, res) => {
       return res.status(401).json({ error: 'Employee account is inactive' });
     }
 
+    // Fetch permissions for this role
+    const perms = all(
+      'SELECT permission FROM role_permissions WHERE role = ? AND granted = 1',
+      [employee.role]
+    );
+    const permissions = perms.map(p => p.permission);
+
     res.json({
       id: employee.id,
       name: employee.name,
       role: employee.role,
       active: employee.active === 1,
       created_at: employee.created_at,
+      permissions,
     });
   } catch (error) {
     console.error('Error during login:', error);
     res.status(500).json({ error: 'Login failed' });
+  }
+});
+
+// GET /api/employees/permissions - all roles with permissions
+router.get('/permissions', (req, res) => {
+  try {
+    const rows = all(`
+      SELECT role, permission, granted
+      FROM role_permissions
+      ORDER BY role, permission
+    `);
+
+    // Group by role
+    const result = {};
+    for (const row of rows) {
+      if (!result[row.role]) result[row.role] = {};
+      result[row.role][row.permission] = row.granted === 1;
+    }
+
+    res.json(result);
+  } catch (error) {
+    console.error('Error fetching permissions:', error);
+    res.status(500).json({ error: 'Failed to fetch permissions' });
+  }
+});
+
+// PUT /api/employees/permissions/:role - update permissions for a role (admin only)
+router.put('/permissions/:role', requireAuth('manage_permissions'), (req, res) => {
+  try {
+    const { role } = req.params;
+    const { permissions } = req.body;
+
+    if (!permissions || typeof permissions !== 'object') {
+      return res.status(400).json({ error: 'Missing permissions object' });
+    }
+
+    for (const [permission, granted] of Object.entries(permissions)) {
+      const existing = get(
+        'SELECT id FROM role_permissions WHERE role = ? AND permission = ?',
+        [role, permission]
+      );
+
+      if (existing) {
+        run(
+          'UPDATE role_permissions SET granted = ? WHERE role = ? AND permission = ?',
+          [granted ? 1 : 0, role, permission]
+        );
+      } else {
+        run(
+          'INSERT INTO role_permissions (role, permission, granted) VALUES (?, ?, ?)',
+          [role, permission, granted ? 1 : 0]
+        );
+      }
+    }
+
+    res.json({ message: 'Permissions updated successfully' });
+  } catch (error) {
+    console.error('Error updating permissions:', error);
+    res.status(500).json({ error: 'Failed to update permissions' });
   }
 });
 
@@ -109,7 +177,7 @@ router.put('/:id', (req, res) => {
       values.push(pin);
     }
     if (role !== undefined) {
-      const validRoles = ['admin', 'cashier', 'manager'];
+      const validRoles = ['admin', 'cashier', 'manager', 'kitchen', 'bar'];
       if (!validRoles.includes(role)) {
         return res.status(400).json({ error: 'Invalid role' });
       }

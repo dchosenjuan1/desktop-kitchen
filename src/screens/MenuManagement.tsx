@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import {
   ArrowLeft,
   Plus,
@@ -8,17 +9,26 @@ import {
   Check,
   AlertCircle,
   ToggleLeft,
-  ToggleRight
+  ToggleRight,
+  ChevronUp,
+  ChevronDown,
+  Layers,
 } from 'lucide-react';
 import {
   getCategories,
   getMenuItems,
+  createMenuItem,
+  updateMenuItem,
   toggleMenuItem,
+  createCategory,
+  updateCategory,
+  toggleCategory,
 } from '../api';
 import { MenuCategory, MenuItem } from '../types';
 import { formatPrice } from '../utils/currency';
 
 type ModalMode = 'add' | 'edit' | null;
+type View = 'items' | 'categories';
 
 interface FormData {
   name: string;
@@ -27,7 +37,14 @@ interface FormData {
   category_id: string;
 }
 
+interface CategoryFormData {
+  name: string;
+  sort_order: string;
+}
+
 export default function MenuManagement() {
+  const { t } = useTranslation('inventory');
+  const [view, setView] = useState<View>('items');
   const [categories, setCategories] = useState<MenuCategory[]>([]);
   const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<number | null>(null);
@@ -44,15 +61,20 @@ export default function MenuManagement() {
   const [formErrors, setFormErrors] = useState<Partial<FormData>>({});
   const [actionLoading, setActionLoading] = useState(false);
 
+  // Category management state
+  const [showCategoryForm, setShowCategoryForm] = useState(false);
+  const [editingCategoryId, setEditingCategoryId] = useState<number | null>(null);
+  const [categoryFormData, setCategoryFormData] = useState<CategoryFormData>({ name: '', sort_order: '' });
+
   useEffect(() => {
     fetchCategories();
   }, []);
 
   useEffect(() => {
-    if (selectedCategory) {
+    if (selectedCategory && view === 'items') {
       fetchMenuItems(selectedCategory);
     }
-  }, [selectedCategory]);
+  }, [selectedCategory, view]);
 
   const fetchCategories = async () => {
     try {
@@ -60,11 +82,11 @@ export default function MenuManagement() {
       setError(null);
       const data = await getCategories();
       setCategories(data);
-      if (data.length > 0) {
+      if (data.length > 0 && !selectedCategory) {
         setSelectedCategory(data[0].id);
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to fetch categories');
+      setError(err instanceof Error ? err.message : t('errors.fetchCategories'));
     } finally {
       setLoading(false);
     }
@@ -76,7 +98,7 @@ export default function MenuManagement() {
       const data = await getMenuItems(String(categoryId));
       setMenuItems(data);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to fetch menu items');
+      setError(err instanceof Error ? err.message : t('errors.fetchMenuItems'));
     }
   };
 
@@ -84,17 +106,17 @@ export default function MenuManagement() {
     const errors: Partial<FormData> = {};
 
     if (!formData.name.trim()) {
-      errors.name = 'Item name is required';
+      errors.name = t('menu.form.itemNameRequired');
     }
 
     if (!formData.price) {
-      errors.price = 'Price is required';
-    } else if (isNaN(parseFloat(formData.price)) || parseFloat(formData.price) < 0) {
-      errors.price = 'Price must be a valid number';
+      errors.price = t('menu.form.priceRequired');
+    } else if (isNaN(parseFloat(formData.price)) || parseFloat(formData.price) <= 0) {
+      errors.price = t('menu.form.pricePositive');
     }
 
     if (!formData.category_id) {
-      errors.category_id = 'Category is required';
+      errors.category_id = t('menu.form.categoryRequired');
     }
 
     setFormErrors(errors);
@@ -103,16 +125,25 @@ export default function MenuManagement() {
 
   const handleAddItem = async () => {
     if (!validateForm()) return;
-    if (!selectedCategory) return;
     setActionLoading(true);
     try {
       setError(null);
-      await fetchMenuItems(selectedCategory);
-      setModalMode(null);
-      setFormData({ name: '', price: '', description: '', category_id: '' });
-      setFormErrors({});
+      await createMenuItem({
+        category_id: parseInt(formData.category_id),
+        name: formData.name.trim(),
+        price: parseFloat(formData.price),
+        description: formData.description.trim() || undefined,
+      });
+      // Refresh items for the category the item was added to
+      const targetCategory = parseInt(formData.category_id);
+      if (targetCategory === selectedCategory) {
+        await fetchMenuItems(targetCategory);
+      } else {
+        setSelectedCategory(targetCategory);
+      }
+      closeModal();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to add item');
+      setError(err instanceof Error ? err.message : t('errors.addItem'));
     } finally {
       setActionLoading(false);
     }
@@ -121,18 +152,27 @@ export default function MenuManagement() {
   const handleEditItem = async () => {
     if (!editingId) return;
     if (!validateForm()) return;
-    if (!selectedCategory) return;
 
     setActionLoading(true);
     try {
       setError(null);
-      await fetchMenuItems(selectedCategory);
-      setModalMode(null);
-      setEditingId(null);
-      setFormData({ name: '', price: '', description: '', category_id: '' });
-      setFormErrors({});
+      await updateMenuItem(editingId, {
+        category_id: parseInt(formData.category_id),
+        name: formData.name.trim(),
+        price: parseFloat(formData.price),
+        description: formData.description.trim() || undefined,
+      });
+      const targetCategory = parseInt(formData.category_id);
+      if (selectedCategory) {
+        await fetchMenuItems(selectedCategory);
+      }
+      // If category changed, also refresh the target category
+      if (targetCategory !== selectedCategory) {
+        setSelectedCategory(targetCategory);
+      }
+      closeModal();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to edit item');
+      setError(err instanceof Error ? err.message : t('errors.editItem'));
     } finally {
       setActionLoading(false);
     }
@@ -145,7 +185,7 @@ export default function MenuManagement() {
       await toggleMenuItem(id);
       await fetchMenuItems(selectedCategory);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to toggle item');
+      setError(err instanceof Error ? err.message : t('errors.toggleItem'));
     }
   };
 
@@ -176,18 +216,71 @@ export default function MenuManagement() {
   const closeModal = () => {
     setModalMode(null);
     setEditingId(null);
-    setFormData({
-      name: '',
-      price: '',
-      description: '',
-      category_id: '',
-    });
+    setFormData({ name: '', price: '', description: '', category_id: '' });
     setFormErrors({});
   };
 
   const getCategoryName = (id: number | null) => {
     if (!id) return 'Unknown';
     return categories.find((c) => c.id === id)?.name || 'Unknown';
+  };
+
+  // Category management handlers
+  const handleCreateCategory = async () => {
+    if (!categoryFormData.name.trim()) return;
+    try {
+      setError(null);
+      await createCategory({
+        name: categoryFormData.name.trim(),
+        sort_order: categoryFormData.sort_order ? parseInt(categoryFormData.sort_order) : undefined,
+      });
+      setCategoryFormData({ name: '', sort_order: '' });
+      setShowCategoryForm(false);
+      await fetchCategories();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t('errors.createCategory'));
+    }
+  };
+
+  const handleUpdateCategory = async () => {
+    if (!editingCategoryId || !categoryFormData.name.trim()) return;
+    try {
+      setError(null);
+      await updateCategory(editingCategoryId, {
+        name: categoryFormData.name.trim(),
+        sort_order: categoryFormData.sort_order ? parseInt(categoryFormData.sort_order) : undefined,
+      });
+      setEditingCategoryId(null);
+      setCategoryFormData({ name: '', sort_order: '' });
+      await fetchCategories();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t('errors.updateCategory'));
+    }
+  };
+
+  const handleToggleCategory = async (id: number) => {
+    try {
+      setError(null);
+      await toggleCategory(id);
+      await fetchCategories();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t('errors.toggleCategory'));
+    }
+  };
+
+  const startEditCategory = (cat: MenuCategory) => {
+    setEditingCategoryId(cat.id);
+    setCategoryFormData({ name: cat.name, sort_order: String(cat.sort_order) });
+  };
+
+  const handleMoveCategoryOrder = async (cat: MenuCategory, direction: 'up' | 'down') => {
+    const newOrder = direction === 'up' ? cat.sort_order - 1 : cat.sort_order + 1;
+    try {
+      await updateCategory(cat.id, { sort_order: newOrder });
+      await fetchCategories();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t('errors.reorder'));
+    }
   };
 
   return (
@@ -202,16 +295,39 @@ export default function MenuManagement() {
               <ArrowLeft size={24} />
             </Link>
             <img src="/logo.png" alt="Juanberto's" className="h-8" />
-            <h1 className="text-3xl font-black tracking-tighter">Menu</h1>
+            <h1 className="text-3xl font-black tracking-tighter">{t('menu.title')}</h1>
           </div>
-          <button
-            onClick={openAddModal}
-            disabled={!selectedCategory}
-            className="px-6 py-3 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700 transition-colors flex items-center gap-2 min-h-[44px] disabled:opacity-50"
-          >
-            <Plus size={20} />
-            Add Item
-          </button>
+          <div className="flex items-center gap-3">
+            <div className="flex bg-neutral-800 rounded-lg p-1">
+              <button
+                onClick={() => setView('items')}
+                className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                  view === 'items' ? 'bg-red-600 text-white' : 'text-neutral-400 hover:text-white'
+                }`}
+              >
+                {t('menu.items')}
+              </button>
+              <button
+                onClick={() => setView('categories')}
+                className={`px-4 py-2 rounded-md text-sm font-medium transition-colors flex items-center gap-1.5 ${
+                  view === 'categories' ? 'bg-red-600 text-white' : 'text-neutral-400 hover:text-white'
+                }`}
+              >
+                <Layers size={16} />
+                {t('menu.categories')}
+              </button>
+            </div>
+            {view === 'items' && (
+              <button
+                onClick={openAddModal}
+                disabled={!selectedCategory}
+                className="px-6 py-3 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700 transition-colors flex items-center gap-2 min-h-[44px] disabled:opacity-50"
+              >
+                <Plus size={20} />
+                {t('menu.addItem')}
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
@@ -237,17 +353,133 @@ export default function MenuManagement() {
               ></div>
             ))}
           </div>
+        ) : view === 'categories' ? (
+          /* ==================== Category Management View ==================== */
+          <div className="space-y-6">
+            <div className="bg-neutral-900 p-6 rounded-lg border border-neutral-800">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold text-white">{t('menu.manageCategories')}</h3>
+                <button
+                  onClick={() => { setShowCategoryForm(true); setEditingCategoryId(null); setCategoryFormData({ name: '', sort_order: '' }); }}
+                  className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700 transition-colors"
+                >
+                  <Plus size={18} /> {t('menu.addCategory')}
+                </button>
+              </div>
+
+              {showCategoryForm && !editingCategoryId && (
+                <div className="bg-neutral-800 p-4 rounded-lg mb-4 space-y-3">
+                  <div className="flex gap-3">
+                    <input
+                      value={categoryFormData.name}
+                      onChange={(e) => setCategoryFormData({ ...categoryFormData, name: e.target.value })}
+                      placeholder={t('menu.categoryForm.namePlaceholder')}
+                      className="flex-1 bg-neutral-700 border border-neutral-600 rounded-lg p-3 text-white focus:outline-none focus:border-red-600"
+                    />
+                    <input
+                      type="number"
+                      value={categoryFormData.sort_order}
+                      onChange={(e) => setCategoryFormData({ ...categoryFormData, sort_order: e.target.value })}
+                      placeholder={t('menu.categoryForm.order')}
+                      className="w-24 bg-neutral-700 border border-neutral-600 rounded-lg p-3 text-white focus:outline-none focus:border-red-600"
+                    />
+                  </div>
+                  <div className="flex gap-2">
+                    <button onClick={handleCreateCategory} className="px-4 py-2 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700">
+                      <Check size={18} className="inline mr-1" /> {t('common:buttons.create')}
+                    </button>
+                    <button onClick={() => setShowCategoryForm(false)} className="px-4 py-2 bg-neutral-700 text-white rounded-lg font-medium hover:bg-neutral-600">
+                      {t('common:buttons.cancel')}
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              <div className="space-y-2">
+                {categories.map((cat, index) => (
+                  <div key={cat.id} className={`p-4 rounded-lg border transition-all ${
+                    cat.active ? 'border-neutral-700 bg-neutral-800' : 'border-neutral-800 bg-neutral-900 opacity-60'
+                  }`}>
+                    {editingCategoryId === cat.id ? (
+                      <div className="flex gap-3 items-center">
+                        <input
+                          value={categoryFormData.name}
+                          onChange={(e) => setCategoryFormData({ ...categoryFormData, name: e.target.value })}
+                          className="flex-1 bg-neutral-700 border border-neutral-600 rounded-lg p-2 text-white focus:outline-none focus:border-red-600"
+                        />
+                        <input
+                          type="number"
+                          value={categoryFormData.sort_order}
+                          onChange={(e) => setCategoryFormData({ ...categoryFormData, sort_order: e.target.value })}
+                          placeholder={t('menu.categoryForm.order')}
+                          className="w-20 bg-neutral-700 border border-neutral-600 rounded-lg p-2 text-white focus:outline-none focus:border-red-600"
+                        />
+                        <button onClick={handleUpdateCategory} className="p-2 bg-green-600 text-white rounded-lg hover:bg-green-700">
+                          <Check size={18} />
+                        </button>
+                        <button onClick={() => setEditingCategoryId(null)} className="p-2 bg-neutral-700 text-white rounded-lg hover:bg-neutral-600">
+                          <X size={18} />
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <span className="text-neutral-500 text-sm font-mono w-8">{cat.sort_order}</span>
+                          <span className="text-white font-bold text-lg">{cat.name}</span>
+                          {!cat.active && <span className="text-xs text-neutral-500 bg-neutral-700 px-2 py-0.5 rounded">{t('menu.inactive')}</span>}
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <button onClick={() => handleMoveCategoryOrder(cat, 'up')} disabled={index === 0} className="p-1.5 text-neutral-500 hover:text-white disabled:opacity-30">
+                            <ChevronUp size={18} />
+                          </button>
+                          <button onClick={() => handleMoveCategoryOrder(cat, 'down')} disabled={index === categories.length - 1} className="p-1.5 text-neutral-500 hover:text-white disabled:opacity-30">
+                            <ChevronDown size={18} />
+                          </button>
+                          <button onClick={() => startEditCategory(cat)} className="p-2 text-neutral-400 hover:text-white hover:bg-neutral-700 rounded-lg">
+                            <Edit2 size={18} />
+                          </button>
+                          <button
+                            onClick={() => handleToggleCategory(cat.id)}
+                            className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                              cat.active
+                                ? 'bg-green-900/30 text-green-400 hover:bg-green-900/50'
+                                : 'bg-neutral-700 text-neutral-400 hover:bg-neutral-600'
+                            }`}
+                          >
+                            {cat.active ? t('menu.active') : t('menu.inactive')}
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ))}
+                {categories.length === 0 && (
+                  <div className="text-center py-8">
+                    <p className="text-neutral-400">{t('menu.noCategoriesYet')}</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
         ) : categories.length === 0 ? (
           <div className="bg-neutral-900 rounded-lg border border-neutral-800 p-12 text-center">
             <AlertCircle className="mx-auto text-neutral-600 mb-3" size={40} />
-            <p className="text-neutral-400">No categories available</p>
+            <p className="text-neutral-400 mb-4">{t('menu.noCategories')}</p>
+            <button
+              onClick={() => setView('categories')}
+              className="px-6 py-3 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700 transition-colors inline-flex items-center gap-2"
+            >
+              <Layers size={20} />
+              {t('menu.manageCategories')}
+            </button>
           </div>
         ) : (
+          /* ==================== Items View ==================== */
           <div className="space-y-6">
             <div className="bg-neutral-900 p-6 rounded-lg border border-neutral-800">
-              <h3 className="text-lg font-semibold text-white mb-4">Categories</h3>
+              <h3 className="text-lg font-semibold text-white mb-4">{t('menu.categories')}</h3>
               <div className="flex gap-3 flex-wrap">
-                {categories.map((category) => (
+                {categories.filter(c => c.active).map((category) => (
                   <button
                     key={category.id}
                     onClick={() => setSelectedCategory(category.id)}
@@ -267,14 +499,14 @@ export default function MenuManagement() {
               <div className="bg-neutral-900 rounded-lg border border-neutral-800 p-12 text-center">
                 <AlertCircle className="mx-auto text-neutral-600 mb-3" size={40} />
                 <p className="text-neutral-400 mb-6">
-                  No items in {getCategoryName(selectedCategory)}
+                  {t('menu.noItemsIn')} {getCategoryName(selectedCategory)}
                 </p>
                 <button
                   onClick={openAddModal}
                   className="px-6 py-3 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700 transition-colors inline-flex items-center gap-2 min-h-[44px]"
                 >
                   <Plus size={20} />
-                  Add First Item
+                  {t('menu.addFirstItem')}
                 </button>
               </div>
             ) : (
@@ -329,7 +561,7 @@ export default function MenuManagement() {
                           className="flex-1 px-4 py-2 text-neutral-300 bg-neutral-700 rounded-lg hover:bg-neutral-600 transition-colors font-medium flex items-center justify-center gap-2 min-h-[44px]"
                         >
                           <Edit2 size={18} />
-                          Edit
+                          {t('common:buttons.edit')}
                         </button>
                         <button
                           onClick={() => handleToggleItem(item.id)}
@@ -339,7 +571,7 @@ export default function MenuManagement() {
                               : 'bg-green-600/20 text-green-400 hover:bg-green-600/30 border border-green-800'
                           }`}
                         >
-                          {item.active ? 'Deactivate' : 'Activate'}
+                          {item.active ? t('menu.deactivate') : t('menu.activate')}
                         </button>
                       </div>
                     </div>
@@ -351,12 +583,13 @@ export default function MenuManagement() {
         )}
       </div>
 
+      {/* Add/Edit Item Modal */}
       {modalMode && (
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center p-4 z-50">
           <div className="bg-neutral-900 rounded-lg border border-neutral-800 shadow-xl max-w-md w-full p-6">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-2xl font-bold text-white">
-                {modalMode === 'add' ? 'Add Menu Item' : 'Edit Menu Item'}
+                {modalMode === 'add' ? t('menu.addMenuItem') : t('menu.editMenuItem')}
               </h2>
               <button
                 onClick={closeModal}
@@ -369,7 +602,7 @@ export default function MenuManagement() {
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-neutral-300 mb-2">
-                  Item Name
+                  {t('menu.form.itemName')}
                 </label>
                 <input
                   type="text"
@@ -377,7 +610,7 @@ export default function MenuManagement() {
                   onChange={(e) =>
                     setFormData({ ...formData, name: e.target.value })
                   }
-                  placeholder="e.g., Carne Asada Burrito"
+                  placeholder={t('menu.form.itemNamePlaceholder')}
                   className="w-full px-4 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white placeholder-neutral-500 focus:outline-none focus:border-red-600"
                 />
                 {formErrors.name && (
@@ -388,7 +621,7 @@ export default function MenuManagement() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-neutral-300 mb-2">
-                    Price
+                    {t('menu.form.price')}
                   </label>
                   <div className="flex items-center">
                     <span className="text-neutral-400 font-medium">$</span>
@@ -411,7 +644,7 @@ export default function MenuManagement() {
 
                 <div>
                   <label className="block text-sm font-medium text-neutral-300 mb-2">
-                    Category
+                    {t('menu.form.category')}
                   </label>
                   <select
                     value={formData.category_id}
@@ -423,8 +656,8 @@ export default function MenuManagement() {
                     }
                     className="w-full px-4 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white focus:outline-none focus:border-red-600"
                   >
-                    <option value="">Select category</option>
-                    {categories.map((category) => (
+                    <option value="">{t('menu.form.selectCategory')}</option>
+                    {categories.filter(c => c.active).map((category) => (
                       <option key={category.id} value={category.id}>
                         {category.name}
                       </option>
@@ -440,7 +673,7 @@ export default function MenuManagement() {
 
               <div>
                 <label className="block text-sm font-medium text-neutral-300 mb-2">
-                  Description (Optional)
+                  {t('menu.form.description')}
                 </label>
                 <textarea
                   value={formData.description}
@@ -450,7 +683,7 @@ export default function MenuManagement() {
                       description: e.target.value,
                     })
                   }
-                  placeholder="Item description"
+                  placeholder={t('menu.form.descriptionPlaceholder')}
                   rows={3}
                   className="w-full px-4 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white placeholder-neutral-500 focus:outline-none focus:border-red-600"
                 />
@@ -462,7 +695,7 @@ export default function MenuManagement() {
                 onClick={closeModal}
                 className="flex-1 px-4 py-2 border border-neutral-700 text-neutral-300 rounded-lg hover:bg-neutral-800 transition-colors font-medium min-h-[44px]"
               >
-                Cancel
+                {t('common:buttons.cancel')}
               </button>
               <button
                 onClick={modalMode === 'add' ? handleAddItem : handleEditItem}
@@ -470,7 +703,7 @@ export default function MenuManagement() {
                 className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium disabled:opacity-50 flex items-center justify-center gap-2 min-h-[44px]"
               >
                 <Check size={20} />
-                {modalMode === 'add' ? 'Add Item' : 'Save Changes'}
+                {actionLoading ? t('menu.form.saving') : modalMode === 'add' ? t('menu.addItem') : t('menu.form.saveChanges')}
               </button>
             </div>
           </div>

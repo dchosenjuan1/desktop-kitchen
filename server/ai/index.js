@@ -5,6 +5,7 @@ import {
   captureHourlySnapshot,
   updateItemPairs,
   updateInventoryVelocity,
+  detectShrinkagePatterns,
 } from './data-pipeline.js';
 import { registerJob, startScheduler, stopScheduler, getSchedulerStatus } from './scheduler.js';
 
@@ -30,6 +31,7 @@ export function initAI() {
   registerJob('updateItemPairs', updateItemPairs, 60 * 60 * 1000);                   // Every hour
   registerJob('updateInventoryVelocity', updateInventoryVelocity, 24 * 60 * 60 * 1000); // Daily
   registerJob('cleanExpiredCache', cleanExpiredCache, 60 * 60 * 1000);                // Every hour
+  registerJob('detectShrinkagePatterns', detectShrinkagePatterns, 24 * 60 * 60 * 1000); // Daily
 
   // Start the scheduler
   startScheduler();

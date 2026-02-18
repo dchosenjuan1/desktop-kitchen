@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import {
   ArrowLeft,
   Plus,
@@ -19,7 +20,7 @@ import {
 import { Employee } from '../types';
 
 type ModalMode = 'add' | 'edit' | null;
-type RoleType = 'cashier' | 'kitchen' | 'manager' | 'admin';
+type RoleType = 'cashier' | 'kitchen' | 'bar' | 'manager' | 'admin';
 
 interface FormData {
   name: string;
@@ -28,6 +29,7 @@ interface FormData {
 }
 
 export default function EmployeeScreen() {
+  const { t } = useTranslation('admin');
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -42,7 +44,7 @@ export default function EmployeeScreen() {
   const [actionLoading, setActionLoading] = useState(false);
   const [showPin, setShowPin] = useState<number | null>(null);
 
-  const roles: RoleType[] = ['cashier', 'kitchen', 'manager', 'admin'];
+  const roles: RoleType[] = ['cashier', 'kitchen', 'bar', 'manager', 'admin'];
 
   useEffect(() => {
     fetchEmployees();
@@ -55,7 +57,7 @@ export default function EmployeeScreen() {
       const data = await getEmployees();
       setEmployees(data);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to fetch employees');
+      setError(err instanceof Error ? err.message : t('employees.failedFetch'));
     } finally {
       setLoading(false);
     }
@@ -65,13 +67,13 @@ export default function EmployeeScreen() {
     const errors: Partial<FormData> = {};
 
     if (!formData.name.trim()) {
-      errors.name = 'Name is required';
+      errors.name = t('employees.nameRequired');
     }
 
     if (!formData.pin) {
-      errors.pin = 'PIN is required';
+      errors.pin = t('employees.pinRequired');
     } else if (!/^\d{4}$/.test(formData.pin)) {
-      errors.pin = 'PIN must be exactly 4 digits';
+      errors.pin = t('employees.pinFormat');
     }
 
     setFormErrors(errors);
@@ -90,7 +92,7 @@ export default function EmployeeScreen() {
       setFormData({ name: '', pin: '', role: 'cashier' });
       setFormErrors({});
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to add employee');
+      setError(err instanceof Error ? err.message : t('employees.failedAdd'));
     } finally {
       setActionLoading(false);
     }
@@ -110,7 +112,7 @@ export default function EmployeeScreen() {
       setFormData({ name: '', pin: '', role: 'cashier' });
       setFormErrors({});
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to update employee');
+      setError(err instanceof Error ? err.message : t('employees.failedUpdate'));
     } finally {
       setActionLoading(false);
     }
@@ -122,7 +124,7 @@ export default function EmployeeScreen() {
       await toggleEmployee(id);
       await fetchEmployees();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to toggle employee');
+      setError(err instanceof Error ? err.message : t('employees.failedToggle'));
     }
   };
 
@@ -178,14 +180,14 @@ export default function EmployeeScreen() {
               <ArrowLeft size={24} />
             </Link>
             <img src="/logo.png" alt="Juanberto's" className="h-8" />
-            <h1 className="text-3xl font-black tracking-tighter">Employees</h1>
+            <h1 className="text-3xl font-black tracking-tighter">{t('employees.title')}</h1>
           </div>
           <button
             onClick={openAddModal}
             className="px-6 py-3 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700 transition-colors flex items-center gap-2 min-h-[44px]"
           >
             <Plus size={20} />
-            Add Employee
+            {t('employees.addEmployee')}
           </button>
         </div>
       </div>
@@ -215,13 +217,13 @@ export default function EmployeeScreen() {
         ) : employees.length === 0 ? (
           <div className="bg-neutral-900 rounded-lg border border-neutral-800 p-12 text-center">
             <AlertCircle className="mx-auto text-neutral-600 mb-3" size={40} />
-            <p className="text-neutral-400 mb-6">No employees yet</p>
+            <p className="text-neutral-400 mb-6">{t('employees.noEmployees')}</p>
             <button
               onClick={openAddModal}
               className="px-6 py-3 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700 transition-colors inline-flex items-center gap-2 min-h-[44px]"
             >
               <Plus size={20} />
-              Add First Employee
+              {t('employees.addFirstEmployee')}
             </button>
           </div>
         ) : (
@@ -246,11 +248,11 @@ export default function EmployeeScreen() {
                           employee.role
                         )}`}
                       >
-                        {employee.role}
+                        {t(`common:roles.${employee.role}`)}
                       </span>
                       {!employee.active && (
                         <span className="px-3 py-1 bg-neutral-700 text-neutral-400 rounded-full text-xs font-medium">
-                          Inactive
+                          {t('employees.inactive')}
                         </span>
                       )}
                     </div>
@@ -290,7 +292,7 @@ export default function EmployeeScreen() {
                           : 'bg-green-600/20 text-green-400 hover:bg-green-600/30 border border-green-800'
                       }`}
                     >
-                      {employee.active ? 'Deactivate' : 'Activate'}
+                      {employee.active ? t('employees.deactivate') : t('employees.activate')}
                     </button>
                   </div>
                 </div>
@@ -305,7 +307,7 @@ export default function EmployeeScreen() {
           <div className="bg-neutral-900 rounded-lg border border-neutral-800 shadow-xl max-w-md w-full p-6">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-2xl font-bold text-white">
-                {modalMode === 'add' ? 'Add Employee' : 'Edit Employee'}
+                {modalMode === 'add' ? t('employees.addEmployee') : t('employees.editEmployee')}
               </h2>
               <button
                 onClick={closeModal}
@@ -318,7 +320,7 @@ export default function EmployeeScreen() {
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-neutral-300 mb-2">
-                  Name
+                  {t('employees.name')}
                 </label>
                 <input
                   type="text"
@@ -326,7 +328,7 @@ export default function EmployeeScreen() {
                   onChange={(e) =>
                     setFormData({ ...formData, name: e.target.value })
                   }
-                  placeholder="Employee name"
+                  placeholder={t('employees.namePlaceholder')}
                   className="w-full px-4 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white placeholder-neutral-500 focus:outline-none focus:border-red-600"
                 />
                 {formErrors.name && (
@@ -336,7 +338,7 @@ export default function EmployeeScreen() {
 
               <div>
                 <label className="block text-sm font-medium text-neutral-300 mb-2">
-                  PIN (4 digits)
+                  {t('employees.pin')}
                 </label>
                 <input
                   type="text"
@@ -345,7 +347,7 @@ export default function EmployeeScreen() {
                     const value = e.target.value.replace(/\D/g, '').slice(0, 4);
                     setFormData({ ...formData, pin: value });
                   }}
-                  placeholder="0000"
+                  placeholder={t('employees.pinPlaceholder')}
                   maxLength={4}
                   className="w-full px-4 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white placeholder-neutral-500 focus:outline-none focus:border-red-600 tracking-widest text-center text-lg"
                 />
@@ -356,7 +358,7 @@ export default function EmployeeScreen() {
 
               <div>
                 <label className="block text-sm font-medium text-neutral-300 mb-2">
-                  Role
+                  {t('employees.role')}
                 </label>
                 <select
                   value={formData.role}
@@ -370,7 +372,7 @@ export default function EmployeeScreen() {
                 >
                   {roles.map((role) => (
                     <option key={role} value={role}>
-                      {role.charAt(0).toUpperCase() + role.slice(1)}
+                      {t(`common:roles.${role}`)}
                     </option>
                   ))}
                 </select>
@@ -382,7 +384,7 @@ export default function EmployeeScreen() {
                 onClick={closeModal}
                 className="flex-1 px-4 py-2 border border-neutral-700 text-neutral-300 rounded-lg hover:bg-neutral-800 transition-colors font-medium min-h-[44px]"
               >
-                Cancel
+                {t('common:buttons.cancel')}
               </button>
               <button
                 onClick={
@@ -394,7 +396,7 @@ export default function EmployeeScreen() {
                 className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium disabled:opacity-50 flex items-center justify-center gap-2 min-h-[44px]"
               >
                 <Check size={20} />
-                {modalMode === 'add' ? 'Add' : 'Save'}
+                {modalMode === 'add' ? t('employees.add') : t('employees.save')}
               </button>
             </div>
           </div>

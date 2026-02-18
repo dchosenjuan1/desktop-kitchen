@@ -9,6 +9,8 @@ import { generatePricingSuggestions } from '../ai/suggestions/dynamic-pricing.js
 import { generateInventoryForecast } from '../ai/suggestions/inventory-forecast.js';
 import { getGrokStats, analyzeUpsellPatterns, analyzeInventoryTrends, enhanceForecast } from '../ai/claude-client.js';
 import { getConfigBool } from '../ai/config.js';
+import { requireAuth } from '../middleware/auth.js';
+import { generatePrepForecast } from '../ai/suggestions/prep-forecast.js';
 
 const router = Router();
 
@@ -95,7 +97,7 @@ router.get('/config', (req, res) => {
 });
 
 // PUT /api/ai/config
-router.put('/config', (req, res) => {
+router.put('/config', requireAuth('manage_ai'), (req, res) => {
   try {
     const { entries } = req.body;
 
@@ -245,7 +247,7 @@ router.get('/pricing-suggestions', (req, res) => {
 });
 
 // POST /api/ai/pricing-suggestions/:id/apply
-router.post('/pricing-suggestions/:id/apply', (req, res) => {
+router.post('/pricing-suggestions/:id/apply', requireAuth('manage_ai'), (req, res) => {
   try {
     const { menu_item_id, new_price } = req.body;
 
@@ -314,7 +316,7 @@ router.get('/inventory-forecast', async (req, res) => {
 // ==================== Claude Analysis Endpoint ====================
 
 // POST /api/ai/analyze - trigger on-demand Grok analysis
-router.post('/analyze', async (req, res) => {
+router.post('/analyze', requireAuth('manage_ai'), async (req, res) => {
   try {
     if (!getConfigBool('grok_api_enabled')) {
       return res.status(400).json({ error: 'Grok API is not enabled. Turn it on in AI Config.' });
@@ -378,6 +380,20 @@ router.post('/analyze', async (req, res) => {
   }
 });
 
+// ==================== Prep Forecast ====================
+
+// GET /api/ai/prep-forecast?date=YYYY-MM-DD
+router.get('/prep-forecast', (req, res) => {
+  try {
+    const date = req.query.date || new Date(Date.now() + 86400000).toISOString().split('T')[0];
+    const forecast = generatePrepForecast(date);
+    res.json(forecast);
+  } catch (error) {
+    console.error('Error getting prep forecast:', error);
+    res.status(500).json({ error: 'Failed to get prep forecast' });
+  }
+});
+
 // ==================== Category Roles ====================
 
 // GET /api/ai/category-roles
@@ -397,7 +413,7 @@ router.get('/category-roles', (req, res) => {
 });
 
 // PUT /api/ai/category-roles/:categoryId
-router.put('/category-roles/:categoryId', (req, res) => {
+router.put('/category-roles/:categoryId', requireAuth('manage_ai'), (req, res) => {
   try {
     const { categoryId } = req.params;
     const { role } = req.body;
@@ -446,7 +462,7 @@ router.get('/config/export', (req, res) => {
 });
 
 // POST /api/ai/config/import
-router.post('/config/import', (req, res) => {
+router.post('/config/import', requireAuth('manage_ai'), (req, res) => {
   try {
     const { config, category_roles } = req.body;
 
