@@ -8,8 +8,6 @@ import {
   X,
   Check,
   AlertCircle,
-  ToggleLeft,
-  ToggleRight,
   ChevronUp,
   ChevronDown,
   Layers,
@@ -524,29 +522,13 @@ export default function MenuManagement() {
                           : 'border-neutral-800 bg-neutral-900 opacity-60'
                       }`}
                     >
-                      <div className="flex items-start justify-between mb-3">
-                        <div className="flex-1">
-                          <h4 className="font-bold text-white text-lg mb-1">
-                            {item.name}
-                          </h4>
-                          <p className="text-2xl font-bold text-red-500">
-                            {formatPrice(item.price)}
-                          </p>
-                        </div>
-                        <button
-                          onClick={() => handleToggleItem(item.id)}
-                          className={`p-2 rounded-lg transition-colors ${
-                            item.active
-                              ? 'text-green-400 hover:bg-green-900/30'
-                              : 'text-neutral-500 hover:bg-neutral-700'
-                          }`}
-                        >
-                          {item.active ? (
-                            <ToggleRight size={24} />
-                          ) : (
-                            <ToggleLeft size={24} />
-                          )}
-                        </button>
+                      <div className="mb-3">
+                        <h4 className="font-bold text-white text-lg mb-1">
+                          {item.name}
+                        </h4>
+                        <p className="text-2xl font-bold text-red-500">
+                          {formatPrice(item.price)}
+                        </p>
                       </div>
 
                       {item.description && (
