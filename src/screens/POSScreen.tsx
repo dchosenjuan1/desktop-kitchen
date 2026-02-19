@@ -1150,7 +1150,7 @@ const POSScreen: React.FC = () => {
                     }
                   }}
                   disabled={isSoldOut}
-                  className={`rounded-lg hover:shadow-lg active:scale-95 transition-all touch-manipulation flex flex-col h-44 overflow-hidden relative ${
+                  className={`rounded-lg hover:shadow-lg active:scale-95 transition-all touch-manipulation flex flex-col h-52 overflow-hidden relative ${
                     isSoldOut
                       ? 'bg-neutral-900/40 border border-neutral-700 grayscale cursor-not-allowed'
                       : isLowStock
@@ -1163,7 +1163,7 @@ const POSScreen: React.FC = () => {
                   }`}
                 >
                   {/* Image or placeholder */}
-                  <div className="h-20 w-full bg-neutral-800 flex items-center justify-center overflow-hidden">
+                  <div className="h-28 w-full bg-neutral-800 flex items-center justify-center overflow-hidden flex-shrink-0">
                     {item.image_url ? (
                       <img src={item.image_url} alt={item.name} className="w-full h-full object-cover" />
                     ) : (
