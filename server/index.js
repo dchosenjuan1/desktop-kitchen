@@ -23,6 +23,7 @@ import purchaseOrdersRoutes from './routes/purchase-orders.js';
 import loyaltyRoutes from './routes/loyalty.js';
 import orderTemplatesRoutes from './routes/order-templates.js';
 import adminRoutes from './routes/admin.js';
+import authRoutes from './routes/auth.js';
 import { initAI } from './ai/index.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -44,6 +45,9 @@ app.get('/api/health', (req, res) => {
 
 // Admin routes (uses master DB, not tenant-scoped)
 app.use('/admin', adminRoutes);
+
+// Auth routes (uses master DB for registration/login, not tenant-scoped)
+app.use('/api/auth', authRoutes);
 
 // Tenant resolution middleware — all /api routes below use the resolved tenant DB
 app.use('/api', tenantMiddleware);

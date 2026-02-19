@@ -113,6 +113,12 @@ const LoyaltyScreen = React.lazy(() =>
   }))
 );
 
+const OnboardingScreen = React.lazy(() =>
+  import('./screens/OnboardingScreen').then((module) => ({
+    default: module.default || (() => <div>Onboarding</div>),
+  }))
+);
+
 /* ==================== Protected Route ==================== */
 
 interface ProtectedRouteProps {
@@ -157,6 +163,9 @@ const AppContent: React.FC = () => {
       <Routes>
         {/* Login Route - accessible to everyone */}
         <Route path="/" element={<LoginScreen />} />
+
+        {/* Onboarding - new restaurant setup */}
+        <Route path="/onboarding" element={<OnboardingScreen />} />
 
         {/* POS Screen - requires authentication */}
         <Route
