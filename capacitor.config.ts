@@ -5,14 +5,14 @@ const config: CapacitorConfig = {
   appName: 'Juanbertos POS',
   webDir: 'dist',
   server: {
-    // Load web assets from the production server so /api calls resolve correctly
     url: 'https://pos.juanbertos.com',
     cleartext: false,
   },
   ios: {
-    contentInset: 'automatic',
+    contentInset: 'always',
     allowsLinkPreview: false,
-    scrollEnabled: true,
+    scrollEnabled: false,
+    preferredContentMode: 'mobile',
   },
 };
 
