@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useTranslation } from 'react-i18next';
@@ -12,8 +12,14 @@ import {
   getModifierGroupsForItem,
   splitPayment,
   addStampsForOrder,
+  getItemsWithModifiers,
+  getPopularItems,
+  getCategorySuggestedOrder,
+  getCombos,
+  getOrderTemplates,
+  createOrderTemplate,
 } from '../api';
-import { MenuCategory, MenuItem, CartItem, Order, AISuggestion, LoyaltyCustomer } from '../types';
+import { MenuCategory, MenuItem, CartItem, Order, AISuggestion, LoyaltyCustomer, ComboDefinition, OrderTemplate } from '../types';
 import RefundModal from '../components/RefundModal';
 import { formatPrice, TAX_RATE, TAX_LABEL } from '../utils/currency';
 import { formatTime, formatDateTime } from '../utils/dateFormat';
@@ -25,6 +31,7 @@ import SplitPaymentModal from '../components/SplitPaymentModal';
 import CryptoPaymentModal from '../components/CryptoPaymentModal';
 import CustomerLookupModal from '../components/CustomerLookupModal';
 import LanguageSwitcher from '../components/LanguageSwitcher';
+import { UtensilsCrossed, SlidersHorizontal, Star, X, Search, ClipboardList } from 'lucide-react';
 
 /* ==================== Toast Notification ==================== */
 
@@ -434,6 +441,14 @@ const POSScreen: React.FC = () => {
   const [cryptoTip, setCryptoTip] = useState(0);
   const [linkedCustomer, setLinkedCustomer] = useState<LoyaltyCustomer | null>(null);
   const [showCustomerLookup, setShowCustomerLookup] = useState(false);
+  const [popularItems, setPopularItems] = useState<MenuItem[]>([]);
+  const [categorySuggestedOrder, setCategorySuggestedOrder] = useState<number[]>([]);
+  const [comboDefinitions, setComboDefinitions] = useState<ComboDefinition[]>([]);
+  const [templates, setTemplates] = useState<OrderTemplate[]>([]);
+  const [showTemplates, setShowTemplates] = useState(false);
+  const [templateName, setTemplateName] = useState('');
+  const [showSaveTemplate, setShowSaveTemplate] = useState(false);
+  const searchInputRef = useRef<HTMLInputElement>(null);
 
   // AI Suggestions
   const cartItemIds = useMemo(() => cart.map((c) => c.menu_item_id), [cart]);
@@ -441,6 +456,8 @@ const POSScreen: React.FC = () => {
     cartSuggestions,
     pushItemIds,
     avoidItemIds,
+    soldOutItemIds,
+    lowStockItemIds,
     acceptSuggestion,
     dismissSuggestion,
   } = useAISuggestions({
@@ -464,17 +481,52 @@ const POSScreen: React.FC = () => {
     return () => clearInterval(timer);
   }, []);
 
+  // Keyboard shortcut: Cmd/Ctrl+K to focus search, Escape to clear
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault();
+        searchInputRef.current?.focus();
+      }
+      if (e.key === 'Escape' && searchQuery) {
+        setSearchQuery('');
+        searchInputRef.current?.blur();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [searchQuery]);
+
   // Load data on mount
   useEffect(() => {
     const loadData = async () => {
       try {
         setLoading(true);
-        const [categoriesData, itemsData] = await Promise.all([
+        const [categoriesData, itemsData, modifierItemsData, popularData, categoryOrderData, combosData, templatesData] = await Promise.all([
           getCategories(),
           getMenuItems(),
+          getItemsWithModifiers().catch(() => ({ itemIds: [] })),
+          getPopularItems(8).catch(() => []),
+          getCategorySuggestedOrder().catch(() => []),
+          getCombos().catch(() => []),
+          getOrderTemplates().catch(() => []),
         ]);
         setCategories(categoriesData);
         setMenuItems(itemsData);
+        // Pre-warm modifier cache
+        const cache: Record<number, boolean> = {};
+        for (const id of modifierItemsData.itemIds) {
+          cache[id] = true;
+        }
+        setItemModifierCache(cache);
+        setPopularItems(popularData);
+        setCategorySuggestedOrder(categoryOrderData);
+        setComboDefinitions(combosData);
+        setTemplates(templatesData);
+        // Auto-select top-ranked category if we have suggestion data
+        if (categoryOrderData.length > 0) {
+          setSelectedCategory(categoryOrderData[0]);
+        }
       } catch (error) {
         addToast(t('toast.failedLoadMenu'), 'error');
       } finally {
@@ -493,6 +545,124 @@ const POSScreen: React.FC = () => {
       setToasts((prev) => prev.filter((t) => t.id !== id));
     }, 3000);
   };
+
+  // Sort categories by time-based popularity
+  const sortedCategories = useMemo(() => {
+    if (categorySuggestedOrder.length === 0) return categories;
+    const orderMap = new Map(categorySuggestedOrder.map((id, idx) => [id, idx]));
+    return [...categories].sort((a, b) => {
+      const aOrder = orderMap.get(a.id) ?? 999;
+      const bOrder = orderMap.get(b.id) ?? 999;
+      return aOrder - bOrder;
+    });
+  }, [categories, categorySuggestedOrder]);
+
+  // Smart combo detection: check if cart items qualify for a combo
+  const comboSuggestion = useMemo(() => {
+    if (cart.length === 0 || comboDefinitions.length === 0) return null;
+    // Only check non-combo cart items
+    const nonComboItems = cart.filter(ci => !ci.combo_instance_id);
+    if (nonComboItems.length === 0) return null;
+
+    for (const combo of comboDefinitions) {
+      if (!combo.active || !combo.slots || combo.slots.length === 0) continue;
+
+      // Try to match each slot
+      const matchedItems: CartItem[] = [];
+      const usedCartIds = new Set<string>();
+
+      let allSlotsMatched = true;
+      for (const slot of combo.slots) {
+        let found = false;
+        for (const ci of nonComboItems) {
+          if (usedCartIds.has(ci.cart_id)) continue;
+          const menuItem = ci.menuItem || menuItems.find(mi => mi.id === ci.menu_item_id);
+          if (!menuItem) continue;
+
+          if (slot.specific_item_id && menuItem.id === slot.specific_item_id) {
+            matchedItems.push(ci);
+            usedCartIds.add(ci.cart_id);
+            found = true;
+            break;
+          }
+          if (slot.category_id && menuItem.category_id === slot.category_id) {
+            matchedItems.push(ci);
+            usedCartIds.add(ci.cart_id);
+            found = true;
+            break;
+          }
+        }
+        if (!found) {
+          allSlotsMatched = false;
+          break;
+        }
+      }
+
+      if (allSlotsMatched) {
+        const individualTotal = matchedItems.reduce((sum, ci) => sum + ci.unit_price, 0);
+        const savings = individualTotal - combo.combo_price;
+        if (savings > 0) {
+          return { combo, matchedItems, savings };
+        }
+      }
+    }
+    return null;
+  }, [cart, comboDefinitions, menuItems]);
+
+  // Convert matched cart items to combo
+  const convertToCombo = useCallback(() => {
+    if (!comboSuggestion) return;
+    const { combo, matchedItems } = comboSuggestion;
+    const comboInstanceId = `combo_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+    setCart(prev => {
+      // Remove matched individual items
+      const matchedIds = new Set(matchedItems.map(ci => ci.cart_id));
+      const remaining = prev.filter(ci => !matchedIds.has(ci.cart_id));
+
+      // Add as combo group
+      const comboCartItems: CartItem[] = matchedItems.map((ci, idx) => ({
+        ...ci,
+        cart_id: generateCartId(),
+        unit_price: idx === 0 ? combo.combo_price : 0,
+        combo_instance_id: comboInstanceId,
+      }));
+
+      return [...remaining, ...comboCartItems];
+    });
+    addToast(t('comboDetection.converted', { name: combo.name }), 'success');
+  }, [comboSuggestion]);
+
+  // Apply a template to the cart
+  const applyTemplate = useCallback((template: OrderTemplate) => {
+    for (const item of template.items) {
+      const menuItem = menuItems.find(mi => mi.id === item.menu_item_id);
+      if (menuItem) {
+        for (let i = 0; i < (item.quantity || 1); i++) {
+          addItemToCartDirect(menuItem);
+        }
+      }
+    }
+    setShowTemplates(false);
+    addToast(t('quickOrders.applied', { name: template.name }), 'success');
+  }, [menuItems]);
+
+  // Save current cart as template
+  const saveCartAsTemplate = useCallback(async () => {
+    if (!templateName.trim() || cart.length === 0) return;
+    try {
+      const items = cart
+        .filter(ci => !ci.combo_instance_id)
+        .map(ci => ({ menu_item_id: ci.menu_item_id, quantity: ci.quantity }));
+      const newTemplate = await createOrderTemplate({ name: templateName.trim(), items });
+      setTemplates(prev => [...prev, newTemplate]);
+      setTemplateName('');
+      setShowSaveTemplate(false);
+      addToast(t('quickOrders.saved', { name: templateName.trim() }), 'success');
+    } catch {
+      addToast('Failed to save template', 'error');
+    }
+  }, [templateName, cart]);
 
   // Filter items based on category and search
   const filteredItems = useMemo(() => {
@@ -517,21 +687,16 @@ const POSScreen: React.FC = () => {
   // Generate unique cart ID
   const generateCartId = () => `cart_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
-  // Check if item has modifier groups (cached)
-  const checkItemHasModifiers = async (item: MenuItem): Promise<boolean> => {
-    if (itemModifierCache[item.id] !== undefined) return itemModifierCache[item.id];
-    try {
-      const groups = await getModifierGroupsForItem(item.id);
-      const hasModifiers = groups.length > 0;
-      setItemModifierCache((prev) => ({ ...prev, [item.id]: hasModifiers }));
-      return hasModifiers;
-    } catch {
-      return false;
-    }
+  // Check if item has modifier groups (pre-warmed cache)
+  const checkItemHasModifiers = (item: MenuItem): boolean => {
+    return !!itemModifierCache[item.id];
   };
 
-  const handleItemTap = async (item: MenuItem) => {
-    const hasModifiers = await checkItemHasModifiers(item);
+  const handleItemTap = (item: MenuItem) => {
+    // Block sold-out items
+    if (soldOutItemIds.has(item.id)) return;
+
+    const hasModifiers = checkItemHasModifiers(item);
     if (hasModifiers) {
       setModifierItem(item);
     } else {
@@ -857,7 +1022,7 @@ const POSScreen: React.FC = () => {
             {t('header.allItems')}
           </button>
 
-          {categories.map((cat) => (
+          {sortedCategories.map((cat) => (
             <button
               key={cat.id}
               onClick={() => { setSelectedCategory(cat.id); setSearchQuery(''); }}
@@ -907,13 +1072,28 @@ const POSScreen: React.FC = () => {
             </div>
           </div>
 
-          <input
-            type="text"
-            placeholder={t('header.searchItems')}
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full px-4 py-3 rounded-lg bg-neutral-800 border border-neutral-700 text-white placeholder-neutral-500 focus:outline-none focus:border-red-600 text-lg"
-          />
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-neutral-500" />
+            <input
+              ref={searchInputRef}
+              type="text"
+              placeholder={`${t('header.searchItems')} (Ctrl+K)`}
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-10 pr-10 py-3 rounded-lg bg-neutral-800 border border-neutral-700 text-white placeholder-neutral-500 focus:outline-none focus:border-red-600 text-lg"
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery('')}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-white"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            )}
+          </div>
+          {searchQuery && (
+            <p className="text-neutral-500 text-sm mt-1">{t('searchResults', { count: filteredItems.length })}</p>
+          )}
         </div>
 
         <AISuggestionBanner
@@ -923,34 +1103,98 @@ const POSScreen: React.FC = () => {
         />
 
         <div className="flex-1 overflow-y-auto p-4">
+          {/* Favorites / Popular Items Row */}
+          {!searchQuery && popularItems.length > 0 && (
+            <div className="mb-4">
+              <div className="flex items-center gap-2 mb-2">
+                <Star className="w-4 h-4 text-amber-400 fill-amber-400" />
+                <p className="text-sm font-bold text-amber-400 uppercase tracking-wider">{t('favorites.title')}</p>
+              </div>
+              <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
+                {popularItems.map((item) => {
+                  const isSoldOut = soldOutItemIds.has(item.id);
+                  return (
+                    <button
+                      key={`pop-${item.id}`}
+                      onClick={() => !isSoldOut && handleItemTap(item)}
+                      disabled={isSoldOut}
+                      className={`flex-shrink-0 w-32 rounded-lg p-3 transition-all touch-manipulation border ${
+                        isSoldOut
+                          ? 'bg-neutral-900/40 border-neutral-700 opacity-50 cursor-not-allowed'
+                          : 'bg-neutral-900 border-amber-600/50 hover:border-amber-500 active:scale-95'
+                      }`}
+                    >
+                      <p className="font-bold text-white text-xs line-clamp-2">{item.name}</p>
+                      <p className="font-bold text-amber-400 text-sm mt-1">{formatPrice(item.price)}</p>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
           <div className="grid grid-cols-3 gap-4">
             {filteredItems.map((item) => {
               const isPush = pushItemIds.has(item.id);
               const isAvoid = avoidItemIds.has(item.id);
+              const isSoldOut = soldOutItemIds.has(item.id);
+              const isLowStock = lowStockItemIds.has(item.id);
+              const hasModifiers = !!itemModifierCache[item.id];
               return (
                 <button
                   key={item.id}
                   onClick={() => {
                     handleItemTap(item);
-                    if (isAvoid) {
+                    if (isAvoid && !isSoldOut) {
                       addToast(t('cart.lowStockWarning', { name: item.name }), 'info');
                     }
                   }}
-                  className={`rounded-lg p-4 hover:shadow-lg active:scale-95 transition-all touch-manipulation flex flex-col h-32 ${
-                    isPush
-                      ? 'bg-neutral-900 border-2 border-green-600 ring-1 ring-green-600/30'
-                      : isAvoid
-                        ? 'bg-neutral-900/60 border border-neutral-700 opacity-60'
-                        : 'bg-neutral-900 border border-neutral-800 hover:border-red-600'
+                  disabled={isSoldOut}
+                  className={`rounded-lg hover:shadow-lg active:scale-95 transition-all touch-manipulation flex flex-col h-44 overflow-hidden relative ${
+                    isSoldOut
+                      ? 'bg-neutral-900/40 border border-neutral-700 grayscale cursor-not-allowed'
+                      : isLowStock
+                        ? 'bg-neutral-900 border-2 border-yellow-500'
+                        : isPush
+                          ? 'bg-neutral-900 border-2 border-green-600 ring-1 ring-green-600/30'
+                          : isAvoid
+                            ? 'bg-neutral-900/60 border border-neutral-700 opacity-60'
+                            : 'bg-neutral-900 border border-neutral-800 hover:border-red-600'
                   }`}
                 >
-                  <div className="flex items-start justify-between flex-1">
-                    <p className="font-bold text-white text-sm line-clamp-2 flex-1">{item.name}</p>
-                    {isPush && <span className="ml-1 flex-shrink-0 w-2 h-2 bg-green-500 rounded-full mt-1" />}
+                  {/* Image or placeholder */}
+                  <div className="h-20 w-full bg-neutral-800 flex items-center justify-center overflow-hidden">
+                    {item.image_url ? (
+                      <img src={item.image_url} alt={item.name} className="w-full h-full object-cover" />
+                    ) : (
+                      <UtensilsCrossed className="w-8 h-8 text-neutral-600" />
+                    )}
                   </div>
-                  <p className={`font-bold text-lg mt-2 ${isAvoid ? 'text-neutral-500' : 'text-red-500'}`}>
-                    {formatPrice(item.price)}
-                  </p>
+
+                  {/* Sold out overlay */}
+                  {isSoldOut && (
+                    <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+                      <span className="bg-red-600 text-white text-xs font-bold px-3 py-1 rounded-full uppercase">
+                        {t('soldOut')}
+                      </span>
+                    </div>
+                  )}
+
+                  {/* Content */}
+                  <div className="p-3 flex flex-col flex-1">
+                    <div className="flex items-start justify-between flex-1">
+                      <p className="font-bold text-white text-sm line-clamp-2 flex-1">{item.name}</p>
+                      <div className="flex items-center gap-1 ml-1 flex-shrink-0">
+                        {hasModifiers && <SlidersHorizontal className="w-3.5 h-3.5 text-neutral-400" />}
+                        {isPush && <span className="w-2 h-2 bg-green-500 rounded-full" />}
+                      </div>
+                    </div>
+                    <p className={`font-bold text-lg ${
+                      isSoldOut ? 'text-neutral-600' : isAvoid ? 'text-neutral-500' : 'text-red-500'
+                    }`}>
+                      {formatPrice(item.price)}
+                    </p>
+                  </div>
                 </button>
               );
             })}
@@ -1087,6 +1331,22 @@ const POSScreen: React.FC = () => {
           )}
         </div>
 
+        {/* Combo Detection Banner */}
+        {comboSuggestion && (
+          <div className="mx-4 mb-2 bg-amber-900/30 border border-amber-600 rounded-lg p-3">
+            <p className="text-amber-400 font-bold text-sm">{t('comboDetection.title')}</p>
+            <p className="text-amber-200 text-xs mt-1">
+              {t('comboDetection.message', { name: comboSuggestion.combo.name, savings: formatPrice(comboSuggestion.savings) })}
+            </p>
+            <button
+              onClick={convertToCombo}
+              className="mt-2 w-full py-2 bg-amber-600 text-white text-sm font-bold rounded-lg hover:bg-amber-700 transition-all"
+            >
+              {t('comboDetection.convert', { price: formatPrice(comboSuggestion.combo.combo_price) })}
+            </button>
+          </div>
+        )}
+
         <div className="border-t border-neutral-800 p-4 space-y-2">
           <div className="border-b border-neutral-700 pb-2 flex justify-between text-xl">
             <span className="font-bold text-white">{t('totals.total')}</span>
@@ -1120,6 +1380,13 @@ const POSScreen: React.FC = () => {
           </button>
           <div className="flex gap-2">
             <button
+              onClick={() => setShowTemplates(true)}
+              className="flex-1 py-3 bg-emerald-600 text-white text-sm font-bold rounded-lg hover:bg-emerald-700 transition-all touch-manipulation flex items-center justify-center gap-1"
+            >
+              <ClipboardList className="w-4 h-4" />
+              {t('quickOrders.title')}
+            </button>
+            <button
               onClick={() => setShowComboBuilder(true)}
               className="flex-1 py-3 bg-amber-600 text-white text-sm font-bold rounded-lg hover:bg-amber-700 transition-all touch-manipulation"
             >
@@ -1150,6 +1417,83 @@ const POSScreen: React.FC = () => {
       </div>
 
       {/* ==================== MODALS ==================== */}
+
+      {/* Templates Modal */}
+      {showTemplates && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+          <div className="bg-neutral-900 rounded-2xl shadow-2xl w-full max-w-md max-h-[80vh] border border-neutral-800 flex flex-col">
+            <div className="bg-emerald-600 text-white p-6 rounded-t-2xl flex items-center justify-between">
+              <div>
+                <h2 className="text-2xl font-bold">{t('quickOrders.title')}</h2>
+                <p className="text-emerald-100 text-sm">{t('quickOrders.subtitle')}</p>
+              </div>
+              <button onClick={() => setShowTemplates(false)} className="text-emerald-200 hover:text-white">
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-4 space-y-3">
+              {templates.length === 0 ? (
+                <p className="text-neutral-500 text-center py-8">{t('quickOrders.noTemplates')}</p>
+              ) : (
+                templates.map((template) => (
+                  <button
+                    key={template.id}
+                    onClick={() => applyTemplate(template)}
+                    className="w-full text-left bg-neutral-800 border border-neutral-700 rounded-lg p-4 hover:border-emerald-600 transition-all"
+                  >
+                    <p className="font-bold text-white">{template.name}</p>
+                    {template.description && (
+                      <p className="text-neutral-400 text-sm mt-1">{template.description}</p>
+                    )}
+                    <p className="text-neutral-500 text-xs mt-2">
+                      {template.items.length} {template.items.length === 1 ? 'item' : 'items'}
+                    </p>
+                  </button>
+                ))
+              )}
+            </div>
+            {/* Save current cart as template (managers/admins only) */}
+            {hasPermission('manage_menu') && cart.length > 0 && (
+              <div className="border-t border-neutral-800 p-4">
+                {showSaveTemplate ? (
+                  <div className="space-y-2">
+                    <input
+                      type="text"
+                      value={templateName}
+                      onChange={(e) => setTemplateName(e.target.value)}
+                      placeholder={t('quickOrders.enterName')}
+                      className="w-full px-4 py-3 bg-neutral-800 border border-neutral-700 rounded-lg text-white placeholder-neutral-500 focus:outline-none focus:border-emerald-600"
+                      autoFocus
+                    />
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => setShowSaveTemplate(false)}
+                        className="flex-1 py-2 bg-neutral-700 text-white font-semibold rounded-lg hover:bg-neutral-600"
+                      >
+                        {t('common:buttons.cancel')}
+                      </button>
+                      <button
+                        onClick={saveCartAsTemplate}
+                        disabled={!templateName.trim()}
+                        className="flex-1 py-2 bg-emerald-600 text-white font-semibold rounded-lg hover:bg-emerald-700 disabled:bg-neutral-700 disabled:text-neutral-500"
+                      >
+                        {t('common:buttons.save')}
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => setShowSaveTemplate(true)}
+                    className="w-full py-3 bg-neutral-800 text-emerald-400 font-bold rounded-lg hover:bg-neutral-700 border border-neutral-700 transition-all"
+                  >
+                    {t('quickOrders.saveCurrentCart')}
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {showCustomerLookup && (
         <CustomerLookupModal

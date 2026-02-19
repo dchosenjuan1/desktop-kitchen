@@ -4,6 +4,20 @@ import { requireAuth } from '../middleware/auth.js';
 
 const router = Router();
 
+// GET /api/modifiers/items-with-modifiers - batch check which items have modifier groups
+router.get('/items-with-modifiers', (req, res) => {
+  try {
+    const rows = all(`
+      SELECT DISTINCT menu_item_id
+      FROM menu_item_modifier_groups
+    `);
+    res.json({ itemIds: rows.map(r => r.menu_item_id) });
+  } catch (error) {
+    console.error('Error fetching items with modifiers:', error);
+    res.status(500).json({ error: 'Failed to fetch items with modifiers' });
+  }
+});
+
 // GET /api/modifiers/groups - list all modifier groups with their modifiers
 router.get('/groups', (req, res) => {
   try {

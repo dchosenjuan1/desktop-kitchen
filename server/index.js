@@ -19,6 +19,7 @@ import printersRoutes from './routes/printers.js';
 import deliveryRoutes from './routes/delivery.js';
 import purchaseOrdersRoutes from './routes/purchase-orders.js';
 import loyaltyRoutes from './routes/loyalty.js';
+import orderTemplatesRoutes from './routes/order-templates.js';
 import { initAI } from './ai/index.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -49,6 +50,7 @@ app.use('/api/printers', printersRoutes);
 app.use('/api/delivery', deliveryRoutes);
 app.use('/api/purchase-orders', purchaseOrdersRoutes);
 app.use('/api/loyalty', loyaltyRoutes);
+app.use('/api/order-templates', orderTemplatesRoutes);
 
 // Serve index.html for all other routes (SPA)
 app.get('*', (req, res) => {

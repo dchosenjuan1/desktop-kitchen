@@ -17,6 +17,8 @@ interface UseAISuggestionsReturn {
   inventoryPush: InventoryPushData | null;
   pushItemIds: Set<number>;
   avoidItemIds: Set<number>;
+  soldOutItemIds: Set<number>;
+  lowStockItemIds: Set<number>;
   acceptSuggestion: (suggestion: AISuggestion) => void;
   dismissSuggestion: (suggestion: AISuggestion) => void;
   loading: boolean;
@@ -41,6 +43,12 @@ export function useAISuggestions({
   );
   const avoidItemIds = new Set<number>(
     inventoryPush?.avoidItems?.map((i) => i.menu_item_id) || []
+  );
+  const soldOutItemIds = new Set<number>(
+    inventoryPush?.soldOutItemIds || []
+  );
+  const lowStockItemIds = new Set<number>(
+    inventoryPush?.lowStockItemIds || []
   );
 
   // Poll inventory push every 60s
@@ -134,6 +142,8 @@ export function useAISuggestions({
     inventoryPush,
     pushItemIds,
     avoidItemIds,
+    soldOutItemIds,
+    lowStockItemIds,
     acceptSuggestion,
     dismissSuggestion,
     loading,

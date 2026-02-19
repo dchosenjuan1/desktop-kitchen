@@ -17,7 +17,22 @@ export function generateInventoryPushSuggestions() {
   `, [multiplier]);
 
   if (lowIngredients.length === 0) {
-    return { pushItems: [], avoidItems: [] };
+    // Still compute sold-out items even when no low-stock ingredients
+    const soldOutRows = all(`
+      SELECT DISTINCT mii.menu_item_id
+      FROM menu_item_ingredients mii
+      JOIN inventory_items ii ON mii.inventory_item_id = ii.id
+      WHERE ii.quantity <= 0
+    `);
+    const lowStockRows = all(`
+      SELECT DISTINCT mii.menu_item_id
+      FROM menu_item_ingredients mii
+      JOIN inventory_items ii ON mii.inventory_item_id = ii.id
+      WHERE ii.quantity > 0 AND ii.quantity <= ii.low_stock_threshold
+    `);
+    const soldOutIds = soldOutRows.map(r => r.menu_item_id);
+    const lowStockIds = lowStockRows.filter(r => !soldOutIds.includes(r.menu_item_id)).map(r => r.menu_item_id);
+    return { pushItems: [], avoidItems: [], soldOutItemIds: soldOutIds, lowStockItemIds: lowStockIds };
   }
 
   const lowIngredientIds = lowIngredients.map(i => i.id);
@@ -87,5 +102,33 @@ export function generateInventoryPushSuggestions() {
     }
   }
 
-  return { pushItems, avoidItems, lowIngredients };
+  // Compute sold-out and low-stock item IDs for the POS screen
+  const soldOutItemIds = [];
+  const lowStockItemIds = [];
+
+  // Sold out: menu items where ANY required ingredient has quantity <= 0
+  const soldOutRows = all(`
+    SELECT DISTINCT mii.menu_item_id
+    FROM menu_item_ingredients mii
+    JOIN inventory_items ii ON mii.inventory_item_id = ii.id
+    WHERE ii.quantity <= 0
+  `);
+  for (const row of soldOutRows) {
+    soldOutItemIds.push(row.menu_item_id);
+  }
+
+  // Low stock: menu items where ANY ingredient is below threshold but above 0
+  const lowStockRows = all(`
+    SELECT DISTINCT mii.menu_item_id
+    FROM menu_item_ingredients mii
+    JOIN inventory_items ii ON mii.inventory_item_id = ii.id
+    WHERE ii.quantity > 0 AND ii.quantity <= ii.low_stock_threshold
+  `);
+  for (const row of lowStockRows) {
+    if (!soldOutItemIds.includes(row.menu_item_id)) {
+      lowStockItemIds.push(row.menu_item_id);
+    }
+  }
+
+  return { pushItems, avoidItems, lowIngredients, soldOutItemIds, lowStockItemIds };
 }

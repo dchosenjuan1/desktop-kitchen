@@ -285,5 +285,26 @@
   "suggestion": {
     "save": "Ahorra {{amount}}",
     "add": "+ Agregar"
+  },
+  "soldOut": "Agotado",
+  "lowStock": "Poco Stock",
+  "searchResults": "{{count}} productos encontrados",
+  "favorites": {
+    "title": "Populares"
+  },
+  "comboDetection": {
+    "title": "¡Combo Disponible!",
+    "message": "Califica para {{name}} — ¡Ahorra {{savings}}!",
+    "convert": "Convertir a Combo — {{price}}",
+    "converted": "¡Convertido a {{name}}!"
+  },
+  "quickOrders": {
+    "title": "Órdenes Rápidas",
+    "subtitle": "Aplicar una orden predefinida",
+    "noTemplates": "Sin plantillas aún",
+    "applied": "Aplicada {{name}}",
+    "saved": "Plantilla guardada: {{name}}",
+    "saveCurrentCart": "Guardar Orden Actual como Plantilla",
+    "enterName": "Nombre de la plantilla..."
   }
 }

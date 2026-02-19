@@ -51,6 +51,7 @@ import {
   LoyaltyConfig,
   ReferralEvent,
   PaginatedResponse,
+  OrderTemplate,
 } from '../types';
 
 // Employee ID for auth header - set after login
@@ -197,6 +198,15 @@ export async function updateMenuItem(id: number, data: {
 
 export async function toggleMenuItem(id: number): Promise<any> {
   return apiRequest(`/menu/items/${id}/toggle`, { method: 'PUT' });
+}
+
+export async function getPopularItems(limit: number = 8): Promise<MenuItem[]> {
+  return apiRequest<MenuItem[]>(`/menu/items/popular?limit=${limit}`);
+}
+
+export async function getCategorySuggestedOrder(hour?: number): Promise<number[]> {
+  const h = hour ?? new Date().getHours();
+  return apiRequest<number[]>(`/menu/categories/suggested-order?hour=${h}`);
 }
 
 /* ==================== Order Endpoints ==================== */
@@ -524,6 +534,10 @@ export async function removeModifierGroupFromItem(menuItemId: number, groupId: n
     method: 'POST',
     body: JSON.stringify({ menu_item_id: menuItemId, modifier_group_id: groupId }),
   });
+}
+
+export async function getItemsWithModifiers(): Promise<{ itemIds: number[] }> {
+  return apiRequest<{ itemIds: number[] }>('/modifiers/items-with-modifiers');
 }
 
 /* ==================== Combo Endpoints ==================== */
@@ -955,5 +969,22 @@ export async function updateLoyaltyConfig(key: string, value: string): Promise<L
   return apiRequest<LoyaltyConfig>('/loyalty/config', {
     method: 'PUT',
     body: JSON.stringify({ key, value }),
+  });
+}
+
+/* ==================== Order Template Endpoints ==================== */
+
+export async function getOrderTemplates(): Promise<OrderTemplate[]> {
+  return apiRequest<OrderTemplate[]>('/order-templates');
+}
+
+export async function createOrderTemplate(data: {
+  name: string;
+  description?: string;
+  items: Array<{ menu_item_id: number; quantity: number }>;
+}): Promise<OrderTemplate> {
+  return apiRequest<OrderTemplate>('/order-templates', {
+    method: 'POST',
+    body: JSON.stringify(data),
   });
 }

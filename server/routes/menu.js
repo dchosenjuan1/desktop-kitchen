@@ -108,6 +108,47 @@ router.put('/categories/:id/toggle', requireAuth('manage_menu'), (req, res) => {
   }
 });
 
+// GET /api/menu/items/popular - top selling items by order quantity
+router.get('/items/popular', (req, res) => {
+  try {
+    const limit = parseInt(req.query.limit) || 8;
+    const items = all(`
+      SELECT mi.id, mi.category_id, mi.name, mi.price, mi.description, mi.image_url, mi.active,
+             SUM(oi.quantity) as total_sold
+      FROM order_items oi
+      JOIN menu_items mi ON oi.menu_item_id = mi.id
+      WHERE mi.active = 1
+      GROUP BY mi.id
+      ORDER BY total_sold DESC
+      LIMIT ?
+    `, [limit]);
+    res.json(items);
+  } catch (error) {
+    console.error('Error fetching popular items:', error);
+    res.status(500).json({ error: 'Failed to fetch popular items' });
+  }
+});
+
+// GET /api/menu/categories/suggested-order - rank categories by order volume at given hour
+router.get('/categories/suggested-order', (req, res) => {
+  try {
+    const hour = parseInt(req.query.hour) ?? new Date().getHours();
+    const rows = all(`
+      SELECT mi.category_id, COUNT(*) as order_count
+      FROM order_items oi
+      JOIN menu_items mi ON oi.menu_item_id = mi.id
+      JOIN orders o ON oi.order_id = o.id
+      WHERE CAST(strftime('%H', o.created_at) AS INTEGER) = ?
+      GROUP BY mi.category_id
+      ORDER BY order_count DESC
+    `, [hour]);
+    res.json(rows.map(r => r.category_id));
+  } catch (error) {
+    console.error('Error fetching category suggested order:', error);
+    res.status(500).json({ error: 'Failed to fetch category suggested order' });
+  }
+});
+
 // GET /api/menu/items - list items (optional ?category_id, ?include_inactive=1)
 router.get('/items', (req, res) => {
   try {

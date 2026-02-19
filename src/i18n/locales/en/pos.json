@@ -285,5 +285,26 @@
   "suggestion": {
     "save": "Save {{amount}}",
     "add": "+ Add"
+  },
+  "soldOut": "Sold Out",
+  "lowStock": "Low Stock",
+  "searchResults": "{{count}} items found",
+  "favorites": {
+    "title": "Popular"
+  },
+  "comboDetection": {
+    "title": "Combo Available!",
+    "message": "Qualifies for {{name}} — Save {{savings}}!",
+    "convert": "Convert to Combo — {{price}}",
+    "converted": "Converted to {{name}}!"
+  },
+  "quickOrders": {
+    "title": "Quick Orders",
+    "subtitle": "Apply a preset order",
+    "noTemplates": "No templates yet",
+    "applied": "Applied {{name}}",
+    "saved": "Saved template: {{name}}",
+    "saveCurrentCart": "Save Current Cart as Template",
+    "enterName": "Enter template name..."
   }
 }

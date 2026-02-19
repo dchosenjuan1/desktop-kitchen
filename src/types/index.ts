@@ -161,6 +161,8 @@ export interface InventoryPushData {
     unit: string;
     low_stock_threshold: number;
   }>;
+  soldOutItemIds?: number[];
+  lowStockItemIds?: number[];
 }
 
 export interface AIConfig {
@@ -707,6 +709,19 @@ export interface StampResult {
   stampCard: StampCard;
   cardCompleted: boolean;
   customer: LoyaltyCustomer;
+}
+
+/* Order Template Types */
+export interface OrderTemplate {
+  id: number;
+  name: string;
+  description?: string;
+  items: Array<{ menu_item_id: number; quantity: number }>;
+  items_json?: string;
+  created_by?: number;
+  active: boolean;
+  sort_order: number;
+  created_at: string;
 }
 
 /* API Response Types */

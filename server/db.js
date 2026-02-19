@@ -704,6 +704,19 @@ export async function initDb() {
     }
   }
 
+  db.run(`
+    CREATE TABLE IF NOT EXISTS order_templates (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL,
+      description TEXT,
+      items_json TEXT NOT NULL,
+      created_by INTEGER,
+      active INTEGER DEFAULT 1,
+      sort_order INTEGER DEFAULT 0,
+      created_at TEXT DEFAULT (datetime('now','localtime'))
+    )
+  `);
+
   // Add loyalty_customer_id to orders
   try {
     db.run(`ALTER TABLE orders ADD COLUMN loyalty_customer_id INTEGER DEFAULT NULL`);
