@@ -34,6 +34,7 @@ interface FormData {
   price: string;
   description: string;
   category_id: string;
+  image_url: string;
 }
 
 interface CategoryFormData {
@@ -57,6 +58,7 @@ export default function MenuManagement() {
     price: '',
     description: '',
     category_id: '',
+    image_url: '',
   });
   const [formErrors, setFormErrors] = useState<Partial<FormData>>({});
   const [actionLoading, setActionLoading] = useState(false);
@@ -137,6 +139,7 @@ export default function MenuManagement() {
         name: formData.name.trim(),
         price: parseFloat(formData.price),
         description: formData.description.trim() || undefined,
+        image_url: formData.image_url.trim() || undefined,
       });
       // Refresh items for the category the item was added to
       const targetCategory = parseInt(formData.category_id);
@@ -165,6 +168,7 @@ export default function MenuManagement() {
         name: formData.name.trim(),
         price: parseFloat(formData.price),
         description: formData.description.trim() || undefined,
+        image_url: formData.image_url.trim() || undefined,
       });
       const targetCategory = parseInt(formData.category_id);
       if (selectedCategory) {
@@ -199,6 +203,7 @@ export default function MenuManagement() {
       price: '',
       description: '',
       category_id: selectedCategory ? String(selectedCategory) : '',
+      image_url: '',
     });
     setFormErrors({});
     setEditingId(null);
@@ -211,6 +216,7 @@ export default function MenuManagement() {
       price: item.price.toString(),
       description: item.description || '',
       category_id: String(item.category_id),
+      image_url: item.image_url || '',
     });
     setFormErrors({});
     setEditingId(item.id);
@@ -220,7 +226,7 @@ export default function MenuManagement() {
   const closeModal = () => {
     setModalMode(null);
     setEditingId(null);
-    setFormData({ name: '', price: '', description: '', category_id: '' });
+    setFormData({ name: '', price: '', description: '', category_id: '', image_url: '' });
     setFormErrors({});
   };
 
@@ -558,6 +564,11 @@ export default function MenuManagement() {
                           : 'border-neutral-800 bg-neutral-900 opacity-60'
                       }`}
                     >
+                      {item.image_url && (
+                        <div className="rounded-lg overflow-hidden h-28 bg-neutral-700 mb-3 -mx-5 -mt-5">
+                          <img src={item.image_url} alt={item.name} className="w-full h-full object-cover" />
+                        </div>
+                      )}
                       <div className="mb-3">
                         <h4 className="font-bold text-white text-lg mb-1">
                           {item.name}
@@ -705,6 +716,31 @@ export default function MenuManagement() {
                   rows={3}
                   className="w-full px-4 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white placeholder-neutral-500 focus:outline-none focus:border-red-600"
                 />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-neutral-300 mb-2">
+                  {t('menu.form.imageUrl')}
+                </label>
+                <input
+                  type="url"
+                  value={formData.image_url}
+                  onChange={(e) =>
+                    setFormData({ ...formData, image_url: e.target.value })
+                  }
+                  placeholder={t('menu.form.imageUrlPlaceholder')}
+                  className="w-full px-4 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white placeholder-neutral-500 focus:outline-none focus:border-red-600"
+                />
+                {formData.image_url && (
+                  <div className="mt-2 rounded-lg overflow-hidden border border-neutral-700 h-32 bg-neutral-800">
+                    <img
+                      src={formData.image_url}
+                      alt="Preview"
+                      className="w-full h-full object-cover"
+                      onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                    />
+                  </div>
+                )}
               </div>
             </div>
 

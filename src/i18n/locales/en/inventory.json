@@ -102,6 +102,8 @@
       "selectCategory": "Select category",
       "description": "Description (Optional)",
       "descriptionPlaceholder": "Item description",
+      "imageUrl": "Image URL (Optional)",
+      "imageUrlPlaceholder": "https://example.com/image.jpg",
       "saving": "Saving...",
       "saveChanges": "Save Changes",
       "itemNameRequired": "Item name is required",

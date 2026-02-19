@@ -177,6 +177,7 @@ export async function createMenuItem(data: {
   name: string;
   price: number;
   description?: string;
+  image_url?: string;
 }): Promise<MenuItem> {
   return apiRequest<MenuItem>('/menu/items', {
     method: 'POST',
@@ -189,6 +190,7 @@ export async function updateMenuItem(id: number, data: {
   name?: string;
   price?: number;
   description?: string;
+  image_url?: string;
 }): Promise<any> {
   return apiRequest(`/menu/items/${id}`, {
     method: 'PUT',

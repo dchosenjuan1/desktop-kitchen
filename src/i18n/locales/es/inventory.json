@@ -102,6 +102,8 @@
       "selectCategory": "Seleccionar categoría",
       "description": "Descripción (Opcional)",
       "descriptionPlaceholder": "Descripción del producto",
+      "imageUrl": "URL de Imagen (Opcional)",
+      "imageUrlPlaceholder": "https://ejemplo.com/imagen.jpg",
       "saving": "Guardando...",
       "saveChanges": "Guardar Cambios",
       "itemNameRequired": "El nombre del producto es obligatorio",
