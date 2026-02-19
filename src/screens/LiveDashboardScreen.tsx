@@ -97,7 +97,6 @@ export default function LiveDashboardScreen() {
           >
             <ArrowLeft size={24} />
           </button>
-          <img src="/logo.png" alt="Juanberto's" className="h-8" />
           <h1 className="text-2xl font-black tracking-tighter">{t('dashboard.title')}</h1>
         </div>
         <div className="flex items-center gap-4">
@@ -113,6 +112,7 @@ export default function LiveDashboardScreen() {
           <button onClick={handleFullscreen} className="p-2 hover:bg-neutral-800 rounded-lg transition-colors border border-neutral-700">
             <Maximize size={20} />
           </button>
+          <img src="/logo.png" alt="Juanberto's" className="h-10" />
         </div>
       </div>
 

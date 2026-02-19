@@ -376,7 +376,6 @@ export default function MenuManagement() {
             >
               <ArrowLeft size={24} />
             </Link>
-            <img src="/logo.png" alt="Juanberto's" className="h-8" />
             <h1 className="text-3xl font-black tracking-tighter">{t('menu.title')}</h1>
           </div>
           <div className="flex items-center gap-3">
@@ -409,6 +408,7 @@ export default function MenuManagement() {
                 {t('menu.addItem')}
               </button>
             )}
+            <img src="/logo.png" alt="Juanberto's" className="h-10" />
           </div>
         </div>
       </div>

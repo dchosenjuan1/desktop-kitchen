@@ -266,12 +266,14 @@ export default function ModifierManagement() {
   return (
     <div className="min-h-screen bg-neutral-950">
       <div className="bg-neutral-900 text-white p-6 border-b border-neutral-800">
-        <div className="flex items-center gap-4">
-          <Link to="/admin" className="p-2 hover:bg-neutral-800 rounded-lg transition-colors">
-            <ArrowLeft size={24} />
-          </Link>
-          <img src="/logo.png" alt="Juanberto's" className="h-8" />
-          <h1 className="text-3xl font-black tracking-tighter">{t('modifiers.title')}</h1>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <Link to="/admin" className="p-2 hover:bg-neutral-800 rounded-lg transition-colors">
+              <ArrowLeft size={24} />
+            </Link>
+            <h1 className="text-3xl font-black tracking-tighter">{t('modifiers.title')}</h1>
+          </div>
+          <img src="/logo.png" alt="Juanberto's" className="h-10" />
         </div>
       </div>
 

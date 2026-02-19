@@ -251,16 +251,18 @@ export default function ReportsScreen() {
             <Link to="/admin" className="p-2 hover:bg-neutral-800 rounded-lg transition-colors">
               <ArrowLeft size={24} />
             </Link>
-            <img src="/logo.png" alt="Juanberto's" className="h-8" />
             <h1 className="text-3xl font-black tracking-tighter">{t('sales.title')}</h1>
           </div>
-          <button
-            onClick={generateCSV}
-            className="px-6 py-3 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700 transition-colors flex items-center gap-2 min-h-[44px]"
-          >
-            <Download size={20} />
-            {t('sales.exportCsv')}
-          </button>
+          <div className="flex items-center gap-4">
+            <button
+              onClick={generateCSV}
+              className="px-6 py-3 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700 transition-colors flex items-center gap-2 min-h-[44px]"
+            >
+              <Download size={20} />
+              {t('sales.exportCsv')}
+            </button>
+            <img src="/logo.png" alt="Juanberto's" className="h-10" />
+          </div>
         </div>
       </div>
 

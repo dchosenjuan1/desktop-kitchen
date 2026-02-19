@@ -245,7 +245,6 @@ export default function KitchenDisplay() {
             <ArrowLeft size={32} />
             <span className="hidden sm:inline">{t('header.back')}</span>
           </button>
-          <img src="/logo.png" alt="Juanberto's" className="h-8" />
           <h1 className="text-3xl font-black tracking-tighter">{t('header.title')}</h1>
           <div className="flex gap-1 ml-4">
             <button
@@ -295,6 +294,7 @@ export default function KitchenDisplay() {
           >
             <Maximize size={28} />
           </button>
+          <img src="/logo.png" alt="Juanberto's" className="h-10" />
         </div>
       </div>
 
