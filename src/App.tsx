@@ -8,6 +8,7 @@ import {
 import { useTranslation } from 'react-i18next';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { SyncProvider } from './context/SyncContext';
+import { BrandingProvider } from './context/BrandingContext';
 
 // Screens - these will be created as separate components
 // For now, we'll create placeholder components
@@ -149,7 +150,7 @@ const LoadingFallback: React.FC = () => {
   const { t } = useTranslation();
   return (
     <div className="min-h-screen flex items-center justify-center bg-neutral-950">
-      <div className="text-2xl text-red-600 font-bold animate-pulse">{t('states.loading')}</div>
+      <div className="text-2xl text-brand-600 font-bold animate-pulse">{t('states.loading')}</div>
     </div>
   );
 };
@@ -358,10 +359,12 @@ const AppContent: React.FC = () => {
 
 export default function App() {
   return (
-    <AuthProvider>
-      <SyncProvider>
-        <AppContent />
-      </SyncProvider>
-    </AuthProvider>
+    <BrandingProvider>
+      <AuthProvider>
+        <SyncProvider>
+          <AppContent />
+        </SyncProvider>
+      </AuthProvider>
+    </BrandingProvider>
   );
 }

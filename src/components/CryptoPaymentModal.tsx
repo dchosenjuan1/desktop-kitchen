@@ -132,8 +132,8 @@ const CryptoPaymentModal: React.FC<CryptoPaymentModalProps> = ({
     sending: { label: t('crypto.sending'), color: 'text-blue-400' },
     partially_paid: { label: t('crypto.partiallyPaid'), color: 'text-orange-400' },
     finished: { label: t('crypto.paymentComplete'), color: 'text-green-400' },
-    failed: { label: t('crypto.paymentFailed'), color: 'text-red-400' },
-    expired: { label: t('crypto.paymentExpired'), color: 'text-red-400' },
+    failed: { label: t('crypto.paymentFailed'), color: 'text-brand-400' },
+    expired: { label: t('crypto.paymentExpired'), color: 'text-brand-400' },
     refunded: { label: t('crypto.refunded'), color: 'text-neutral-400' },
   };
 
@@ -189,7 +189,7 @@ const CryptoPaymentModal: React.FC<CryptoPaymentModalProps> = ({
               )}
 
               {error && (
-                <p className="text-red-400 text-center text-sm">{error}</p>
+                <p className="text-brand-400 text-center text-sm">{error}</p>
               )}
 
               <button
@@ -277,7 +277,7 @@ const CryptoPaymentModal: React.FC<CryptoPaymentModalProps> = ({
               {(status === 'failed' || status === 'expired') && (
                 <button
                   onClick={status === 'expired' ? onExpired : onCancel}
-                  className="w-full py-3 bg-red-600 text-white text-lg font-bold rounded-lg hover:bg-red-700 transition-all"
+                  className="w-full py-3 bg-brand-600 text-white text-lg font-bold rounded-lg hover:bg-brand-700 transition-all"
                 >
                   {t('crypto.close')}
                 </button>

@@ -70,15 +70,15 @@ export default function PermissionsScreen() {
           <Link to="/admin" className="p-2 hover:bg-neutral-800 rounded-lg transition-colors">
             <ArrowLeft size={24} />
           </Link>
-          <Shield className="text-red-500" size={28} />
+          <Shield className="text-brand-500" size={28} />
           <h1 className="text-3xl font-black tracking-tighter">{t('permissions.title')}</h1>
         </div>
       </div>
 
       <div className="max-w-7xl mx-auto p-6">
         {error && (
-          <div className="bg-red-900/30 border border-red-800 rounded-lg p-4 mb-6">
-            <p className="text-red-300">{error}</p>
+          <div className="bg-brand-900/30 border border-brand-800 rounded-lg p-4 mb-6">
+            <p className="text-brand-300">{error}</p>
           </div>
         )}
         {success && (
@@ -117,7 +117,7 @@ export default function PermissionsScreen() {
                           disabled={role === 'admin'}
                           className={`w-10 h-6 rounded-full transition-colors relative ${
                             permissions[role]?.[perm]
-                              ? 'bg-red-600'
+                              ? 'bg-brand-600'
                               : 'bg-neutral-700'
                           } ${role === 'admin' ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
                         >
@@ -141,7 +141,7 @@ export default function PermissionsScreen() {
                         <button
                           onClick={() => handleSaveRole(role)}
                           disabled={saving === role}
-                          className="px-4 py-2 bg-red-600 text-white text-sm font-bold rounded-lg hover:bg-red-700 disabled:opacity-50 transition-colors flex items-center gap-1 mx-auto"
+                          className="px-4 py-2 bg-brand-600 text-white text-sm font-bold rounded-lg hover:bg-brand-700 disabled:opacity-50 transition-colors flex items-center gap-1 mx-auto"
                         >
                           <Save size={14} />
                           {saving === role ? t('permissions.saving') : t('permissions.save')}

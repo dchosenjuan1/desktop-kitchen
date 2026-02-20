@@ -126,7 +126,7 @@ export default function LiveDashboardScreen() {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div className="bg-neutral-900 p-6 rounded-lg border border-neutral-800">
               <p className="text-neutral-400 text-sm">{t('dashboard.kpi.revenue')}</p>
-              <p className="text-4xl font-bold text-red-500 mt-1">{formatPrice(kpis.revenue || 0)}</p>
+              <p className="text-4xl font-bold text-brand-500 mt-1">{formatPrice(kpis.revenue || 0)}</p>
             </div>
             <div className="bg-neutral-900 p-6 rounded-lg border border-neutral-800">
               <p className="text-neutral-400 text-sm">{t('dashboard.kpi.orders')}</p>
@@ -187,7 +187,7 @@ export default function LiveDashboardScreen() {
                   <div className="flex justify-around text-sm mt-2">
                     <div className="text-center">
                       <p className="text-neutral-400">{t('dashboard.sections.card')}</p>
-                      <p className="font-bold text-red-400">{kpis.card_orders} {t('dashboard.sections.orders')}</p>
+                      <p className="font-bold text-brand-400">{kpis.card_orders} {t('dashboard.sections.orders')}</p>
                     </div>
                     <div className="text-center">
                       <p className="text-neutral-400">{t('dashboard.sections.cash')}</p>
@@ -233,7 +233,7 @@ export default function LiveDashboardScreen() {
                     <div key={i} className="flex items-center justify-between p-3 bg-neutral-800 rounded-lg">
                       <span className="font-semibold">{getSourceLabel(source.source)}</span>
                       <div className="text-right">
-                        <p className="font-bold text-red-400">{formatPrice(source.revenue || 0)}</p>
+                        <p className="font-bold text-brand-400">{formatPrice(source.revenue || 0)}</p>
                         <p className="text-xs text-neutral-400">{source.count} {t('dashboard.sections.orders')}</p>
                       </div>
                     </div>

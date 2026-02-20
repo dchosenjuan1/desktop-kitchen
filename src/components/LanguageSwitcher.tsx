@@ -24,7 +24,7 @@ const LanguageSwitcher: React.FC<LanguageSwitcherProps> = ({ variant = 'nav' }) 
         onClick={() => toggle('en')}
         className={`${baseHeight} ${basePx} ${textSize} font-bold transition-colors ${
           currentLang === 'en'
-            ? 'bg-red-600 text-white'
+            ? 'bg-brand-600 text-white'
             : 'bg-neutral-800 text-neutral-400 hover:bg-neutral-700'
         }`}
       >
@@ -34,7 +34,7 @@ const LanguageSwitcher: React.FC<LanguageSwitcherProps> = ({ variant = 'nav' }) 
         onClick={() => toggle('es')}
         className={`${baseHeight} ${basePx} ${textSize} font-bold transition-colors ${
           currentLang === 'es'
-            ? 'bg-red-600 text-white'
+            ? 'bg-brand-600 text-white'
             : 'bg-neutral-800 text-neutral-400 hover:bg-neutral-700'
         }`}
       >

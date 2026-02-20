@@ -9,7 +9,7 @@ export default function PrepForecastScreen() {
   const { t } = useTranslation('inventory');
 
   const ACTION_STYLES: Record<string, { bg: string; text: string; label: string }> = {
-    restock_needed: { bg: 'bg-red-900/20 border-red-800', text: 'text-red-400', label: t('prepForecast.status.restockNeeded') },
+    restock_needed: { bg: 'bg-brand-900/20 border-brand-800', text: 'text-brand-400', label: t('prepForecast.status.restockNeeded') },
     prep_extra: { bg: 'bg-amber-900/20 border-amber-800', text: 'text-amber-400', label: t('prepForecast.status.prepExtra') },
     sufficient: { bg: 'bg-green-900/20 border-green-800', text: 'text-green-400', label: t('prepForecast.status.sufficient') },
   };
@@ -50,7 +50,7 @@ export default function PrepForecastScreen() {
           <Link to="/admin" className="p-2 hover:bg-neutral-800 rounded-lg transition-colors">
             <ArrowLeft size={24} />
           </Link>
-          <Calendar className="text-red-500" size={28} />
+          <Calendar className="text-brand-500" size={28} />
           <h1 className="text-3xl font-black tracking-tighter">{t('prepForecast.title')}</h1>
         </div>
       </div>
@@ -64,7 +64,7 @@ export default function PrepForecastScreen() {
               type="date"
               value={selectedDate}
               onChange={(e) => setSelectedDate(e.target.value)}
-              className="bg-neutral-800 border border-neutral-700 rounded-lg p-2 text-white focus:outline-none focus:border-red-600"
+              className="bg-neutral-800 border border-neutral-700 rounded-lg p-2 text-white focus:outline-none focus:border-brand-600"
             />
           </div>
           {forecast && (
@@ -77,9 +77,9 @@ export default function PrepForecastScreen() {
                 <p className="text-neutral-400 text-xs">{t('prepForecast.estOrders')}</p>
                 <p className="text-white font-bold">{forecast.estimated_orders}</p>
               </div>
-              <div className="bg-red-900/30 border border-red-800 rounded-lg px-4 py-2">
-                <p className="text-red-400 text-xs">{t('prepForecast.needRestock')}</p>
-                <p className="text-red-400 font-bold">{restockCount}</p>
+              <div className="bg-brand-900/30 border border-brand-800 rounded-lg px-4 py-2">
+                <p className="text-brand-400 text-xs">{t('prepForecast.needRestock')}</p>
+                <p className="text-brand-400 font-bold">{restockCount}</p>
               </div>
               <div className="bg-amber-900/30 border border-amber-800 rounded-lg px-4 py-2">
                 <p className="text-amber-400 text-xs">{t('prepForecast.prepExtra')}</p>
@@ -90,8 +90,8 @@ export default function PrepForecastScreen() {
         </div>
 
         {error && (
-          <div className="bg-red-900/30 border border-red-800 rounded-lg p-4 mb-6">
-            <p className="text-red-300">{error}</p>
+          <div className="bg-brand-900/30 border border-brand-800 rounded-lg p-4 mb-6">
+            <p className="text-brand-300">{error}</p>
           </div>
         )}
 
@@ -114,7 +114,7 @@ export default function PrepForecastScreen() {
                 >
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center gap-3">
-                      {item.prep_action === 'restock_needed' && <AlertTriangle size={20} className="text-red-400" />}
+                      {item.prep_action === 'restock_needed' && <AlertTriangle size={20} className="text-brand-400" />}
                       {item.prep_action === 'prep_extra' && <Package size={20} className="text-amber-400" />}
                       {item.prep_action === 'sufficient' && <CheckCircle size={20} className="text-green-400" />}
                       <div>
@@ -135,7 +135,7 @@ export default function PrepForecastScreen() {
                     </div>
                     <div>
                       <p className="text-neutral-500">{t('prepForecast.columns.deficit')}</p>
-                      <p className={`font-bold ${item.deficit > 0 ? 'text-red-400' : 'text-green-400'}`}>
+                      <p className={`font-bold ${item.deficit > 0 ? 'text-brand-400' : 'text-green-400'}`}>
                         {item.deficit > 0 ? `-${item.deficit}` : t('prepForecast.ok')}
                       </p>
                     </div>

@@ -19,7 +19,7 @@ const STATUS_COLORS: Record<string, string> = {
   submitted: 'bg-blue-600',
   partial: 'bg-amber-600',
   received: 'bg-green-600',
-  cancelled: 'bg-red-600',
+  cancelled: 'bg-brand-600',
 };
 
 export default function PurchaseOrderScreen() {
@@ -185,12 +185,12 @@ export default function PurchaseOrderScreen() {
               <ArrowLeft size={24} />
             </button>
           )}
-          <FileText className="text-red-500" size={28} />
+          <FileText className="text-brand-500" size={28} />
           <h1 className="text-3xl font-black tracking-tighter">{t('purchaseOrders.title')}</h1>
           {view === 'list' && (
             <button
               onClick={() => setView('create')}
-              className="ml-auto px-4 py-2 bg-red-600 text-white font-bold rounded-lg hover:bg-red-700 flex items-center gap-2"
+              className="ml-auto px-4 py-2 bg-brand-600 text-white font-bold rounded-lg hover:bg-brand-700 flex items-center gap-2"
             >
               <Plus size={18} /> {t('purchaseOrders.newPo')}
             </button>
@@ -200,9 +200,9 @@ export default function PurchaseOrderScreen() {
 
       <div className="max-w-6xl mx-auto p-6">
         {error && (
-          <div className="bg-red-900/30 border border-red-800 rounded-lg p-4 mb-6">
-            <p className="text-red-300">{error}</p>
-            <button onClick={() => setError(null)} className="text-red-400 text-sm mt-1 underline">{t('menu.dismiss')}</button>
+          <div className="bg-brand-900/30 border border-brand-800 rounded-lg p-4 mb-6">
+            <p className="text-brand-300">{error}</p>
+            <button onClick={() => setError(null)} className="text-brand-400 text-sm mt-1 underline">{t('menu.dismiss')}</button>
           </div>
         )}
         {success && (
@@ -220,7 +220,7 @@ export default function PurchaseOrderScreen() {
                   key={s}
                   onClick={() => { setStatusFilter(s); }}
                   className={`px-3 py-1.5 rounded-lg text-sm font-bold transition-colors ${
-                    statusFilter === s ? 'bg-red-600 text-white' : 'bg-neutral-800 text-neutral-400 hover:bg-neutral-700'
+                    statusFilter === s ? 'bg-brand-600 text-white' : 'bg-neutral-800 text-neutral-400 hover:bg-neutral-700'
                   }`}
                 >
                   {STATUS_LABELS[s]}
@@ -238,7 +238,7 @@ export default function PurchaseOrderScreen() {
                   <div
                     key={po.id}
                     onClick={() => handleViewDetail(po.id)}
-                    className="bg-neutral-900 border border-neutral-800 rounded-lg p-4 hover:border-red-600 transition-colors cursor-pointer flex items-center justify-between"
+                    className="bg-neutral-900 border border-neutral-800 rounded-lg p-4 hover:border-brand-600 transition-colors cursor-pointer flex items-center justify-between"
                   >
                     <div>
                       <div className="flex items-center gap-3">
@@ -272,7 +272,7 @@ export default function PurchaseOrderScreen() {
               <select
                 value={newVendorId}
                 onChange={(e) => setNewVendorId(Number(e.target.value) || '')}
-                className="w-full bg-neutral-800 border border-neutral-700 rounded-lg p-3 text-white focus:outline-none focus:border-red-600"
+                className="w-full bg-neutral-800 border border-neutral-700 rounded-lg p-3 text-white focus:outline-none focus:border-brand-600"
               >
                 <option value="">{t('purchaseOrders.form.selectVendor')}</option>
                 {vendors.filter((v) => v.active).map((v) => (
@@ -286,7 +286,7 @@ export default function PurchaseOrderScreen() {
               <textarea
                 value={newNotes}
                 onChange={(e) => setNewNotes(e.target.value)}
-                className="w-full bg-neutral-800 border border-neutral-700 rounded-lg p-3 text-white focus:outline-none focus:border-red-600 h-20"
+                className="w-full bg-neutral-800 border border-neutral-700 rounded-lg p-3 text-white focus:outline-none focus:border-brand-600 h-20"
                 placeholder={t('purchaseOrders.form.notesPlaceholder')}
               />
             </div>
@@ -294,7 +294,7 @@ export default function PurchaseOrderScreen() {
             <div>
               <div className="flex items-center justify-between mb-3">
                 <label className="text-sm font-bold text-white">{t('purchaseOrders.form.lineItems')}</label>
-                <button onClick={addLineItem} className="text-red-400 text-sm font-bold flex items-center gap-1 hover:text-red-300">
+                <button onClick={addLineItem} className="text-brand-400 text-sm font-bold flex items-center gap-1 hover:text-brand-300">
                   <Plus size={14} /> {t('purchaseOrders.form.addItem')}
                 </button>
               </div>
@@ -327,7 +327,7 @@ export default function PurchaseOrderScreen() {
                     min={0}
                     step={0.01}
                   />
-                  <button onClick={() => removeLineItem(idx)} className="text-red-400 hover:text-red-300 p-1">
+                  <button onClick={() => removeLineItem(idx)} className="text-brand-400 hover:text-brand-300 p-1">
                     <X size={18} />
                   </button>
                 </div>
@@ -349,7 +349,7 @@ export default function PurchaseOrderScreen() {
               <button
                 onClick={handleCreatePO}
                 disabled={creating}
-                className="flex-1 py-3 bg-red-600 text-white font-bold rounded-lg hover:bg-red-700 disabled:opacity-50"
+                className="flex-1 py-3 bg-brand-600 text-white font-bold rounded-lg hover:bg-brand-700 disabled:opacity-50"
               >
                 {creating ? t('purchaseOrders.form.creating') : t('purchaseOrders.form.createPo')}
               </button>

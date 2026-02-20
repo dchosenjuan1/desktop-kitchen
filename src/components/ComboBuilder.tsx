@@ -92,12 +92,12 @@ export default function ComboBuilder({ onAddCombo, onClose }: ComboBuilderProps)
   return (
     <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
       <div className="bg-neutral-900 rounded-2xl shadow-2xl w-full max-w-lg max-h-[85vh] overflow-hidden border border-neutral-800 flex flex-col">
-        <div className="bg-red-600 text-white p-5 flex-shrink-0">
+        <div className="bg-brand-600 text-white p-5 flex-shrink-0">
           <h2 className="text-2xl font-bold">
             {selectedCombo ? selectedCombo.name : t('comboBuilder.title')}
           </h2>
           {selectedCombo && (
-            <p className="text-red-200 text-sm mt-1">{selectedCombo.description}</p>
+            <p className="text-brand-200 text-sm mt-1">{selectedCombo.description}</p>
           )}
         </div>
 
@@ -109,14 +109,14 @@ export default function ComboBuilder({ onAddCombo, onClose }: ComboBuilderProps)
                 <button
                   key={combo.id}
                   onClick={() => handleSelectCombo(combo)}
-                  className="w-full p-4 bg-neutral-800 border border-neutral-700 rounded-lg hover:border-red-600 transition-all text-left"
+                  className="w-full p-4 bg-neutral-800 border border-neutral-700 rounded-lg hover:border-brand-600 transition-all text-left"
                 >
                   <div className="flex justify-between items-start">
                     <div>
                       <h3 className="text-lg font-bold text-white">{combo.name}</h3>
                       <p className="text-sm text-neutral-400 mt-1">{combo.description}</p>
                     </div>
-                    <span className="text-xl font-bold text-red-500">{formatPrice(combo.combo_price)}</span>
+                    <span className="text-xl font-bold text-brand-500">{formatPrice(combo.combo_price)}</span>
                   </div>
                 </button>
               ))}
@@ -143,7 +143,7 @@ export default function ComboBuilder({ onAddCombo, onClose }: ComboBuilderProps)
                           onClick={() => setSlotSelections(prev => ({ ...prev, [slot.id]: item.id }))}
                           className={`w-full flex items-center justify-between p-3 rounded-lg transition-all ${
                             selectedId === item.id
-                              ? 'bg-red-600/20 border-2 border-red-600 text-white'
+                              ? 'bg-brand-600/20 border-2 border-brand-600 text-white'
                               : 'bg-neutral-800 border border-neutral-700 text-neutral-300 hover:bg-neutral-700'
                           }`}
                         >
@@ -175,7 +175,7 @@ export default function ComboBuilder({ onAddCombo, onClose }: ComboBuilderProps)
               <button
                 onClick={handleConfirm}
                 disabled={!allSlotsFilled}
-                className="w-full py-4 bg-red-600 text-white text-lg font-bold rounded-lg hover:bg-red-700 disabled:bg-neutral-700 disabled:text-neutral-500 transition-all"
+                className="w-full py-4 bg-brand-600 text-white text-lg font-bold rounded-lg hover:bg-brand-700 disabled:bg-neutral-700 disabled:text-neutral-500 transition-all"
               >
                 {t('comboBuilder.addCombo', { price: formatPrice(selectedCombo.combo_price) })}
               </button>

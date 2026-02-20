@@ -93,7 +93,7 @@ export default function DeliveryScreen() {
           <button
             onClick={() => setTab('orders')}
             className={`px-6 py-3 rounded-lg font-medium transition-colors ${
-              tab === 'orders' ? 'bg-red-600 text-white' : 'bg-neutral-900 text-neutral-300 border border-neutral-800 hover:bg-neutral-800'
+              tab === 'orders' ? 'bg-brand-600 text-white' : 'bg-neutral-900 text-neutral-300 border border-neutral-800 hover:bg-neutral-800'
             }`}
           >
             {t('delivery.tabs.orders')}
@@ -101,7 +101,7 @@ export default function DeliveryScreen() {
           <button
             onClick={() => setTab('platforms')}
             className={`px-6 py-3 rounded-lg font-medium transition-colors ${
-              tab === 'platforms' ? 'bg-red-600 text-white' : 'bg-neutral-900 text-neutral-300 border border-neutral-800 hover:bg-neutral-800'
+              tab === 'platforms' ? 'bg-brand-600 text-white' : 'bg-neutral-900 text-neutral-300 border border-neutral-800 hover:bg-neutral-800'
             }`}
           >
             {t('delivery.tabs.config')}
@@ -139,7 +139,7 @@ export default function DeliveryScreen() {
                       )}
                     </div>
                     <div className="text-right">
-                      <p className="font-bold text-red-500">{formatPrice(order.total || 0)}</p>
+                      <p className="font-bold text-brand-500">{formatPrice(order.total || 0)}</p>
                       <p className="text-xs text-neutral-500">{order.platform_status}</p>
                     </div>
                   </div>

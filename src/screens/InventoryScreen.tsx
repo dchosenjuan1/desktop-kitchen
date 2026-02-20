@@ -184,7 +184,7 @@ export default function InventoryScreen() {
   };
 
   const getStatusBadge = (quantity: number, threshold: number) => {
-    if (quantity === 0) return <span className="px-3 py-1 bg-red-600/20 text-red-400 rounded-full text-xs font-medium border border-red-800">{t('inventory.status.outOfStock')}</span>;
+    if (quantity === 0) return <span className="px-3 py-1 bg-brand-600/20 text-brand-400 rounded-full text-xs font-medium border border-brand-800">{t('inventory.status.outOfStock')}</span>;
     if (quantity <= threshold) return <span className="px-3 py-1 bg-amber-600/20 text-amber-400 rounded-full text-xs font-medium border border-amber-800">{t('inventory.status.lowStock')}</span>;
     return <span className="px-3 py-1 bg-green-600/20 text-green-400 rounded-full text-xs font-medium border border-green-800">{t('inventory.status.inStock')}</span>;
   };
@@ -286,11 +286,11 @@ export default function InventoryScreen() {
 
       <div className="max-w-7xl mx-auto p-6">
         {error && (
-          <div className="bg-red-900/30 border border-red-800 rounded-lg p-4 mb-6 flex justify-between items-center">
-            <p className="text-red-300">{error}</p>
+          <div className="bg-brand-900/30 border border-brand-800 rounded-lg p-4 mb-6 flex justify-between items-center">
+            <p className="text-brand-300">{error}</p>
             <button
               onClick={() => setError(null)}
-              className="text-red-400 hover:text-red-300"
+              className="text-brand-400 hover:text-brand-300"
             >
               <X size={20} />
             </button>
@@ -305,7 +305,7 @@ export default function InventoryScreen() {
               onClick={() => setActiveTab(tab.key)}
               className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
                 activeTab === tab.key
-                  ? 'bg-red-600 text-white'
+                  ? 'bg-brand-600 text-white'
                   : 'bg-neutral-800 text-neutral-400 hover:text-white hover:bg-neutral-700'
               }`}
             >
@@ -327,14 +327,14 @@ export default function InventoryScreen() {
                     placeholder={t('inventory.search')}
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    className="w-full pl-10 pr-4 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white placeholder-neutral-500 focus:outline-none focus:border-red-600"
+                    className="w-full pl-10 pr-4 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white placeholder-neutral-500 focus:outline-none focus:border-brand-600"
                   />
                 </div>
 
                 <select
                   value={selectedCategory}
                   onChange={(e) => setSelectedCategory(e.target.value)}
-                  className="px-4 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white focus:outline-none focus:border-red-600"
+                  className="px-4 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white focus:outline-none focus:border-brand-600"
                 >
                   {categories.map((cat) => (
                     <option key={cat} value={cat}>
@@ -346,7 +346,7 @@ export default function InventoryScreen() {
                 <select
                   value={sortBy}
                   onChange={(e) => setSortBy(e.target.value as SortField)}
-                  className="px-4 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white focus:outline-none focus:border-red-600"
+                  className="px-4 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white focus:outline-none focus:border-brand-600"
                 >
                   <option value="name">{t('inventory.sortByName')}</option>
                   <option value="quantity">{t('inventory.sortByQuantity')}</option>
@@ -393,7 +393,7 @@ export default function InventoryScreen() {
                                   type="number"
                                   value={editThreshold}
                                   onChange={(e) => setEditThreshold(e.target.value)}
-                                  className="w-20 px-2 py-1 bg-neutral-800 border border-neutral-700 rounded-lg text-white focus:outline-none focus:border-red-600"
+                                  className="w-20 px-2 py-1 bg-neutral-800 border border-neutral-700 rounded-lg text-white focus:outline-none focus:border-brand-600"
                                   placeholder={item.low_stock_threshold.toString()}
                                 />
                                 <button
@@ -444,7 +444,7 @@ export default function InventoryScreen() {
                                   type="number"
                                   value={restockAmount}
                                   onChange={(e) => setRestockAmount(e.target.value)}
-                                  className="w-16 px-2 py-1 bg-neutral-800 border border-neutral-700 rounded-lg text-white text-center focus:outline-none focus:border-red-600"
+                                  className="w-16 px-2 py-1 bg-neutral-800 border border-neutral-700 rounded-lg text-white text-center focus:outline-none focus:border-brand-600"
                                   placeholder="0"
                                 />
                                 <button
@@ -456,7 +456,7 @@ export default function InventoryScreen() {
                                 <button
                                   onClick={() => handleRestock()}
                                   disabled={actionLoading || !restockAmount}
-                                  className="px-3 py-1 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50"
+                                  className="px-3 py-1 bg-brand-600 text-white rounded-lg hover:bg-brand-700 transition-colors disabled:opacity-50"
                                 >
                                   <Check size={18} />
                                 </button>
@@ -476,7 +476,7 @@ export default function InventoryScreen() {
                                   setRestockingId(item.id);
                                   setRestockAmount('');
                                 }}
-                                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-sm font-medium min-h-[44px] flex items-center justify-center"
+                                className="px-4 py-2 bg-brand-600 text-white rounded-lg hover:bg-brand-700 transition-colors text-sm font-medium min-h-[44px] flex items-center justify-center"
                               >
                                 {t('inventory.restock')}
                               </button>
@@ -495,7 +495,7 @@ export default function InventoryScreen() {
               <div className="bg-neutral-900 p-6 rounded-lg border border-neutral-800 mb-6">
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center gap-2">
-                    <Sparkles className="text-red-500" size={20} />
+                    <Sparkles className="text-brand-500" size={20} />
                     <h3 className="font-semibold text-white">{t('inventory.aiPredictions')}</h3>
                   </div>
                   <button
@@ -521,7 +521,7 @@ export default function InventoryScreen() {
                         </div>
                         <div className="flex items-center gap-3">
                           <span className={`px-2 py-1 rounded text-xs font-medium ${
-                            f.risk_level === 'critical' ? 'bg-red-900/30 text-red-400' :
+                            f.risk_level === 'critical' ? 'bg-brand-900/30 text-brand-400' :
                             f.risk_level === 'high' ? 'bg-orange-900/30 text-orange-400' :
                             f.risk_level === 'medium' ? 'bg-amber-900/30 text-amber-400' :
                             'bg-green-900/30 text-green-400'
@@ -556,7 +556,7 @@ export default function InventoryScreen() {
                   </div>
                   <div className="p-4 bg-neutral-800 rounded-lg">
                     <p className="text-neutral-400 text-sm">{t('inventory.summary.outOfStock')}</p>
-                    <p className="text-2xl font-bold text-red-500">
+                    <p className="text-2xl font-bold text-brand-500">
                       {filteredItems.filter((i) => i.quantity === 0).length}
                     </p>
                   </div>
@@ -576,7 +576,7 @@ export default function InventoryScreen() {
                 <select
                   value={countItemId}
                   onChange={(e) => setCountItemId(e.target.value)}
-                  className="px-4 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white focus:outline-none focus:border-red-600"
+                  className="px-4 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white focus:outline-none focus:border-brand-600"
                 >
                   <option value="">{t('count.selectItem')}</option>
                   {items.map((item) => (
@@ -590,19 +590,19 @@ export default function InventoryScreen() {
                   value={countedQty}
                   onChange={(e) => setCountedQty(e.target.value)}
                   placeholder={t('count.countedQuantity')}
-                  className="px-4 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white placeholder-neutral-500 focus:outline-none focus:border-red-600"
+                  className="px-4 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white placeholder-neutral-500 focus:outline-none focus:border-brand-600"
                 />
                 <input
                   type="text"
                   value={countNotes}
                   onChange={(e) => setCountNotes(e.target.value)}
                   placeholder={t('count.notes')}
-                  className="px-4 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white placeholder-neutral-500 focus:outline-none focus:border-red-600"
+                  className="px-4 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white placeholder-neutral-500 focus:outline-none focus:border-brand-600"
                 />
                 <button
                   onClick={handleRecordCount}
                   disabled={actionLoading || !countItemId || !countedQty}
-                  className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 font-medium"
+                  className="px-4 py-2 bg-brand-600 text-white rounded-lg hover:bg-brand-700 transition-colors disabled:opacity-50 font-medium"
                 >
                   {t('count.recordCount')}
                 </button>
@@ -647,13 +647,13 @@ export default function InventoryScreen() {
                             <td className="px-6 py-4 text-neutral-300">{count.counted_quantity}</td>
                             <td className="px-6 py-4 text-neutral-300">{count.system_quantity}</td>
                             <td className="px-6 py-4">
-                              <span className={count.variance !== 0 ? (count.variance < 0 ? 'text-red-400' : 'text-amber-400') : 'text-green-400'}>
+                              <span className={count.variance !== 0 ? (count.variance < 0 ? 'text-brand-400' : 'text-amber-400') : 'text-green-400'}>
                                 {count.variance > 0 ? '+' : ''}{count.variance}
                               </span>
                             </td>
                             <td className="px-6 py-4">
                               <span className={`px-2 py-1 rounded text-xs font-medium ${
-                                isHigh ? 'bg-red-900/30 text-red-400' : 'bg-neutral-800 text-neutral-400'
+                                isHigh ? 'bg-brand-900/30 text-brand-400' : 'bg-neutral-800 text-neutral-400'
                               }`}>
                                 {count.variance_percent > 0 ? '+' : ''}{count.variance_percent.toFixed(1)}%
                               </span>
@@ -719,12 +719,12 @@ export default function InventoryScreen() {
                           <td className="px-6 py-4 font-medium text-white">{row.name}</td>
                           <td className="px-6 py-4 text-neutral-300">{row.count_sessions}</td>
                           <td className="px-6 py-4">
-                            <span className={row.avg_variance < 0 ? 'text-red-400' : row.avg_variance > 0 ? 'text-amber-400' : 'text-green-400'}>
+                            <span className={row.avg_variance < 0 ? 'text-brand-400' : row.avg_variance > 0 ? 'text-amber-400' : 'text-green-400'}>
                               {row.avg_variance > 0 ? '+' : ''}{row.avg_variance.toFixed(1)}
                             </span>
                           </td>
                           <td className="px-6 py-4">
-                            <span className={avgPct > 10 ? 'text-red-400' : 'text-neutral-300'}>
+                            <span className={avgPct > 10 ? 'text-brand-400' : 'text-neutral-300'}>
                               {row.avg_variance_percent > 0 ? '+' : ''}{row.avg_variance_percent.toFixed(1)}%
                             </span>
                           </td>
@@ -733,7 +733,7 @@ export default function InventoryScreen() {
                           </td>
                           <td className="px-6 py-4">
                             <span className={`px-2 py-1 rounded text-xs font-bold uppercase ${
-                              risk === 'high' ? 'bg-red-900/30 text-red-400' :
+                              risk === 'high' ? 'bg-brand-900/30 text-brand-400' :
                               risk === 'medium' ? 'bg-amber-900/30 text-amber-400' :
                               'bg-green-900/30 text-green-400'
                             }`}>
@@ -755,7 +755,7 @@ export default function InventoryScreen() {
           <div className="bg-neutral-900 p-6 rounded-lg border border-neutral-800">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
-                <AlertTriangle className="text-red-500" size={20} />
+                <AlertTriangle className="text-brand-500" size={20} />
                 <h3 className="text-lg font-bold text-white">{t('alerts.title')}</h3>
               </div>
               <button
@@ -784,7 +784,7 @@ export default function InventoryScreen() {
                     key={alert.id}
                     className={`p-4 rounded-lg border transition-colors ${
                       alert.severity === 'critical'
-                        ? 'bg-red-900/20 border-red-800'
+                        ? 'bg-brand-900/20 border-brand-800'
                         : alert.severity === 'high'
                         ? 'bg-orange-900/20 border-orange-800'
                         : 'bg-amber-900/20 border-amber-800'
@@ -794,7 +794,7 @@ export default function InventoryScreen() {
                       <div className="flex-1">
                         <div className="flex items-center gap-2 mb-1">
                           <span className={`px-2 py-0.5 rounded text-xs font-bold uppercase ${
-                            alert.severity === 'critical' ? 'bg-red-900/30 text-red-400' :
+                            alert.severity === 'critical' ? 'bg-brand-900/30 text-brand-400' :
                             alert.severity === 'high' ? 'bg-orange-900/30 text-orange-400' :
                             'bg-amber-900/30 text-amber-400'
                           }`}>

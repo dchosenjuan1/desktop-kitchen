@@ -283,7 +283,7 @@ export default function ModifierManagement() {
           <button
             onClick={() => setTab('modifiers')}
             className={`px-6 py-3 rounded-lg font-medium transition-colors ${
-              tab === 'modifiers' ? 'bg-red-600 text-white' : 'bg-neutral-900 text-neutral-300 border border-neutral-800 hover:bg-neutral-800'
+              tab === 'modifiers' ? 'bg-brand-600 text-white' : 'bg-neutral-900 text-neutral-300 border border-neutral-800 hover:bg-neutral-800'
             }`}
           >
             {t('modifiers.tabs.modifierGroups')}
@@ -291,7 +291,7 @@ export default function ModifierManagement() {
           <button
             onClick={() => setTab('combos')}
             className={`px-6 py-3 rounded-lg font-medium transition-colors ${
-              tab === 'combos' ? 'bg-red-600 text-white' : 'bg-neutral-900 text-neutral-300 border border-neutral-800 hover:bg-neutral-800'
+              tab === 'combos' ? 'bg-brand-600 text-white' : 'bg-neutral-900 text-neutral-300 border border-neutral-800 hover:bg-neutral-800'
             }`}
           >
             {t('modifiers.tabs.combos')}
@@ -308,7 +308,7 @@ export default function ModifierManagement() {
           <div className="space-y-4">
             <button
               onClick={() => setShowAddGroup(true)}
-              className="flex items-center gap-2 px-4 py-3 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700 transition-colors"
+              className="flex items-center gap-2 px-4 py-3 bg-brand-600 text-white rounded-lg font-medium hover:bg-brand-700 transition-colors"
             >
               <Plus size={20} /> {t('modifiers.addGroup')}
             </button>
@@ -319,18 +319,18 @@ export default function ModifierManagement() {
                   value={newGroupName}
                   onChange={(e) => setNewGroupName(e.target.value)}
                   placeholder={t('modifiers.groupNamePlaceholder')}
-                  className="w-full bg-neutral-800 border border-neutral-700 rounded-lg p-3 text-white focus:outline-none focus:border-red-600"
+                  className="w-full bg-neutral-800 border border-neutral-700 rounded-lg p-3 text-white focus:outline-none focus:border-brand-600"
                 />
                 <div className="flex gap-3">
                   <button
                     onClick={() => setNewGroupType('single')}
-                    className={`px-4 py-2 rounded-lg font-medium ${newGroupType === 'single' ? 'bg-red-600 text-white' : 'bg-neutral-800 text-neutral-300'}`}
+                    className={`px-4 py-2 rounded-lg font-medium ${newGroupType === 'single' ? 'bg-brand-600 text-white' : 'bg-neutral-800 text-neutral-300'}`}
                   >
                     {t('modifiers.singleSelect')}
                   </button>
                   <button
                     onClick={() => setNewGroupType('multi')}
-                    className={`px-4 py-2 rounded-lg font-medium ${newGroupType === 'multi' ? 'bg-red-600 text-white' : 'bg-neutral-800 text-neutral-300'}`}
+                    className={`px-4 py-2 rounded-lg font-medium ${newGroupType === 'multi' ? 'bg-brand-600 text-white' : 'bg-neutral-800 text-neutral-300'}`}
                   >
                     {t('modifiers.multiSelect')}
                   </button>
@@ -387,14 +387,14 @@ export default function ModifierManagement() {
                         value={newModName}
                         onChange={(e) => setNewModName(e.target.value)}
                         placeholder={t('modifiers.modifierNamePlaceholder')}
-                        className="flex-1 bg-neutral-800 border border-neutral-700 rounded-lg p-2 text-white text-sm focus:outline-none focus:border-red-600"
+                        className="flex-1 bg-neutral-800 border border-neutral-700 rounded-lg p-2 text-white text-sm focus:outline-none focus:border-brand-600"
                       />
                       <input
                         type="number"
                         value={newModPrice}
                         onChange={(e) => setNewModPrice(e.target.value)}
                         placeholder={t('modifiers.priceAdj')}
-                        className="w-24 bg-neutral-800 border border-neutral-700 rounded-lg p-2 text-white text-sm focus:outline-none focus:border-red-600"
+                        className="w-24 bg-neutral-800 border border-neutral-700 rounded-lg p-2 text-white text-sm focus:outline-none focus:border-brand-600"
                       />
                       <button onClick={() => handleCreateModifier(group.id)} className="px-3 py-2 bg-green-600 text-white rounded-lg text-sm font-medium">{t('common:buttons.add')}</button>
                       <button onClick={() => setShowAddModifier(null)} className="px-3 py-2 bg-neutral-700 text-white rounded-lg text-sm font-medium">X</button>
@@ -416,7 +416,7 @@ export default function ModifierManagement() {
           <div className="space-y-4">
             <button
               onClick={openCreateCombo}
-              className="flex items-center gap-2 px-4 py-3 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700 transition-colors"
+              className="flex items-center gap-2 px-4 py-3 bg-brand-600 text-white rounded-lg font-medium hover:bg-brand-700 transition-colors"
             >
               <Plus size={20} /> {t('modifiers.combos.createCombo')}
             </button>
@@ -429,8 +429,8 @@ export default function ModifierManagement() {
                 </h3>
 
                 {comboFormError && (
-                  <div className="bg-red-900/30 border border-red-800 rounded-lg p-3">
-                    <p className="text-red-300 text-sm">{comboFormError}</p>
+                  <div className="bg-brand-900/30 border border-brand-800 rounded-lg p-3">
+                    <p className="text-brand-300 text-sm">{comboFormError}</p>
                   </div>
                 )}
 
@@ -439,13 +439,13 @@ export default function ModifierManagement() {
                     value={comboForm.name}
                     onChange={(e) => setComboForm({ ...comboForm, name: e.target.value })}
                     placeholder={t('modifiers.combos.form.name')}
-                    className="bg-neutral-800 border border-neutral-700 rounded-lg p-3 text-white focus:outline-none focus:border-red-600"
+                    className="bg-neutral-800 border border-neutral-700 rounded-lg p-3 text-white focus:outline-none focus:border-brand-600"
                   />
                   <input
                     value={comboForm.description}
                     onChange={(e) => setComboForm({ ...comboForm, description: e.target.value })}
                     placeholder={t('modifiers.combos.form.description')}
-                    className="bg-neutral-800 border border-neutral-700 rounded-lg p-3 text-white focus:outline-none focus:border-red-600"
+                    className="bg-neutral-800 border border-neutral-700 rounded-lg p-3 text-white focus:outline-none focus:border-brand-600"
                   />
                   <div className="flex items-center">
                     <span className="text-neutral-400 font-medium mr-1">$</span>
@@ -456,7 +456,7 @@ export default function ModifierManagement() {
                       placeholder={t('modifiers.combos.form.price')}
                       step="0.01"
                       min="0"
-                      className="flex-1 bg-neutral-800 border border-neutral-700 rounded-lg p-3 text-white focus:outline-none focus:border-red-600"
+                      className="flex-1 bg-neutral-800 border border-neutral-700 rounded-lg p-3 text-white focus:outline-none focus:border-brand-600"
                     />
                   </div>
                 </div>
@@ -467,7 +467,7 @@ export default function ModifierManagement() {
                     <p className="text-sm font-semibold text-neutral-400 uppercase">{t('modifiers.combos.form.slots')}</p>
                     <button
                       onClick={addSlot}
-                      className="flex items-center gap-1 text-sm text-red-400 hover:text-red-300"
+                      className="flex items-center gap-1 text-sm text-brand-400 hover:text-brand-300"
                     >
                       <Plus size={14} /> {t('modifiers.combos.form.addSlot')}
                     </button>
@@ -480,7 +480,7 @@ export default function ModifierManagement() {
                         value={slot.slot_label}
                         onChange={(e) => updateSlot(index, 'slot_label', e.target.value)}
                         placeholder={t('modifiers.combos.form.slotLabel')}
-                        className="flex-1 bg-neutral-700 border border-neutral-600 rounded-lg p-2 text-white text-sm focus:outline-none focus:border-red-600"
+                        className="flex-1 bg-neutral-700 border border-neutral-600 rounded-lg p-2 text-white text-sm focus:outline-none focus:border-brand-600"
                       />
                       <select
                         value={slot.category_id}
@@ -489,7 +489,7 @@ export default function ModifierManagement() {
                           updateSlot(index, 'specific_item_id', '');
                           if (e.target.value) fetchMenuItemsForCategory(parseInt(e.target.value));
                         }}
-                        className="w-40 bg-neutral-700 border border-neutral-600 rounded-lg p-2 text-white text-sm focus:outline-none focus:border-red-600"
+                        className="w-40 bg-neutral-700 border border-neutral-600 rounded-lg p-2 text-white text-sm focus:outline-none focus:border-brand-600"
                       >
                         <option value="">{t('modifiers.combos.form.anyCategory')}</option>
                         {categories.map(c => (
@@ -500,7 +500,7 @@ export default function ModifierManagement() {
                         <select
                           value={slot.specific_item_id}
                           onChange={(e) => updateSlot(index, 'specific_item_id', e.target.value)}
-                          className="w-40 bg-neutral-700 border border-neutral-600 rounded-lg p-2 text-white text-sm focus:outline-none focus:border-red-600"
+                          className="w-40 bg-neutral-700 border border-neutral-600 rounded-lg p-2 text-white text-sm focus:outline-none focus:border-brand-600"
                         >
                           <option value="">{t('modifiers.combos.form.anyItem')}</option>
                           {menuItemsByCategory[parseInt(slot.category_id)]?.map(item => (
@@ -511,7 +511,7 @@ export default function ModifierManagement() {
                       {comboForm.slots.length > 1 && (
                         <button
                           onClick={() => removeSlot(index)}
-                          className="p-1.5 text-neutral-500 hover:text-red-400"
+                          className="p-1.5 text-neutral-500 hover:text-brand-400"
                         >
                           <Trash2 size={16} />
                         </button>
@@ -547,7 +547,7 @@ export default function ModifierManagement() {
                     <p className="text-neutral-400 text-sm">{combo.description}</p>
                   </div>
                   <div className="flex items-center gap-3">
-                    <span className="text-2xl font-bold text-red-500">{formatPrice(combo.combo_price)}</span>
+                    <span className="text-2xl font-bold text-brand-500">{formatPrice(combo.combo_price)}</span>
                     <button
                       onClick={() => openEditCombo(combo)}
                       className="p-2 text-neutral-400 hover:text-white hover:bg-neutral-800 rounded-lg transition-colors"
@@ -582,7 +582,7 @@ export default function ModifierManagement() {
                 <p className="text-neutral-400 mb-4">{t('modifiers.combos.noCombos')}</p>
                 <button
                   onClick={openCreateCombo}
-                  className="px-6 py-3 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700 transition-colors inline-flex items-center gap-2"
+                  className="px-6 py-3 bg-brand-600 text-white rounded-lg font-medium hover:bg-brand-700 transition-colors inline-flex items-center gap-2"
                 >
                   <Plus size={20} /> {t('modifiers.combos.createFirstCombo')}
                 </button>

@@ -24,6 +24,8 @@ import loyaltyRoutes from './routes/loyalty.js';
 import orderTemplatesRoutes from './routes/order-templates.js';
 import adminRoutes from './routes/admin.js';
 import authRoutes from './routes/auth.js';
+import brandingRoutes from './routes/branding.js';
+import billingRoutes, { stripeWebhook } from './routes/billing.js';
 import { initAI } from './ai/index.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -32,6 +34,10 @@ const PORT = process.env.PORT || 3001;
 
 // Middleware
 app.use(cors());
+
+// Stripe webhook needs raw body (before express.json)
+app.post('/api/billing/webhook', express.raw({ type: 'application/json' }), stripeWebhook);
+
 app.use(express.json());
 app.use(express.static(path.join(__dirname, '../dist')));
 
@@ -67,6 +73,8 @@ app.use('/api/delivery', deliveryRoutes);
 app.use('/api/purchase-orders', purchaseOrdersRoutes);
 app.use('/api/loyalty', loyaltyRoutes);
 app.use('/api/order-templates', orderTemplatesRoutes);
+app.use('/api/branding', brandingRoutes);
+app.use('/api/billing', billingRoutes);
 
 // Serve index.html for all other routes (SPA)
 app.get('*', (req, res) => {

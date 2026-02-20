@@ -69,8 +69,8 @@ export default function AdminPanel() {
 
       <div className="max-w-7xl mx-auto p-6">
         {error && (
-          <div className="bg-red-900/30 border border-red-800 rounded-lg p-4 mb-6">
-            <p className="text-red-300">{error}</p>
+          <div className="bg-brand-900/30 border border-brand-800 rounded-lg p-4 mb-6">
+            <p className="text-brand-300">{error}</p>
           </div>
         )}
 
@@ -86,7 +86,7 @@ export default function AdminPanel() {
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
             <div className="bg-neutral-900 p-6 rounded-lg border border-neutral-800">
               <p className="text-neutral-400 text-sm font-medium">{t('panel.todaysRevenue')}</p>
-              <p className="text-3xl font-bold text-red-500 mt-2">
+              <p className="text-3xl font-bold text-brand-500 mt-2">
                 {formatPrice(dailyStats?.total_revenue || 0)}
               </p>
             </div>
@@ -113,9 +113,9 @@ export default function AdminPanel() {
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           <Link to="/admin/menu">
-            <div className="bg-neutral-900 p-8 rounded-lg border border-neutral-800 hover:border-red-600 transition-all cursor-pointer h-full">
-              <div className="flex items-center justify-center w-12 h-12 bg-red-600/10 rounded-lg mb-4">
-                <UtensilsCrossed className="text-red-500" size={28} />
+            <div className="bg-neutral-900 p-8 rounded-lg border border-neutral-800 hover:border-brand-600 transition-all cursor-pointer h-full">
+              <div className="flex items-center justify-center w-12 h-12 bg-brand-600/10 rounded-lg mb-4">
+                <UtensilsCrossed className="text-brand-500" size={28} />
               </div>
               <h2 className="text-xl font-bold text-white mb-2">{t('cards.menuManagement')}</h2>
               <p className="text-neutral-400 text-sm">{t('cards.menuDesc')}</p>
@@ -123,9 +123,9 @@ export default function AdminPanel() {
           </Link>
 
           <Link to="/admin/inventory">
-            <div className="bg-neutral-900 p-8 rounded-lg border border-neutral-800 hover:border-red-600 transition-all cursor-pointer h-full">
-              <div className="flex items-center justify-center w-12 h-12 bg-red-600/10 rounded-lg mb-4">
-                <Package className="text-red-500" size={28} />
+            <div className="bg-neutral-900 p-8 rounded-lg border border-neutral-800 hover:border-brand-600 transition-all cursor-pointer h-full">
+              <div className="flex items-center justify-center w-12 h-12 bg-brand-600/10 rounded-lg mb-4">
+                <Package className="text-brand-500" size={28} />
               </div>
               <h2 className="text-xl font-bold text-white mb-2">{t('cards.inventory')}</h2>
               <p className="text-neutral-400 text-sm">{t('cards.inventoryDesc')}</p>
@@ -133,9 +133,9 @@ export default function AdminPanel() {
           </Link>
 
           <Link to="/admin/employees">
-            <div className="bg-neutral-900 p-8 rounded-lg border border-neutral-800 hover:border-red-600 transition-all cursor-pointer h-full">
-              <div className="flex items-center justify-center w-12 h-12 bg-red-600/10 rounded-lg mb-4">
-                <Users className="text-red-500" size={28} />
+            <div className="bg-neutral-900 p-8 rounded-lg border border-neutral-800 hover:border-brand-600 transition-all cursor-pointer h-full">
+              <div className="flex items-center justify-center w-12 h-12 bg-brand-600/10 rounded-lg mb-4">
+                <Users className="text-brand-500" size={28} />
               </div>
               <h2 className="text-xl font-bold text-white mb-2">{t('cards.employees')}</h2>
               <p className="text-neutral-400 text-sm">{t('cards.employeesDesc')}</p>
@@ -143,9 +143,9 @@ export default function AdminPanel() {
           </Link>
 
           <Link to="/admin/reports">
-            <div className="bg-neutral-900 p-8 rounded-lg border border-neutral-800 hover:border-red-600 transition-all cursor-pointer h-full">
-              <div className="flex items-center justify-center w-12 h-12 bg-red-600/10 rounded-lg mb-4">
-                <BarChart3 className="text-red-500" size={28} />
+            <div className="bg-neutral-900 p-8 rounded-lg border border-neutral-800 hover:border-brand-600 transition-all cursor-pointer h-full">
+              <div className="flex items-center justify-center w-12 h-12 bg-brand-600/10 rounded-lg mb-4">
+                <BarChart3 className="text-brand-500" size={28} />
               </div>
               <h2 className="text-xl font-bold text-white mb-2">{t('cards.reports')}</h2>
               <p className="text-neutral-400 text-sm">{t('cards.reportsDesc')}</p>
@@ -153,9 +153,9 @@ export default function AdminPanel() {
           </Link>
 
           <Link to="/admin/ai">
-            <div className="bg-neutral-900 p-8 rounded-lg border border-neutral-800 hover:border-red-600 transition-all cursor-pointer h-full">
-              <div className="flex items-center justify-center w-12 h-12 bg-red-600/10 rounded-lg mb-4">
-                <Sparkles className="text-red-500" size={28} />
+            <div className="bg-neutral-900 p-8 rounded-lg border border-neutral-800 hover:border-brand-600 transition-all cursor-pointer h-full">
+              <div className="flex items-center justify-center w-12 h-12 bg-brand-600/10 rounded-lg mb-4">
+                <Sparkles className="text-brand-500" size={28} />
               </div>
               <h2 className="text-xl font-bold text-white mb-2">{t('cards.aiIntelligence')}</h2>
               <p className="text-neutral-400 text-sm">{t('cards.aiDesc')}</p>
@@ -163,9 +163,9 @@ export default function AdminPanel() {
           </Link>
 
           <Link to="/admin/dashboard">
-            <div className="bg-neutral-900 p-8 rounded-lg border border-neutral-800 hover:border-red-600 transition-all cursor-pointer h-full">
-              <div className="flex items-center justify-center w-12 h-12 bg-red-600/10 rounded-lg mb-4">
-                <Monitor className="text-red-500" size={28} />
+            <div className="bg-neutral-900 p-8 rounded-lg border border-neutral-800 hover:border-brand-600 transition-all cursor-pointer h-full">
+              <div className="flex items-center justify-center w-12 h-12 bg-brand-600/10 rounded-lg mb-4">
+                <Monitor className="text-brand-500" size={28} />
               </div>
               <h2 className="text-xl font-bold text-white mb-2">{t('cards.liveDashboard')}</h2>
               <p className="text-neutral-400 text-sm">{t('cards.dashboardDesc')}</p>
@@ -173,9 +173,9 @@ export default function AdminPanel() {
           </Link>
 
           <Link to="/admin/modifiers">
-            <div className="bg-neutral-900 p-8 rounded-lg border border-neutral-800 hover:border-red-600 transition-all cursor-pointer h-full">
-              <div className="flex items-center justify-center w-12 h-12 bg-red-600/10 rounded-lg mb-4">
-                <Sliders className="text-red-500" size={28} />
+            <div className="bg-neutral-900 p-8 rounded-lg border border-neutral-800 hover:border-brand-600 transition-all cursor-pointer h-full">
+              <div className="flex items-center justify-center w-12 h-12 bg-brand-600/10 rounded-lg mb-4">
+                <Sliders className="text-brand-500" size={28} />
               </div>
               <h2 className="text-xl font-bold text-white mb-2">{t('cards.modifiersAndCombos')}</h2>
               <p className="text-neutral-400 text-sm">{t('cards.modifiersDesc')}</p>
@@ -183,9 +183,9 @@ export default function AdminPanel() {
           </Link>
 
           <Link to="/admin/printers">
-            <div className="bg-neutral-900 p-8 rounded-lg border border-neutral-800 hover:border-red-600 transition-all cursor-pointer h-full">
-              <div className="flex items-center justify-center w-12 h-12 bg-red-600/10 rounded-lg mb-4">
-                <Printer className="text-red-500" size={28} />
+            <div className="bg-neutral-900 p-8 rounded-lg border border-neutral-800 hover:border-brand-600 transition-all cursor-pointer h-full">
+              <div className="flex items-center justify-center w-12 h-12 bg-brand-600/10 rounded-lg mb-4">
+                <Printer className="text-brand-500" size={28} />
               </div>
               <h2 className="text-xl font-bold text-white mb-2">{t('cards.printers')}</h2>
               <p className="text-neutral-400 text-sm">{t('cards.printersDesc')}</p>
@@ -193,9 +193,9 @@ export default function AdminPanel() {
           </Link>
 
           <Link to="/admin/delivery">
-            <div className="bg-neutral-900 p-8 rounded-lg border border-neutral-800 hover:border-red-600 transition-all cursor-pointer h-full">
-              <div className="flex items-center justify-center w-12 h-12 bg-red-600/10 rounded-lg mb-4">
-                <Truck className="text-red-500" size={28} />
+            <div className="bg-neutral-900 p-8 rounded-lg border border-neutral-800 hover:border-brand-600 transition-all cursor-pointer h-full">
+              <div className="flex items-center justify-center w-12 h-12 bg-brand-600/10 rounded-lg mb-4">
+                <Truck className="text-brand-500" size={28} />
               </div>
               <h2 className="text-xl font-bold text-white mb-2">{t('cards.delivery')}</h2>
               <p className="text-neutral-400 text-sm">{t('cards.deliveryDesc')}</p>
@@ -203,9 +203,9 @@ export default function AdminPanel() {
           </Link>
 
           <Link to="/admin/permissions">
-            <div className="bg-neutral-900 p-8 rounded-lg border border-neutral-800 hover:border-red-600 transition-all cursor-pointer h-full">
-              <div className="flex items-center justify-center w-12 h-12 bg-red-600/10 rounded-lg mb-4">
-                <Shield className="text-red-500" size={28} />
+            <div className="bg-neutral-900 p-8 rounded-lg border border-neutral-800 hover:border-brand-600 transition-all cursor-pointer h-full">
+              <div className="flex items-center justify-center w-12 h-12 bg-brand-600/10 rounded-lg mb-4">
+                <Shield className="text-brand-500" size={28} />
               </div>
               <h2 className="text-xl font-bold text-white mb-2">{t('cards.permissions')}</h2>
               <p className="text-neutral-400 text-sm">{t('cards.permissionsDesc')}</p>
@@ -213,9 +213,9 @@ export default function AdminPanel() {
           </Link>
 
           <Link to="/admin/purchase-orders">
-            <div className="bg-neutral-900 p-8 rounded-lg border border-neutral-800 hover:border-red-600 transition-all cursor-pointer h-full">
-              <div className="flex items-center justify-center w-12 h-12 bg-red-600/10 rounded-lg mb-4">
-                <FileText className="text-red-500" size={28} />
+            <div className="bg-neutral-900 p-8 rounded-lg border border-neutral-800 hover:border-brand-600 transition-all cursor-pointer h-full">
+              <div className="flex items-center justify-center w-12 h-12 bg-brand-600/10 rounded-lg mb-4">
+                <FileText className="text-brand-500" size={28} />
               </div>
               <h2 className="text-xl font-bold text-white mb-2">{t('cards.purchaseOrders')}</h2>
               <p className="text-neutral-400 text-sm">{t('cards.purchaseOrdersDesc')}</p>
@@ -223,9 +223,9 @@ export default function AdminPanel() {
           </Link>
 
           <Link to="/admin/prep-forecast">
-            <div className="bg-neutral-900 p-8 rounded-lg border border-neutral-800 hover:border-red-600 transition-all cursor-pointer h-full">
-              <div className="flex items-center justify-center w-12 h-12 bg-red-600/10 rounded-lg mb-4">
-                <Calendar className="text-red-500" size={28} />
+            <div className="bg-neutral-900 p-8 rounded-lg border border-neutral-800 hover:border-brand-600 transition-all cursor-pointer h-full">
+              <div className="flex items-center justify-center w-12 h-12 bg-brand-600/10 rounded-lg mb-4">
+                <Calendar className="text-brand-500" size={28} />
               </div>
               <h2 className="text-xl font-bold text-white mb-2">{t('cards.prepForecast')}</h2>
               <p className="text-neutral-400 text-sm">{t('cards.prepForecastDesc')}</p>
@@ -246,12 +246,12 @@ export default function AdminPanel() {
         {lowStockItems.length > 0 && (
           <div className="bg-neutral-900 p-6 rounded-lg border border-neutral-800">
             <div className="flex items-center gap-2 mb-4">
-              <AlertTriangle className="text-red-500" size={24} />
+              <AlertTriangle className="text-brand-500" size={24} />
               <h3 className="text-xl font-bold text-white">{t('lowStock.title')}</h3>
             </div>
             <div className="space-y-3">
               {lowStockItems.slice(0, 5).map((item) => (
-                <div key={item.id} className="flex items-center justify-between p-3 bg-red-900/20 rounded-lg border border-red-900/40">
+                <div key={item.id} className="flex items-center justify-between p-3 bg-brand-900/20 rounded-lg border border-brand-900/40">
                   <div>
                     <p className="font-medium text-white">{item.name}</p>
                     <p className="text-sm text-neutral-400">
@@ -260,7 +260,7 @@ export default function AdminPanel() {
                   </div>
                   <Link
                     to="/admin/inventory"
-                    className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+                    className="px-4 py-2 bg-brand-600 text-white rounded-lg hover:bg-brand-700 transition-colors"
                   >
                     {t('lowStock.restock')}
                   </Link>

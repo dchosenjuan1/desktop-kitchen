@@ -185,7 +185,7 @@ export default function AIConfigScreen() {
 
   const getRiskColor = (risk: string) => {
     switch (risk) {
-      case 'critical': return 'text-red-400 bg-red-900/30 border-red-800';
+      case 'critical': return 'text-brand-400 bg-brand-900/30 border-brand-800';
       case 'high': return 'text-orange-400 bg-orange-900/30 border-orange-800';
       case 'medium': return 'text-amber-400 bg-amber-900/30 border-amber-800';
       case 'low': return 'text-green-400 bg-green-900/30 border-green-800';
@@ -201,7 +201,7 @@ export default function AIConfigScreen() {
           <Link to="/admin" className="p-2 hover:bg-neutral-800 rounded-lg transition-colors">
             <ArrowLeft size={24} />
           </Link>
-          <Sparkles className="text-red-500" size={28} />
+          <Sparkles className="text-brand-500" size={28} />
           <h1 className="text-3xl font-black tracking-tighter">{t('ai.title')}</h1>
         </div>
       </div>
@@ -215,7 +215,7 @@ export default function AIConfigScreen() {
               onClick={() => setActiveTab(tab.id)}
               className={`flex items-center gap-2 px-4 py-3 text-sm font-medium rounded-t-lg transition-colors whitespace-nowrap ${
                 activeTab === tab.id
-                  ? 'bg-neutral-950 text-red-500 border-t-2 border-red-500'
+                  ? 'bg-neutral-950 text-brand-500 border-t-2 border-brand-500'
                   : 'text-neutral-400 hover:text-white hover:bg-neutral-800'
               }`}
             >
@@ -228,8 +228,8 @@ export default function AIConfigScreen() {
 
       <div className="max-w-7xl mx-auto p-6">
         {error && (
-          <div className="bg-red-900/30 border border-red-800 rounded-lg p-4 mb-6">
-            <p className="text-red-300">{error}</p>
+          <div className="bg-brand-900/30 border border-brand-800 rounded-lg p-4 mb-6">
+            <p className="text-brand-300">{error}</p>
           </div>
         )}
 
@@ -250,7 +250,7 @@ export default function AIConfigScreen() {
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                   <div className="bg-neutral-900 p-6 rounded-lg border border-neutral-800">
                     <p className="text-neutral-400 text-sm">{t('ai.kpi.suggestionAcceptance')}</p>
-                    <p className="text-3xl font-bold text-red-500 mt-2">{insights.suggestions.acceptanceRate}%</p>
+                    <p className="text-3xl font-bold text-brand-500 mt-2">{insights.suggestions.acceptanceRate}%</p>
                     <p className="text-neutral-500 text-xs mt-1">{insights.suggestions.totalEvents} {t('ai.kpi.totalEvents')}</p>
                   </div>
                   <div className="bg-neutral-900 p-6 rounded-lg border border-neutral-800">
@@ -285,7 +285,7 @@ export default function AIConfigScreen() {
                       </div>
                       <div className="p-4 bg-neutral-800 rounded-lg">
                         <p className="text-neutral-400 text-sm">{t('ai.upsell.revenueFromSuggestions')}</p>
-                        <p className="text-2xl font-bold text-red-500">{formatPrice(analytics.aiRevenue.revenue)}</p>
+                        <p className="text-2xl font-bold text-brand-500">{formatPrice(analytics.aiRevenue.revenue)}</p>
                       </div>
                     </div>
                   </div>
@@ -315,7 +315,7 @@ export default function AIConfigScreen() {
                     <button
                       onClick={handleRunAnalysis}
                       disabled={analyzingGrok || !insights.grokStats.enabled}
-                      className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700 transition-colors disabled:opacity-50"
+                      className="flex items-center gap-2 px-4 py-2 bg-brand-600 text-white rounded-lg font-medium hover:bg-brand-700 transition-colors disabled:opacity-50"
                     >
                       {analyzingGrok ? (
                         <>
@@ -390,9 +390,9 @@ export default function AIConfigScreen() {
                           )}
                           {grokInsights.forecast.urgent_actions && grokInsights.forecast.urgent_actions.length > 0 && (
                             <div className="mt-2 pt-2 border-t border-neutral-700">
-                              <p className="text-xs font-semibold text-red-400 mb-1">{t('ai.inventoryAi.urgentActions')}</p>
+                              <p className="text-xs font-semibold text-brand-400 mb-1">{t('ai.inventoryAi.urgentActions')}</p>
                               {grokInsights.forecast.urgent_actions.map((action: string, i: number) => (
-                                <p key={i} className="text-sm text-red-300">- {action}</p>
+                                <p key={i} className="text-sm text-brand-300">- {action}</p>
                               ))}
                             </div>
                           )}
@@ -543,7 +543,7 @@ export default function AIConfigScreen() {
                             </div>
                             <button
                               onClick={() => handleApplyPricing(s)}
-                              className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-sm font-medium"
+                              className="px-4 py-2 bg-brand-600 text-white rounded-lg hover:bg-brand-700 transition-colors text-sm font-medium"
                             >
                               {t('ai.pricing.approve')}
                             </button>
@@ -636,7 +636,7 @@ export default function AIConfigScreen() {
                                 handleConfigUpdate(key, e.target.value);
                               }
                             }}
-                            className="w-48 px-3 py-1.5 bg-neutral-700 border border-neutral-600 rounded-lg text-white text-sm focus:outline-none focus:border-red-600"
+                            className="w-48 px-3 py-1.5 bg-neutral-700 border border-neutral-600 rounded-lg text-white text-sm focus:outline-none focus:border-brand-600"
                           />
                         )}
                       </div>

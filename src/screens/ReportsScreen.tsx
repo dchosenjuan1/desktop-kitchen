@@ -256,7 +256,7 @@ export default function ReportsScreen() {
           <div className="flex items-center gap-4">
             <button
               onClick={generateCSV}
-              className="px-6 py-3 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700 transition-colors flex items-center gap-2 min-h-[44px]"
+              className="px-6 py-3 bg-brand-600 text-white rounded-lg font-medium hover:bg-brand-700 transition-colors flex items-center gap-2 min-h-[44px]"
             >
               <Download size={20} />
               {t('sales.exportCsv')}
@@ -268,9 +268,9 @@ export default function ReportsScreen() {
 
       <div className="max-w-7xl mx-auto p-6">
         {error && (
-          <div className="bg-red-900/30 border border-red-800 rounded-lg p-4 mb-6 flex justify-between items-center">
-            <p className="text-red-300">{error}</p>
-            <button onClick={() => setError(null)} className="text-red-400 hover:text-red-300">
+          <div className="bg-brand-900/30 border border-brand-800 rounded-lg p-4 mb-6 flex justify-between items-center">
+            <p className="text-brand-300">{error}</p>
+            <button onClick={() => setError(null)} className="text-brand-400 hover:text-brand-300">
               <X size={20} />
             </button>
           </div>
@@ -284,7 +284,7 @@ export default function ReportsScreen() {
               onClick={() => setPeriod(p)}
               className={`px-6 py-3 rounded-lg font-medium transition-colors min-h-[44px] ${
                 period === p
-                  ? 'bg-red-600 text-white'
+                  ? 'bg-brand-600 text-white'
                   : 'bg-neutral-900 text-neutral-300 border border-neutral-800 hover:bg-neutral-800'
               }`}
             >
@@ -324,7 +324,7 @@ export default function ReportsScreen() {
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                   <div className="bg-neutral-900 p-6 rounded-lg border border-neutral-800">
                     <p className="text-neutral-400 text-sm font-medium">{t('sales.kpi.totalRevenue')}</p>
-                    <p className="text-3xl font-bold text-red-500 mt-2">{formatCurrency(salesData?.total_revenue || 0)}</p>
+                    <p className="text-3xl font-bold text-brand-500 mt-2">{formatCurrency(salesData?.total_revenue || 0)}</p>
                   </div>
                   <div className="bg-neutral-900 p-6 rounded-lg border border-neutral-800">
                     <p className="text-neutral-400 text-sm font-medium">{t('sales.kpi.orderCount')}</p>
@@ -415,7 +415,7 @@ export default function ReportsScreen() {
                   </div>
                   <div className="bg-neutral-900 p-6 rounded-lg border border-neutral-800">
                     <p className="text-neutral-400 text-sm">{t('sales.kpi.totalRevenue')}</p>
-                    <p className="text-3xl font-bold text-red-500 mt-2">{formatCurrency(cashCard.total_revenue)}</p>
+                    <p className="text-3xl font-bold text-brand-500 mt-2">{formatCurrency(cashCard.total_revenue)}</p>
                   </div>
                   <div className="bg-neutral-900 p-6 rounded-lg border border-neutral-800">
                     <p className="text-neutral-400 text-sm">{t('sales.cashCard.paymentSplit')}</p>
@@ -459,7 +459,7 @@ export default function ReportsScreen() {
                         <div key={i} className="p-4 bg-neutral-800 rounded-lg">
                           <div className="flex justify-between items-center mb-2">
                             <span className="text-lg font-bold text-white">{b.payment_method === 'card' ? t('sales.cashCard.card') : t('sales.cashCard.cash')}</span>
-                            <span className="text-lg font-bold text-red-400">{formatCurrency(b.total || 0)}</span>
+                            <span className="text-lg font-bold text-brand-400">{formatCurrency(b.total || 0)}</span>
                           </div>
                           <div className="flex justify-between text-sm text-neutral-400">
                             <span>{t('sales.cashCard.ordersCount', { count: b.count, percent: b.percentage })}</span>
@@ -479,7 +479,7 @@ export default function ReportsScreen() {
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                   <div className="bg-neutral-900 p-6 rounded-lg border border-neutral-800">
                     <p className="text-neutral-400 text-sm">{t('sales.kpi.totalRevenue')}</p>
-                    <p className="text-3xl font-bold text-red-500 mt-2">{formatCurrency(cogsData.totals.total_revenue)}</p>
+                    <p className="text-3xl font-bold text-brand-500 mt-2">{formatCurrency(cogsData.totals.total_revenue)}</p>
                   </div>
                   <div className="bg-neutral-900 p-6 rounded-lg border border-neutral-800">
                     <p className="text-neutral-400 text-sm">{t('sales.cogs.totalCogs')}</p>
@@ -518,7 +518,7 @@ export default function ReportsScreen() {
                             <td className="px-4 py-3 text-right text-amber-400">{formatCurrency(item.cogs)}</td>
                             <td className="px-4 py-3 text-right text-green-400">{formatCurrency(item.margin)}</td>
                             <td className="px-4 py-3 text-right">
-                              <span className={`font-bold ${item.margin_percent >= 60 ? 'text-green-400' : item.margin_percent >= 40 ? 'text-amber-400' : 'text-red-400'}`}>
+                              <span className={`font-bold ${item.margin_percent >= 60 ? 'text-green-400' : item.margin_percent >= 40 ? 'text-amber-400' : 'text-brand-400'}`}>
                                 {item.margin_percent}%
                               </span>
                             </td>
@@ -561,7 +561,7 @@ export default function ReportsScreen() {
                           <div className="flex justify-between"><span className="text-neutral-400">{t('sales.categories.cogs')}</span><span className="text-amber-400 font-bold">{formatCurrency(cat.cogs)}</span></div>
                           <div className="flex justify-between"><span className="text-neutral-400">{t('sales.categories.margin')}</span><span className="text-green-400 font-bold">{formatCurrency(cat.margin)}</span></div>
                           <div className="flex justify-between"><span className="text-neutral-400">{t('sales.categories.marginPercent')}</span>
-                            <span className={`font-bold ${cat.margin_percent >= 60 ? 'text-green-400' : cat.margin_percent >= 40 ? 'text-amber-400' : 'text-red-400'}`}>
+                            <span className={`font-bold ${cat.margin_percent >= 60 ? 'text-green-400' : cat.margin_percent >= 40 ? 'text-amber-400' : 'text-brand-400'}`}>
                               {cat.margin_percent}%
                             </span>
                           </div>
@@ -658,7 +658,7 @@ export default function ReportsScreen() {
                           <div className="space-y-2 text-sm">
                             <div className="flex justify-between"><span className="text-neutral-400">{t('sales.overview.columns.orders')}</span><span className="text-white">{p.order_count || 0}</span></div>
                             <div className="flex justify-between"><span className="text-neutral-400">{t('sales.chartLegend.revenue')}</span><span className="text-white">{formatCurrency(p.revenue || 0)}</span></div>
-                            <div className="flex justify-between"><span className="text-neutral-400">{t('sales.deliveryTab.commissionWithPercent', { percent: p.commission_percent })}</span><span className="text-red-400">{formatCurrency(p.total_commission || 0)}</span></div>
+                            <div className="flex justify-between"><span className="text-neutral-400">{t('sales.deliveryTab.commissionWithPercent', { percent: p.commission_percent })}</span><span className="text-brand-400">{formatCurrency(p.total_commission || 0)}</span></div>
                             <div className="flex justify-between"><span className="text-neutral-400">{t('sales.deliveryTab.netRevenue')}</span><span className="text-green-400 font-bold">{formatCurrency(p.net_revenue || 0)}</span></div>
                           </div>
                         </div>
@@ -686,7 +686,7 @@ export default function ReportsScreen() {
                   </div>
                   <div className="bg-neutral-900 p-6 rounded-lg border border-neutral-800">
                     <p className="text-neutral-400 text-sm">{t('sales.fees.totalFees')}</p>
-                    <p className="text-2xl font-bold text-red-400">{formatPrice(feesData.total_fees || 0)}</p>
+                    <p className="text-2xl font-bold text-brand-400">{formatPrice(feesData.total_fees || 0)}</p>
                   </div>
                   <div className="bg-neutral-900 p-6 rounded-lg border border-neutral-800">
                     <p className="text-neutral-400 text-sm">{t('sales.fees.netRevenue')}</p>
@@ -727,7 +727,7 @@ export default function ReportsScreen() {
                   </div>
                   <div className="bg-neutral-900 p-6 rounded-lg border border-neutral-800">
                     <p className="text-neutral-400 text-sm">{t('sales.refunds.totalRefunded')}</p>
-                    <p className="text-2xl font-bold text-red-400">{formatPrice(refundData.total_refunded_amount || 0)}</p>
+                    <p className="text-2xl font-bold text-brand-400">{formatPrice(refundData.total_refunded_amount || 0)}</p>
                   </div>
                 </div>
 
@@ -764,7 +764,7 @@ export default function ReportsScreen() {
                           <span className="text-white font-medium">{emp.employee_name}</span>
                           <div className="text-right">
                             <span className="text-neutral-400 text-sm mr-3">{t('sales.refunds.refundsCount', { count: emp.count })}</span>
-                            <span className="text-red-400 font-bold">{formatPrice(emp.amount)}</span>
+                            <span className="text-brand-400 font-bold">{formatPrice(emp.amount)}</span>
                           </div>
                         </div>
                       ))}
@@ -833,11 +833,11 @@ export default function ReportsScreen() {
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div className="bg-neutral-900 p-6 rounded-lg border border-neutral-800">
                       <p className="text-neutral-400 text-sm">{t('sales.financials.revenueSubtotal')}</p>
-                      <p className="text-3xl font-bold text-red-500 mt-2">{formatPrice(financialData.revenue)}</p>
+                      <p className="text-3xl font-bold text-brand-500 mt-2">{formatPrice(financialData.revenue)}</p>
                     </div>
                     <div className="bg-neutral-900 p-6 rounded-lg border border-neutral-800">
                       <p className="text-neutral-400 text-sm">{t('sales.financials.netProfitActual')}</p>
-                      <p className={`text-3xl font-bold mt-2 ${financialData.net_profit >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                      <p className={`text-3xl font-bold mt-2 ${financialData.net_profit >= 0 ? 'text-green-400' : 'text-brand-400'}`}>
                         {formatPrice(financialData.net_profit)}
                       </p>
                     </div>
@@ -867,7 +867,7 @@ export default function ReportsScreen() {
                         <tbody>
                           {financialData.rows.map((row) => {
                             const isOver = row.diff_amount > 0;
-                            const diffColor = row.diff_amount === 0 ? 'text-neutral-400' : isOver ? 'text-red-400' : 'text-green-400';
+                            const diffColor = row.diff_amount === 0 ? 'text-neutral-400' : isOver ? 'text-brand-400' : 'text-green-400';
                             return (
                               <tr key={row.category} className="border-b border-neutral-800 hover:bg-neutral-800/50">
                                 <td className="px-4 py-3 font-medium text-white">
@@ -934,7 +934,7 @@ export default function ReportsScreen() {
                             </td>
                             <td className="px-4 py-4 text-right font-bold text-white">{formatPrice(financialData.target_net_profit)}</td>
                             <td className="px-4 py-4 text-right font-bold text-white">{formatPrice(financialData.net_profit)}</td>
-                            <td className={`px-4 py-4 text-right font-bold ${financialData.net_profit - financialData.target_net_profit >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                            <td className={`px-4 py-4 text-right font-bold ${financialData.net_profit - financialData.target_net_profit >= 0 ? 'text-green-400' : 'text-brand-400'}`}>
                               {financialData.net_profit - financialData.target_net_profit > 0 ? '+' : ''}
                               {formatPrice(Math.round((financialData.net_profit - financialData.target_net_profit) * 100) / 100)}
                             </td>

@@ -66,16 +66,16 @@ const NotesModal: React.FC<NotesModalProps> = ({ item, onSave, onClose }) => {
   return (
     <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
       <div className="bg-neutral-900 rounded-2xl shadow-2xl w-full max-w-md max-h-96 border border-neutral-800">
-        <div className="bg-red-600 text-white p-6 rounded-t-2xl">
+        <div className="bg-brand-600 text-white p-6 rounded-t-2xl">
           <h2 className="text-2xl font-bold">{t('notes.title')}</h2>
-          <p className="text-red-100">{item.item_name}</p>
+          <p className="text-brand-100">{item.item_name}</p>
         </div>
         <div className="p-6 space-y-4">
           <textarea
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
             placeholder={t('notes.placeholder')}
-            className="w-full h-28 bg-neutral-800 border border-neutral-700 rounded-lg p-4 text-lg text-white placeholder-neutral-500 focus:outline-none focus:border-red-600"
+            className="w-full h-28 bg-neutral-800 border border-neutral-700 rounded-lg p-4 text-lg text-white placeholder-neutral-500 focus:outline-none focus:border-brand-600"
           />
           <div className="flex gap-3">
             <button
@@ -86,7 +86,7 @@ const NotesModal: React.FC<NotesModalProps> = ({ item, onSave, onClose }) => {
             </button>
             <button
               onClick={handleSave}
-              className="flex-1 py-3 bg-red-600 text-white text-lg font-semibold rounded-lg hover:bg-red-700 transition-all"
+              className="flex-1 py-3 bg-brand-600 text-white text-lg font-semibold rounded-lg hover:bg-brand-700 transition-all"
             >
               {t('common:buttons.save')}
             </button>
@@ -144,7 +144,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
   return (
     <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
       <div className="bg-neutral-900 rounded-2xl shadow-2xl w-full max-w-md border border-neutral-800 max-h-[90vh] overflow-y-auto">
-        <div className="bg-red-600 text-white p-6 rounded-t-2xl text-center">
+        <div className="bg-brand-600 text-white p-6 rounded-t-2xl text-center">
           <h2 className="text-3xl font-bold mb-2">{t('payment.title')}</h2>
           <p className="text-2xl">{t('payment.total', { amount: formatPrice(orderTotal) })}</p>
         </div>
@@ -157,7 +157,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
                 onClick={() => handleTipSelect(0)}
                 className={`py-3 px-2 text-lg font-bold rounded-lg transition-all ${
                   tip === 0 && !showCustomInput
-                    ? 'bg-red-600 text-white'
+                    ? 'bg-brand-600 text-white'
                     : 'bg-neutral-800 text-neutral-300 hover:bg-neutral-700'
                 }`}
               >
@@ -168,7 +168,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
                 className={`py-3 px-2 text-lg font-bold rounded-lg transition-all ${
                   tip === Math.round((orderTotal * 15) / 100 * 100) / 100 &&
                   !showCustomInput
-                    ? 'bg-red-600 text-white'
+                    ? 'bg-brand-600 text-white'
                     : 'bg-neutral-800 text-neutral-300 hover:bg-neutral-700'
                 }`}
               >
@@ -179,7 +179,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
                 className={`py-3 px-2 text-lg font-bold rounded-lg transition-all ${
                   tip === Math.round((orderTotal * 18) / 100 * 100) / 100 &&
                   !showCustomInput
-                    ? 'bg-red-600 text-white'
+                    ? 'bg-brand-600 text-white'
                     : 'bg-neutral-800 text-neutral-300 hover:bg-neutral-700'
                 }`}
               >
@@ -190,7 +190,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
                 className={`py-3 px-2 text-lg font-bold rounded-lg transition-all ${
                   tip === Math.round((orderTotal * 20) / 100 * 100) / 100 &&
                   !showCustomInput
-                    ? 'bg-red-600 text-white'
+                    ? 'bg-brand-600 text-white'
                     : 'bg-neutral-800 text-neutral-300 hover:bg-neutral-700'
                 }`}
               >
@@ -207,11 +207,11 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
                 value={customTip}
                 onChange={(e) => setCustomTip(e.target.value)}
                 placeholder="$0.00"
-                className="flex-1 bg-neutral-800 border border-neutral-700 rounded-lg p-3 text-lg text-white focus:outline-none focus:border-red-600"
+                className="flex-1 bg-neutral-800 border border-neutral-700 rounded-lg p-3 text-lg text-white focus:outline-none focus:border-brand-600"
               />
               <button
                 onClick={handleCustomTip}
-                className="px-4 py-3 bg-red-600 text-white font-bold rounded-lg hover:bg-red-700 transition-all"
+                className="px-4 py-3 bg-brand-600 text-white font-bold rounded-lg hover:bg-brand-700 transition-all"
               >
                 {t('common:buttons.ok')}
               </button>
@@ -228,7 +228,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
           {/* Total Display */}
           <div className="bg-neutral-800 p-4 rounded-lg text-center">
             <p className="text-neutral-400 text-sm mb-1">{t('payment.tipAmount', { amount: formatPrice(tip) })}</p>
-            <p className="text-3xl font-bold text-red-500">
+            <p className="text-3xl font-bold text-brand-500">
               {t('payment.totalWithTip', { amount: formatPrice(finalTotal) })}
             </p>
           </div>
@@ -270,7 +270,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
             <button
               onClick={() => onCardPayment(tip)}
               disabled={isProcessing || !isOnline}
-              className="w-full py-4 bg-red-600 text-white text-xl font-bold rounded-lg hover:bg-red-700 disabled:bg-neutral-700 disabled:text-neutral-400 transition-all touch-manipulation"
+              className="w-full py-4 bg-brand-600 text-white text-xl font-bold rounded-lg hover:bg-brand-700 disabled:bg-neutral-700 disabled:text-neutral-400 transition-all touch-manipulation"
               title={!isOnline ? t('offline.cardUnavailable') : undefined}
             >
               {!isOnline ? t('offline.cardUnavailable') : isProcessing ? t('payment.processing') : t('payment.payWithCard')}
@@ -399,7 +399,7 @@ const ReceiptModal: React.FC<ReceiptModalProps> = ({ order, onClose, onPrint }) 
           )}
 
           <div className="text-center py-3 border-t pt-3">
-            <p className="text-lg font-bold text-red-600">{t('receipt.thankYou')}</p>
+            <p className="text-lg font-bold text-brand-600">{t('receipt.thankYou')}</p>
             <p className="text-neutral-600 text-xs mt-2">{t('receipt.comeAgain')}</p>
           </div>
         </div>
@@ -413,7 +413,7 @@ const ReceiptModal: React.FC<ReceiptModalProps> = ({ order, onClose, onPrint }) 
           </button>
           <button
             onClick={onClose}
-            className="w-full py-3 bg-red-600 text-white font-bold rounded-lg hover:bg-red-700 transition-all"
+            className="w-full py-3 bg-brand-600 text-white font-bold rounded-lg hover:bg-brand-700 transition-all"
           >
             {t('common:buttons.done')}
           </button>
@@ -1068,7 +1068,7 @@ const POSScreen: React.FC = () => {
           <button
             onClick={() => { setSelectedCategory('all'); setSearchQuery(''); }}
             className={`w-full py-4 px-4 text-lg font-semibold border-b border-neutral-800 transition-all touch-manipulation ${
-              selectedCategory === 'all' ? 'bg-red-600 text-white' : 'bg-neutral-900 text-neutral-300 hover:bg-neutral-800'
+              selectedCategory === 'all' ? 'bg-brand-600 text-white' : 'bg-neutral-900 text-neutral-300 hover:bg-neutral-800'
             }`}
           >
             {t('header.allItems')}
@@ -1079,7 +1079,7 @@ const POSScreen: React.FC = () => {
               key={cat.id}
               onClick={() => { setSelectedCategory(cat.id); setSearchQuery(''); }}
               className={`w-full py-4 px-4 text-lg font-semibold border-b border-neutral-800 transition-all touch-manipulation ${
-                selectedCategory === cat.id ? 'bg-red-600 text-white' : 'bg-neutral-900 text-neutral-300 hover:bg-neutral-800'
+                selectedCategory === cat.id ? 'bg-brand-600 text-white' : 'bg-neutral-900 text-neutral-300 hover:bg-neutral-800'
               }`}
             >
               {cat.name}
@@ -1123,7 +1123,7 @@ const POSScreen: React.FC = () => {
               {isOnline ? (
                 <Wifi className="w-5 h-5 text-green-500" />
               ) : (
-                <WifiOff className="w-5 h-5 text-red-500 animate-pulse" />
+                <WifiOff className="w-5 h-5 text-brand-500 animate-pulse" />
               )}
               <LanguageSwitcher variant="nav" />
             </div>
@@ -1131,11 +1131,11 @@ const POSScreen: React.FC = () => {
 
           {/* Offline Mode Banner */}
           {!isOnline && (
-            <div className="flex items-center justify-center gap-2 py-2 px-4 mb-3 bg-red-900/60 border border-red-700 rounded-lg">
-              <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
-              <span className="text-red-200 font-bold text-sm">{t('offline.indicator')}</span>
+            <div className="flex items-center justify-center gap-2 py-2 px-4 mb-3 bg-brand-900/60 border border-brand-700 rounded-lg">
+              <span className="w-2 h-2 bg-brand-500 rounded-full animate-pulse" />
+              <span className="text-brand-200 font-bold text-sm">{t('offline.indicator')}</span>
               {pendingSyncCount > 0 && (
-                <span className="ml-2 bg-red-700 text-white text-xs font-bold px-2 py-0.5 rounded-full">
+                <span className="ml-2 bg-brand-700 text-white text-xs font-bold px-2 py-0.5 rounded-full">
                   {t('offline.pendingSync', { count: pendingSyncCount })}
                 </span>
               )}
@@ -1161,7 +1161,7 @@ const POSScreen: React.FC = () => {
               placeholder={`${t('header.searchItems')} (Ctrl+K)`}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-10 py-3 rounded-lg bg-neutral-800 border border-neutral-700 text-white placeholder-neutral-500 focus:outline-none focus:border-red-600 text-lg"
+              className="w-full pl-10 pr-10 py-3 rounded-lg bg-neutral-800 border border-neutral-700 text-white placeholder-neutral-500 focus:outline-none focus:border-brand-600 text-lg"
             />
             {searchQuery && (
               <button
@@ -1240,7 +1240,7 @@ const POSScreen: React.FC = () => {
                           ? 'bg-neutral-900 border-2 border-green-600 ring-1 ring-green-600/30'
                           : isAvoid
                             ? 'bg-neutral-900/60 border border-neutral-700 opacity-60'
-                            : 'bg-neutral-900 border border-neutral-800 hover:border-red-600'
+                            : 'bg-neutral-900 border border-neutral-800 hover:border-brand-600'
                   }`}
                 >
                   {/* Image or placeholder */}
@@ -1255,7 +1255,7 @@ const POSScreen: React.FC = () => {
                   {/* Sold out overlay */}
                   {isSoldOut && (
                     <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
-                      <span className="bg-red-600 text-white text-xs font-bold px-3 py-1 rounded-full uppercase">
+                      <span className="bg-brand-600 text-white text-xs font-bold px-3 py-1 rounded-full uppercase">
                         {t('soldOut')}
                       </span>
                     </div>
@@ -1271,7 +1271,7 @@ const POSScreen: React.FC = () => {
                       </div>
                     </div>
                     <p className={`font-bold text-lg ${
-                      isSoldOut ? 'text-neutral-600' : isAvoid ? 'text-neutral-500' : 'text-red-500'
+                      isSoldOut ? 'text-neutral-600' : isAvoid ? 'text-neutral-500' : 'text-brand-500'
                     }`}>
                       {formatPrice(item.price)}
                     </p>
@@ -1290,15 +1290,15 @@ const POSScreen: React.FC = () => {
 
       {/* ==================== RIGHT SIDEBAR - CART ==================== */}
       <div className="w-96 bg-neutral-900 border-l border-neutral-800 flex flex-col">
-        <div className="bg-red-600 text-white p-4">
+        <div className="bg-brand-600 text-white p-4">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-xl font-bold">{t('cart.orderNumber', { number: '1001' })}</p>
-              <p className="text-sm text-red-200">{formatTime(new Date())}</p>
+              <p className="text-sm text-brand-200">{formatTime(new Date())}</p>
             </div>
           </div>
           {linkedCustomer && (
-            <div className="mt-2 flex items-center justify-between bg-red-700/50 rounded-lg px-3 py-2">
+            <div className="mt-2 flex items-center justify-between bg-brand-700/50 rounded-lg px-3 py-2">
               <div className="flex items-center gap-2">
                 <span className="text-sm font-bold">{linkedCustomer.name}</span>
                 {linkedCustomer.activeCard && (
@@ -1309,7 +1309,7 @@ const POSScreen: React.FC = () => {
               </div>
               <button
                 onClick={() => setLinkedCustomer(null)}
-                className="text-red-200 hover:text-white text-xs font-bold"
+                className="text-brand-200 hover:text-white text-xs font-bold"
               >
                 {t('cart.unlink')}
               </button>
@@ -1353,7 +1353,7 @@ const POSScreen: React.FC = () => {
                       {item.selectedModifierNames && item.selectedModifierNames.length > 0 && (
                         <div className="mt-1 space-y-0.5">
                           {item.selectedModifierNames.map((name, i) => (
-                            <p key={i} className="text-xs text-red-400">+ {name}</p>
+                            <p key={i} className="text-xs text-brand-400">+ {name}</p>
                           ))}
                         </div>
                       )}
@@ -1364,7 +1364,7 @@ const POSScreen: React.FC = () => {
                     {(!isSubComboItem) && (
                       <button
                         onClick={() => removeFromCart(item.cart_id)}
-                        className="text-red-500 hover:text-red-400 font-bold ml-2"
+                        className="text-brand-500 hover:text-brand-400 font-bold ml-2"
                       >
                         ✕
                       </button>
@@ -1431,7 +1431,7 @@ const POSScreen: React.FC = () => {
         <div className="border-t border-neutral-800 p-4 space-y-2">
           <div className="border-b border-neutral-700 pb-2 flex justify-between text-xl">
             <span className="font-bold text-white">{t('totals.total')}</span>
-            <span className="font-bold text-red-500">{formatPrice(total)}</span>
+            <span className="font-bold text-brand-500">{formatPrice(total)}</span>
           </div>
           <div className="flex justify-between text-neutral-500 text-sm">
             <span>{t('totals.subtotalBeforeTax')}</span>
@@ -1447,7 +1447,7 @@ const POSScreen: React.FC = () => {
           <button
             onClick={() => setShowPaymentModal(true)}
             disabled={cart.length === 0}
-            className="w-full py-4 bg-red-600 text-white text-lg font-bold rounded-lg hover:bg-red-700 disabled:bg-neutral-800 disabled:text-neutral-600 disabled:cursor-not-allowed transition-all touch-manipulation"
+            className="w-full py-4 bg-brand-600 text-white text-lg font-bold rounded-lg hover:bg-brand-700 disabled:bg-neutral-800 disabled:text-neutral-600 disabled:cursor-not-allowed transition-all touch-manipulation"
           >
             {t('totals.charge', { amount: formatPrice(total) })}
           </button>
@@ -1484,7 +1484,7 @@ const POSScreen: React.FC = () => {
           <button
             onClick={clearCart}
             disabled={cart.length === 0}
-            className="w-full py-3 text-red-500 text-lg font-bold hover:text-red-400 hover:bg-neutral-800 disabled:text-neutral-700 transition-all rounded-lg"
+            className="w-full py-3 text-brand-500 text-lg font-bold hover:text-brand-400 hover:bg-neutral-800 disabled:text-neutral-700 transition-all rounded-lg"
           >
             {t('totals.clearOrder')}
           </button>
@@ -1725,7 +1725,7 @@ const POSScreen: React.FC = () => {
           <div
             key={toast.id}
             className={`px-6 py-3 rounded-lg text-white font-semibold shadow-lg pointer-events-auto ${
-              toast.type === 'success' ? 'bg-green-600' : toast.type === 'error' ? 'bg-red-600' : 'bg-neutral-700'
+              toast.type === 'success' ? 'bg-green-600' : toast.type === 'error' ? 'bg-brand-600' : 'bg-neutral-700'
             }`}
           >
             {toast.message}

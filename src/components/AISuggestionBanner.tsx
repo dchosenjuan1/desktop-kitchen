@@ -38,10 +38,10 @@ const AISuggestionBanner: React.FC<AISuggestionBannerProps> = ({
       {suggestions.map((suggestion, index) => (
         <div
           key={`${suggestion.data.rule}-${suggestion.data.suggested_item_id}-${index}`}
-          className="bg-neutral-900 border-l-4 border-red-500 rounded-lg px-4 py-3 flex items-center gap-3 animate-in slide-in-from-top"
+          className="bg-neutral-900 border-l-4 border-brand-500 rounded-lg px-4 py-3 flex items-center gap-3 animate-in slide-in-from-top"
         >
           {/* Sparkle Icon */}
-          <div className="flex-shrink-0 text-red-400">
+          <div className="flex-shrink-0 text-brand-400">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
               <path d="M12 0L14.59 8.41L23 11L14.59 13.59L12 22L9.41 13.59L1 11L9.41 8.41L12 0Z" />
             </svg>
@@ -53,21 +53,21 @@ const AISuggestionBanner: React.FC<AISuggestionBannerProps> = ({
               {suggestion.data.message}
             </p>
             {suggestion.data.savings && (
-              <p className="text-red-400 text-xs">
+              <p className="text-brand-400 text-xs">
                 {t('suggestion.save', { amount: formatPrice(suggestion.data.savings) })}
               </p>
             )}
           </div>
 
           {/* Price */}
-          <span className="text-red-400 text-sm font-bold flex-shrink-0">
+          <span className="text-brand-400 text-sm font-bold flex-shrink-0">
             {formatPrice(suggestion.data.suggested_item_price)}
           </span>
 
           {/* Add Button */}
           <button
             onClick={() => onAccept(suggestion)}
-            className="flex-shrink-0 px-3 py-1.5 bg-red-600 text-white text-sm font-bold rounded-lg hover:bg-red-700 transition-all active:scale-95 touch-manipulation"
+            className="flex-shrink-0 px-3 py-1.5 bg-brand-600 text-white text-sm font-bold rounded-lg hover:bg-brand-700 transition-all active:scale-95 touch-manipulation"
           >
             {t('suggestion.add')}
           </button>

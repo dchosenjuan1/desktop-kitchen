@@ -88,13 +88,13 @@ export default function ModifierModal({ item, onConfirm, onClose }: ModifierModa
     <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
       <div className="bg-neutral-900 rounded-2xl shadow-2xl w-full max-w-lg max-h-[85vh] overflow-hidden border border-neutral-800 flex flex-col">
         {/* Header */}
-        <div className="bg-red-600 text-white p-5 flex-shrink-0">
+        <div className="bg-brand-600 text-white p-5 flex-shrink-0">
           <h2 className="text-2xl font-bold">{item.name}</h2>
-          <p className="text-red-200 text-sm">{item.description}</p>
+          <p className="text-brand-200 text-sm">{item.description}</p>
           <p className="text-lg font-bold mt-1">
             {formatPrice(item.price)}
             {totalAdjustment > 0 && (
-              <span className="text-red-200"> + {formatPrice(totalAdjustment)}</span>
+              <span className="text-brand-200"> + {formatPrice(totalAdjustment)}</span>
             )}
           </p>
         </div>
@@ -127,13 +127,13 @@ export default function ModifierModal({ item, onConfirm, onClose }: ModifierModa
                       }}
                       className={`w-full flex items-center justify-between p-3 rounded-lg transition-all ${
                         isSelected
-                          ? 'bg-red-600/20 border-2 border-red-600 text-white'
+                          ? 'bg-brand-600/20 border-2 border-brand-600 text-white'
                           : 'bg-neutral-800 border border-neutral-700 text-neutral-300 hover:bg-neutral-700'
                       }`}
                     >
                       <div className="flex items-center gap-3">
                         <div className={`w-5 h-5 rounded-${group.selection_type === 'single' ? 'full' : 'md'} border-2 flex items-center justify-center ${
-                          isSelected ? 'border-red-500 bg-red-600' : 'border-neutral-500'
+                          isSelected ? 'border-brand-500 bg-brand-600' : 'border-neutral-500'
                         }`}>
                           {isSelected && <div className="w-2 h-2 bg-white rounded-full" />}
                         </div>
@@ -158,7 +158,7 @@ export default function ModifierModal({ item, onConfirm, onClose }: ModifierModa
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               placeholder={t('modifier.instructionsPlaceholder')}
-              className="w-full h-20 bg-neutral-800 border border-neutral-700 rounded-lg p-3 text-white placeholder-neutral-500 focus:outline-none focus:border-red-600 resize-none"
+              className="w-full h-20 bg-neutral-800 border border-neutral-700 rounded-lg p-3 text-white placeholder-neutral-500 focus:outline-none focus:border-brand-600 resize-none"
             />
           </div>
         </div>
@@ -168,7 +168,7 @@ export default function ModifierModal({ item, onConfirm, onClose }: ModifierModa
           <button
             onClick={handleConfirm}
             disabled={!isValid}
-            className="w-full py-4 bg-red-600 text-white text-lg font-bold rounded-lg hover:bg-red-700 disabled:bg-neutral-700 disabled:text-neutral-500 transition-all"
+            className="w-full py-4 bg-brand-600 text-white text-lg font-bold rounded-lg hover:bg-brand-700 disabled:bg-neutral-700 disabled:text-neutral-500 transition-all"
           >
             {t('modifier.addToOrder', { price: formatPrice(item.price + totalAdjustment) })}
           </button>

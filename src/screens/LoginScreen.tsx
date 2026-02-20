@@ -65,7 +65,7 @@ const LoginScreen: React.FC = () => {
         <h1 className="text-5xl font-black tracking-tighter text-white mb-2">
           Juanberto's
         </h1>
-        <p className="text-xl font-semibold text-red-600 tracking-tight">
+        <p className="text-xl font-semibold text-brand-600 tracking-tight">
           California Burritos
         </p>
         <p className="text-lg text-neutral-400 mt-2">{t('login.employeeLogin')}</p>
@@ -84,7 +84,7 @@ const LoginScreen: React.FC = () => {
               className="w-16 h-16 bg-neutral-900 rounded-full flex items-center justify-center border-2 border-neutral-700"
             >
               {pin.length > index ? (
-                <div className="w-6 h-6 bg-red-600 rounded-full"></div>
+                <div className="w-6 h-6 bg-brand-600 rounded-full"></div>
               ) : (
                 <div className="w-6 h-6 bg-neutral-800 rounded-full"></div>
               )}
@@ -94,7 +94,7 @@ const LoginScreen: React.FC = () => {
 
         {localError && (
           <div className="text-center mb-4">
-            <p className="text-lg font-semibold text-red-500">{localError}</p>
+            <p className="text-lg font-semibold text-brand-500">{localError}</p>
           </div>
         )}
       </div>
@@ -126,7 +126,7 @@ const LoginScreen: React.FC = () => {
           <button
             onClick={handleClear}
             disabled={isLoading}
-            className="flex-1 h-16 bg-red-600 text-white text-lg font-bold rounded-xl hover:bg-red-700 active:bg-red-800 transition-all duration-75 disabled:opacity-50 disabled:cursor-not-allowed touch-manipulation"
+            className="flex-1 h-16 bg-brand-600 text-white text-lg font-bold rounded-xl hover:bg-brand-700 active:bg-brand-800 transition-all duration-75 disabled:opacity-50 disabled:cursor-not-allowed touch-manipulation"
           >
             {t('buttons.clear')}
           </button>
@@ -137,9 +137,9 @@ const LoginScreen: React.FC = () => {
       {isLoading && (
         <div className="mb-6">
           <div className="flex justify-center items-center gap-2">
-            <div className="w-2.5 h-2.5 bg-red-600 rounded-full animate-bounce"></div>
-            <div className="w-2.5 h-2.5 bg-red-600 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
-            <div className="w-2.5 h-2.5 bg-red-600 rounded-full animate-bounce" style={{ animationDelay: '0.4s' }}></div>
+            <div className="w-2.5 h-2.5 bg-brand-600 rounded-full animate-bounce"></div>
+            <div className="w-2.5 h-2.5 bg-brand-600 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+            <div className="w-2.5 h-2.5 bg-brand-600 rounded-full animate-bounce" style={{ animationDelay: '0.4s' }}></div>
           </div>
           <p className="text-center text-neutral-400 mt-2 text-sm">{t('login.loggingIn')}</p>
         </div>

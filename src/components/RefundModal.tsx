@@ -123,7 +123,7 @@ export default function RefundModal({ orderId, onClose, onRefunded }: RefundModa
     return (
       <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
         <div className="bg-neutral-900 rounded-xl p-8 text-white">
-          <p className="text-red-400">{error || t('refund.orderNotFound')}</p>
+          <p className="text-brand-400">{error || t('refund.orderNotFound')}</p>
           <button onClick={onClose} className="mt-4 px-4 py-2 bg-neutral-700 rounded-lg">{t('refund.close')}</button>
         </div>
       </div>
@@ -133,15 +133,15 @@ export default function RefundModal({ orderId, onClose, onRefunded }: RefundModa
   return (
     <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
       <div className="bg-neutral-900 rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto border border-neutral-800">
-        <div className="bg-red-600 text-white p-6 rounded-t-2xl flex items-center justify-between">
+        <div className="bg-brand-600 text-white p-6 rounded-t-2xl flex items-center justify-between">
           <div className="flex items-center gap-3">
             <RotateCcw size={24} />
             <div>
               <h2 className="text-2xl font-bold">{t('refund.title')}</h2>
-              <p className="text-red-100">#{order.order_number}</p>
+              <p className="text-brand-100">#{order.order_number}</p>
             </div>
           </div>
-          <button onClick={onClose} className="p-2 hover:bg-red-700 rounded-lg">
+          <button onClick={onClose} className="p-2 hover:bg-brand-700 rounded-lg">
             <X size={20} />
           </button>
         </div>
@@ -154,7 +154,7 @@ export default function RefundModal({ orderId, onClose, onRefunded }: RefundModa
           {(order as any).refund_total > 0 && (
             <div className="flex justify-between text-sm">
               <span className="text-neutral-400">{t('refund.alreadyRefunded')}</span>
-              <span className="text-red-400 font-bold">{formatPrice((order as any).refund_total)}</span>
+              <span className="text-brand-400 font-bold">{formatPrice((order as any).refund_total)}</span>
             </div>
           )}
           <div className="flex justify-between text-sm border-t border-neutral-700 pt-2">
@@ -171,7 +171,7 @@ export default function RefundModal({ orderId, onClose, onRefunded }: RefundModa
                   key={m}
                   onClick={() => setMode(m)}
                   className={`py-2 px-3 text-sm font-bold rounded-lg transition-colors ${
-                    mode === m ? 'bg-red-600 text-white' : 'bg-neutral-800 text-neutral-300 hover:bg-neutral-700'
+                    mode === m ? 'bg-brand-600 text-white' : 'bg-neutral-800 text-neutral-300 hover:bg-neutral-700'
                   }`}
                 >
                   {m === 'full' ? t('refund.full') : m === 'by_items' ? t('refund.byItems') : t('refund.byAmount')}
@@ -189,7 +189,7 @@ export default function RefundModal({ orderId, onClose, onRefunded }: RefundModa
                   key={item.id}
                   onClick={() => toggleItem(item.id!, item.quantity)}
                   className={`flex items-center justify-between p-3 rounded-lg cursor-pointer transition-colors ${
-                    selectedItems[item.id!] ? 'bg-red-900/30 border border-red-700' : 'bg-neutral-800 border border-neutral-700'
+                    selectedItems[item.id!] ? 'bg-brand-900/30 border border-brand-700' : 'bg-neutral-800 border border-neutral-700'
                   }`}
                 >
                   <div>
@@ -200,7 +200,7 @@ export default function RefundModal({ orderId, onClose, onRefunded }: RefundModa
                   </div>
                   <div className="text-right">
                     {selectedItems[item.id!] ? (
-                      <span className="bg-red-600 text-white px-3 py-1 rounded-full text-sm font-bold">
+                      <span className="bg-brand-600 text-white px-3 py-1 rounded-full text-sm font-bold">
                         x{selectedItems[item.id!]}
                       </span>
                     ) : (
@@ -224,7 +224,7 @@ export default function RefundModal({ orderId, onClose, onRefunded }: RefundModa
                 min="0"
                 max={refundTotal}
                 step="0.01"
-                className="w-full bg-neutral-800 border border-neutral-700 rounded-lg p-3 text-white text-lg focus:outline-none focus:border-red-600"
+                className="w-full bg-neutral-800 border border-neutral-700 rounded-lg p-3 text-white text-lg focus:outline-none focus:border-brand-600"
               />
             </div>
           )}
@@ -235,7 +235,7 @@ export default function RefundModal({ orderId, onClose, onRefunded }: RefundModa
             <select
               value={reason}
               onChange={(e) => setReason(e.target.value)}
-              className="w-full bg-neutral-800 border border-neutral-700 rounded-lg p-3 text-white focus:outline-none focus:border-red-600"
+              className="w-full bg-neutral-800 border border-neutral-700 rounded-lg p-3 text-white focus:outline-none focus:border-brand-600"
             >
               {REASONS.map((r) => (
                 <option key={r.value} value={r.value}>{r.label}</option>
@@ -244,13 +244,13 @@ export default function RefundModal({ orderId, onClose, onRefunded }: RefundModa
           </div>
 
           {error && (
-            <p className="text-red-400 text-sm bg-red-900/20 p-3 rounded-lg">{error}</p>
+            <p className="text-brand-400 text-sm bg-brand-900/20 p-3 rounded-lg">{error}</p>
           )}
 
           {/* Summary */}
           <div className="bg-neutral-800 rounded-lg p-4 text-center">
             <p className="text-neutral-400 text-sm">{t('refund.refundAmount')}</p>
-            <p className="text-3xl font-bold text-red-400">{formatPrice(getRefundAmount())}</p>
+            <p className="text-3xl font-bold text-brand-400">{formatPrice(getRefundAmount())}</p>
           </div>
 
           {/* Actions */}
@@ -264,7 +264,7 @@ export default function RefundModal({ orderId, onClose, onRefunded }: RefundModa
             <button
               onClick={handleRefund}
               disabled={processing || getRefundAmount() <= 0}
-              className="flex-1 py-3 bg-red-600 text-white font-bold rounded-lg hover:bg-red-700 disabled:bg-neutral-700 disabled:text-neutral-500 transition-colors"
+              className="flex-1 py-3 bg-brand-600 text-white font-bold rounded-lg hover:bg-brand-700 disabled:bg-neutral-700 disabled:text-neutral-500 transition-colors"
             >
               {processing ? t('refund.processing') : t('refund.processRefund')}
             </button>

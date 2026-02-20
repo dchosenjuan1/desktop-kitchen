@@ -156,7 +156,7 @@ export default function EmployeeScreen() {
   const getRoleBadgeColor = (role: RoleType) => {
     switch (role) {
       case 'admin':
-        return 'bg-red-600/20 text-red-400 border border-red-800';
+        return 'bg-brand-600/20 text-brand-400 border border-brand-800';
       case 'manager':
         return 'bg-purple-600/20 text-purple-400 border border-purple-800';
       case 'kitchen':
@@ -184,7 +184,7 @@ export default function EmployeeScreen() {
           <div className="flex items-center gap-4">
             <button
               onClick={openAddModal}
-              className="px-6 py-3 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700 transition-colors flex items-center gap-2 min-h-[44px]"
+              className="px-6 py-3 bg-brand-600 text-white rounded-lg font-medium hover:bg-brand-700 transition-colors flex items-center gap-2 min-h-[44px]"
             >
               <Plus size={20} />
               {t('employees.addEmployee')}
@@ -196,11 +196,11 @@ export default function EmployeeScreen() {
 
       <div className="max-w-7xl mx-auto p-6">
         {error && (
-          <div className="bg-red-900/30 border border-red-800 rounded-lg p-4 mb-6 flex justify-between items-center">
-            <p className="text-red-300">{error}</p>
+          <div className="bg-brand-900/30 border border-brand-800 rounded-lg p-4 mb-6 flex justify-between items-center">
+            <p className="text-brand-300">{error}</p>
             <button
               onClick={() => setError(null)}
-              className="text-red-400 hover:text-red-300"
+              className="text-brand-400 hover:text-brand-300"
             >
               <X size={20} />
             </button>
@@ -222,7 +222,7 @@ export default function EmployeeScreen() {
             <p className="text-neutral-400 mb-6">{t('employees.noEmployees')}</p>
             <button
               onClick={openAddModal}
-              className="px-6 py-3 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700 transition-colors inline-flex items-center gap-2 min-h-[44px]"
+              className="px-6 py-3 bg-brand-600 text-white rounded-lg font-medium hover:bg-brand-700 transition-colors inline-flex items-center gap-2 min-h-[44px]"
             >
               <Plus size={20} />
               {t('employees.addFirstEmployee')}
@@ -268,7 +268,7 @@ export default function EmployeeScreen() {
                             showPin === employee.id ? null : employee.id
                           )
                         }
-                        className="text-red-500 hover:text-red-400"
+                        className="text-brand-500 hover:text-brand-400"
                       >
                         {showPin === employee.id ? (
                           <EyeOff size={16} />
@@ -290,7 +290,7 @@ export default function EmployeeScreen() {
                       onClick={() => handleToggleEmployee(employee.id)}
                       className={`px-4 py-2 rounded-lg font-medium transition-colors min-h-[44px] flex items-center justify-center ${
                         employee.active
-                          ? 'bg-red-600/20 text-red-400 hover:bg-red-600/30 border border-red-800'
+                          ? 'bg-brand-600/20 text-brand-400 hover:bg-brand-600/30 border border-brand-800'
                           : 'bg-green-600/20 text-green-400 hover:bg-green-600/30 border border-green-800'
                       }`}
                     >
@@ -331,10 +331,10 @@ export default function EmployeeScreen() {
                     setFormData({ ...formData, name: e.target.value })
                   }
                   placeholder={t('employees.namePlaceholder')}
-                  className="w-full px-4 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white placeholder-neutral-500 focus:outline-none focus:border-red-600"
+                  className="w-full px-4 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white placeholder-neutral-500 focus:outline-none focus:border-brand-600"
                 />
                 {formErrors.name && (
-                  <p className="text-red-400 text-sm mt-1">{formErrors.name}</p>
+                  <p className="text-brand-400 text-sm mt-1">{formErrors.name}</p>
                 )}
               </div>
 
@@ -351,10 +351,10 @@ export default function EmployeeScreen() {
                   }}
                   placeholder={t('employees.pinPlaceholder')}
                   maxLength={4}
-                  className="w-full px-4 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white placeholder-neutral-500 focus:outline-none focus:border-red-600 tracking-widest text-center text-lg"
+                  className="w-full px-4 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white placeholder-neutral-500 focus:outline-none focus:border-brand-600 tracking-widest text-center text-lg"
                 />
                 {formErrors.pin && (
-                  <p className="text-red-400 text-sm mt-1">{formErrors.pin}</p>
+                  <p className="text-brand-400 text-sm mt-1">{formErrors.pin}</p>
                 )}
               </div>
 
@@ -370,7 +370,7 @@ export default function EmployeeScreen() {
                       role: e.target.value as RoleType,
                     })
                   }
-                  className="w-full px-4 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white focus:outline-none focus:border-red-600"
+                  className="w-full px-4 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white focus:outline-none focus:border-brand-600"
                 >
                   {roles.map((role) => (
                     <option key={role} value={role}>
@@ -395,7 +395,7 @@ export default function EmployeeScreen() {
                     : handleEditEmployee
                 }
                 disabled={actionLoading}
-                className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium disabled:opacity-50 flex items-center justify-center gap-2 min-h-[44px]"
+                className="flex-1 px-4 py-2 bg-brand-600 text-white rounded-lg hover:bg-brand-700 transition-colors font-medium disabled:opacity-50 flex items-center justify-center gap-2 min-h-[44px]"
               >
                 <Check size={20} />
                 {modalMode === 'add' ? t('employees.add') : t('employees.save')}

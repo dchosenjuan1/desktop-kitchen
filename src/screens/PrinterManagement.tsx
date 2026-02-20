@@ -108,7 +108,7 @@ export default function PrinterManagement() {
               <h2 className="text-xl font-bold text-white mb-4">{t('printers.printers')}</h2>
               <button
                 onClick={() => setShowAddPrinter(true)}
-                className="flex items-center gap-2 px-4 py-3 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700 transition-colors mb-4"
+                className="flex items-center gap-2 px-4 py-3 bg-brand-600 text-white rounded-lg font-medium hover:bg-brand-700 transition-colors mb-4"
               >
                 <Plus size={20} /> {t('printers.addPrinter')}
               </button>
@@ -119,13 +119,13 @@ export default function PrinterManagement() {
                     value={newName}
                     onChange={(e) => setNewName(e.target.value)}
                     placeholder={t('printers.namePlaceholder')}
-                    className="w-full bg-neutral-800 border border-neutral-700 rounded-lg p-3 text-white focus:outline-none focus:border-red-600"
+                    className="w-full bg-neutral-800 border border-neutral-700 rounded-lg p-3 text-white focus:outline-none focus:border-brand-600"
                   />
                   <div className="flex gap-3">
                     <select
                       value={newType}
                       onChange={(e) => setNewType(e.target.value)}
-                      className="bg-neutral-800 border border-neutral-700 rounded-lg p-3 text-white focus:outline-none focus:border-red-600"
+                      className="bg-neutral-800 border border-neutral-700 rounded-lg p-3 text-white focus:outline-none focus:border-brand-600"
                     >
                       <option value="receipt">{t('printers.types.receipt')}</option>
                       <option value="kitchen">{t('printers.types.kitchen')}</option>
@@ -135,7 +135,7 @@ export default function PrinterManagement() {
                       value={newAddress}
                       onChange={(e) => setNewAddress(e.target.value)}
                       placeholder={t('printers.ipPlaceholder')}
-                      className="flex-1 bg-neutral-800 border border-neutral-700 rounded-lg p-3 text-white focus:outline-none focus:border-red-600"
+                      className="flex-1 bg-neutral-800 border border-neutral-700 rounded-lg p-3 text-white focus:outline-none focus:border-brand-600"
                     />
                   </div>
                   <div className="flex gap-2">
@@ -186,7 +186,7 @@ export default function PrinterManagement() {
                       <select
                         value={route?.printer_id || ''}
                         onChange={(e) => handleRouteChange(cat.id, e.target.value ? parseInt(e.target.value) : null)}
-                        className="bg-neutral-800 border border-neutral-700 rounded-lg p-2 text-white focus:outline-none focus:border-red-600"
+                        className="bg-neutral-800 border border-neutral-700 rounded-lg p-2 text-white focus:outline-none focus:border-brand-600"
                       >
                         <option value="">{t('printers.default')}</option>
                         {printers.filter((p) => p.active).map((p) => (

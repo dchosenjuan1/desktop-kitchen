@@ -132,7 +132,7 @@ const CustomerLookupModal: React.FC<CustomerLookupModalProps> = ({ onCustomerLin
 
         <div className="p-5">
           {error && (
-            <div className="mb-4 p-3 bg-red-900/30 border border-red-800 rounded-lg text-red-300 text-sm">
+            <div className="mb-4 p-3 bg-brand-900/30 border border-brand-800 rounded-lg text-brand-300 text-sm">
               {error}
             </div>
           )}

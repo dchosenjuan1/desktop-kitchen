@@ -383,7 +383,7 @@ export default function MenuManagement() {
               <button
                 onClick={() => setView('items')}
                 className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-                  view === 'items' ? 'bg-red-600 text-white' : 'text-neutral-400 hover:text-white'
+                  view === 'items' ? 'bg-brand-600 text-white' : 'text-neutral-400 hover:text-white'
                 }`}
               >
                 {t('menu.items')}
@@ -391,7 +391,7 @@ export default function MenuManagement() {
               <button
                 onClick={() => setView('categories')}
                 className={`px-4 py-2 rounded-md text-sm font-medium transition-colors flex items-center gap-1.5 ${
-                  view === 'categories' ? 'bg-red-600 text-white' : 'text-neutral-400 hover:text-white'
+                  view === 'categories' ? 'bg-brand-600 text-white' : 'text-neutral-400 hover:text-white'
                 }`}
               >
                 <Layers size={16} />
@@ -402,7 +402,7 @@ export default function MenuManagement() {
               <button
                 onClick={openAddModal}
                 disabled={!selectedCategory}
-                className="px-6 py-3 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700 transition-colors flex items-center gap-2 min-h-[44px] disabled:opacity-50"
+                className="px-6 py-3 bg-brand-600 text-white rounded-lg font-medium hover:bg-brand-700 transition-colors flex items-center gap-2 min-h-[44px] disabled:opacity-50"
               >
                 <Plus size={20} />
                 {t('menu.addItem')}
@@ -415,11 +415,11 @@ export default function MenuManagement() {
 
       <div className="max-w-7xl mx-auto p-6">
         {error && (
-          <div className="bg-red-900/30 border border-red-800 rounded-lg p-4 mb-6 flex justify-between items-center">
-            <p className="text-red-300">{error}</p>
+          <div className="bg-brand-900/30 border border-brand-800 rounded-lg p-4 mb-6 flex justify-between items-center">
+            <p className="text-brand-300">{error}</p>
             <button
               onClick={() => setError(null)}
-              className="text-red-400 hover:text-red-300"
+              className="text-brand-400 hover:text-brand-300"
             >
               <X size={20} />
             </button>
@@ -443,7 +443,7 @@ export default function MenuManagement() {
                 <h3 className="text-lg font-semibold text-white">{t('menu.manageCategories')}</h3>
                 <button
                   onClick={() => { setShowCategoryForm(true); setEditingCategoryId(null); setCategoryFormData({ name: '', sort_order: '' }); }}
-                  className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700 transition-colors"
+                  className="flex items-center gap-2 px-4 py-2 bg-brand-600 text-white rounded-lg font-medium hover:bg-brand-700 transition-colors"
                 >
                   <Plus size={18} /> {t('menu.addCategory')}
                 </button>
@@ -456,14 +456,14 @@ export default function MenuManagement() {
                       value={categoryFormData.name}
                       onChange={(e) => setCategoryFormData({ ...categoryFormData, name: e.target.value })}
                       placeholder={t('menu.categoryForm.namePlaceholder')}
-                      className="flex-1 bg-neutral-700 border border-neutral-600 rounded-lg p-3 text-white focus:outline-none focus:border-red-600"
+                      className="flex-1 bg-neutral-700 border border-neutral-600 rounded-lg p-3 text-white focus:outline-none focus:border-brand-600"
                     />
                     <input
                       type="number"
                       value={categoryFormData.sort_order}
                       onChange={(e) => setCategoryFormData({ ...categoryFormData, sort_order: e.target.value })}
                       placeholder={t('menu.categoryForm.order')}
-                      className="w-24 bg-neutral-700 border border-neutral-600 rounded-lg p-3 text-white focus:outline-none focus:border-red-600"
+                      className="w-24 bg-neutral-700 border border-neutral-600 rounded-lg p-3 text-white focus:outline-none focus:border-brand-600"
                     />
                   </div>
                   <div className="flex gap-2">
@@ -487,14 +487,14 @@ export default function MenuManagement() {
                         <input
                           value={categoryFormData.name}
                           onChange={(e) => setCategoryFormData({ ...categoryFormData, name: e.target.value })}
-                          className="flex-1 bg-neutral-700 border border-neutral-600 rounded-lg p-2 text-white focus:outline-none focus:border-red-600"
+                          className="flex-1 bg-neutral-700 border border-neutral-600 rounded-lg p-2 text-white focus:outline-none focus:border-brand-600"
                         />
                         <input
                           type="number"
                           value={categoryFormData.sort_order}
                           onChange={(e) => setCategoryFormData({ ...categoryFormData, sort_order: e.target.value })}
                           placeholder={t('menu.categoryForm.order')}
-                          className="w-20 bg-neutral-700 border border-neutral-600 rounded-lg p-2 text-white focus:outline-none focus:border-red-600"
+                          className="w-20 bg-neutral-700 border border-neutral-600 rounded-lg p-2 text-white focus:outline-none focus:border-brand-600"
                         />
                         <button onClick={handleUpdateCategory} className="p-2 bg-green-600 text-white rounded-lg hover:bg-green-700">
                           <Check size={18} />
@@ -549,7 +549,7 @@ export default function MenuManagement() {
             <p className="text-neutral-400 mb-4">{t('menu.noCategories')}</p>
             <button
               onClick={() => setView('categories')}
-              className="px-6 py-3 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700 transition-colors inline-flex items-center gap-2"
+              className="px-6 py-3 bg-brand-600 text-white rounded-lg font-medium hover:bg-brand-700 transition-colors inline-flex items-center gap-2"
             >
               <Layers size={20} />
               {t('menu.manageCategories')}
@@ -567,7 +567,7 @@ export default function MenuManagement() {
                     onClick={() => setSelectedCategory(category.id)}
                     className={`px-6 py-3 rounded-lg font-medium transition-colors min-h-[44px] ${
                       selectedCategory === category.id
-                        ? 'bg-red-600 text-white'
+                        ? 'bg-brand-600 text-white'
                         : 'bg-neutral-800 text-neutral-300 border border-neutral-700 hover:bg-neutral-700'
                     }`}
                   >
@@ -611,7 +611,7 @@ export default function MenuManagement() {
                     </p>
                     <button
                       onClick={openAddModal}
-                      className="px-6 py-3 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700 transition-colors inline-flex items-center gap-2 min-h-[44px]"
+                      className="px-6 py-3 bg-brand-600 text-white rounded-lg font-medium hover:bg-brand-700 transition-colors inline-flex items-center gap-2 min-h-[44px]"
                     >
                       <Plus size={20} />
                       {t('menu.addFirstItem')}
@@ -645,7 +645,7 @@ export default function MenuManagement() {
                         <h4 className="font-bold text-white text-lg mb-1">
                           {item.name}
                         </h4>
-                        <p className="text-2xl font-bold text-red-500">
+                        <p className="text-2xl font-bold text-brand-500">
                           {formatPrice(item.price)}
                         </p>
                       </div>
@@ -668,7 +668,7 @@ export default function MenuManagement() {
                           onClick={() => handleToggleItem(item.id)}
                           className={`flex-1 px-4 py-2 rounded-lg transition-colors font-medium min-h-[44px] ${
                             item.active
-                              ? 'bg-red-600/20 text-red-400 hover:bg-red-600/30 border border-red-800'
+                              ? 'bg-brand-600/20 text-brand-400 hover:bg-brand-600/30 border border-brand-800'
                               : 'bg-green-600/20 text-green-400 hover:bg-green-600/30 border border-green-800'
                           }`}
                         >
@@ -712,10 +712,10 @@ export default function MenuManagement() {
                     setFormData({ ...formData, name: e.target.value })
                   }
                   placeholder={t('menu.form.itemNamePlaceholder')}
-                  className="w-full px-4 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white placeholder-neutral-500 focus:outline-none focus:border-red-600"
+                  className="w-full px-4 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white placeholder-neutral-500 focus:outline-none focus:border-brand-600"
                 />
                 {formErrors.name && (
-                  <p className="text-red-400 text-sm mt-1">{formErrors.name}</p>
+                  <p className="text-brand-400 text-sm mt-1">{formErrors.name}</p>
                 )}
               </div>
 
@@ -735,11 +735,11 @@ export default function MenuManagement() {
                       placeholder="0.00"
                       step="0.01"
                       min="0"
-                      className="w-full px-3 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white placeholder-neutral-500 focus:outline-none focus:border-red-600 ml-1"
+                      className="w-full px-3 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white placeholder-neutral-500 focus:outline-none focus:border-brand-600 ml-1"
                     />
                   </div>
                   {formErrors.price && (
-                    <p className="text-red-400 text-sm mt-1">{formErrors.price}</p>
+                    <p className="text-brand-400 text-sm mt-1">{formErrors.price}</p>
                   )}
                 </div>
 
@@ -755,7 +755,7 @@ export default function MenuManagement() {
                         category_id: e.target.value,
                       })
                     }
-                    className="w-full px-4 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white focus:outline-none focus:border-red-600"
+                    className="w-full px-4 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white focus:outline-none focus:border-brand-600"
                   >
                     <option value="">{t('menu.form.selectCategory')}</option>
                     {categories.filter(c => c.active).map((category) => (
@@ -765,7 +765,7 @@ export default function MenuManagement() {
                     ))}
                   </select>
                   {formErrors.category_id && (
-                    <p className="text-red-400 text-sm mt-1">
+                    <p className="text-brand-400 text-sm mt-1">
                       {formErrors.category_id}
                     </p>
                   )}
@@ -786,7 +786,7 @@ export default function MenuManagement() {
                   }
                   placeholder={t('menu.form.descriptionPlaceholder')}
                   rows={3}
-                  className="w-full px-4 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white placeholder-neutral-500 focus:outline-none focus:border-red-600"
+                  className="w-full px-4 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white placeholder-neutral-500 focus:outline-none focus:border-brand-600"
                 />
               </div>
 
@@ -801,7 +801,7 @@ export default function MenuManagement() {
                     setFormData({ ...formData, image_url: e.target.value })
                   }
                   placeholder={t('menu.form.imageUrlPlaceholder')}
-                  className="w-full px-4 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white placeholder-neutral-500 focus:outline-none focus:border-red-600"
+                  className="w-full px-4 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white placeholder-neutral-500 focus:outline-none focus:border-brand-600"
                 />
                 {formData.image_url && (
                   <div className="mt-2 rounded-lg overflow-hidden border border-neutral-700 h-32 bg-neutral-800">
@@ -835,7 +835,7 @@ export default function MenuManagement() {
                             type="checkbox"
                             checked={assignedGroupIds.has(group.id)}
                             onChange={() => handleToggleModifierGroup(group.id)}
-                            className="w-4 h-4 rounded border-neutral-600 bg-neutral-700 text-red-600 focus:ring-red-600 focus:ring-offset-0"
+                            className="w-4 h-4 rounded border-neutral-600 bg-neutral-700 text-brand-600 focus:ring-brand-600 focus:ring-offset-0"
                           />
                           <div className="flex-1 min-w-0">
                             <span className="text-white text-sm font-medium">{group.name}</span>
@@ -866,7 +866,7 @@ export default function MenuManagement() {
               <button
                 onClick={modalMode === 'add' ? handleAddItem : handleEditItem}
                 disabled={actionLoading}
-                className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium disabled:opacity-50 flex items-center justify-center gap-2 min-h-[44px]"
+                className="flex-1 px-4 py-2 bg-brand-600 text-white rounded-lg hover:bg-brand-700 transition-colors font-medium disabled:opacity-50 flex items-center justify-center gap-2 min-h-[44px]"
               >
                 <Check size={20} />
                 {actionLoading ? t('menu.form.saving') : modalMode === 'add' ? t('menu.addItem') : t('menu.form.saveChanges')}

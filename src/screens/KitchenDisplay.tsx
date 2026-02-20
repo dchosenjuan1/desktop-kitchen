@@ -196,7 +196,7 @@ export default function KitchenDisplay() {
   const getStatusColor = (status: Order['status']): string => {
     switch (status) {
       case 'pending':
-        return 'border-l-4 border-l-red-500';
+        return 'border-l-4 border-l-brand-500';
       case 'preparing':
         return 'border-l-4 border-l-amber-500';
       default:
@@ -211,7 +211,7 @@ export default function KitchenDisplay() {
   const getStatusBadgeColor = (status: Order['status']): string => {
     switch (status) {
       case 'pending':
-        return 'bg-red-600 text-white';
+        return 'bg-brand-600 text-white';
       case 'preparing':
         return 'bg-amber-500 text-neutral-900';
       default:
@@ -225,7 +225,7 @@ export default function KitchenDisplay() {
 
   const getUrgentColor = (elapsedSeconds: number, status: Order['status']): string => {
     if (isUrgent(elapsedSeconds) && status !== 'completed') {
-      return 'border-l-4 border-l-red-500';
+      return 'border-l-4 border-l-brand-500';
     }
     return getStatusColor(status);
   };
@@ -249,19 +249,19 @@ export default function KitchenDisplay() {
           <div className="flex gap-1 ml-4">
             <button
               onClick={() => setDisplayFilter('all')}
-              className={`px-3 py-1.5 rounded-lg text-sm font-bold transition-colors ${displayFilter === 'all' ? 'bg-red-600 text-white' : 'bg-neutral-800 text-neutral-400 hover:bg-neutral-700'}`}
+              className={`px-3 py-1.5 rounded-lg text-sm font-bold transition-colors ${displayFilter === 'all' ? 'bg-brand-600 text-white' : 'bg-neutral-800 text-neutral-400 hover:bg-neutral-700'}`}
             >
               {t('header.all')}
             </button>
             <button
               onClick={() => setDisplayFilter('kitchen')}
-              className={`px-3 py-1.5 rounded-lg text-sm font-bold transition-colors flex items-center gap-1 ${displayFilter === 'kitchen' ? 'bg-red-600 text-white' : 'bg-neutral-800 text-neutral-400 hover:bg-neutral-700'}`}
+              className={`px-3 py-1.5 rounded-lg text-sm font-bold transition-colors flex items-center gap-1 ${displayFilter === 'kitchen' ? 'bg-brand-600 text-white' : 'bg-neutral-800 text-neutral-400 hover:bg-neutral-700'}`}
             >
               <ChefHat size={14} /> {t('header.kitchen')}
             </button>
             <button
               onClick={() => setDisplayFilter('bar')}
-              className={`px-3 py-1.5 rounded-lg text-sm font-bold transition-colors flex items-center gap-1 ${displayFilter === 'bar' ? 'bg-red-600 text-white' : 'bg-neutral-800 text-neutral-400 hover:bg-neutral-700'}`}
+              className={`px-3 py-1.5 rounded-lg text-sm font-bold transition-colors flex items-center gap-1 ${displayFilter === 'bar' ? 'bg-brand-600 text-white' : 'bg-neutral-800 text-neutral-400 hover:bg-neutral-700'}`}
             >
               <Wine size={14} /> {t('header.bar')}
             </button>
@@ -282,7 +282,7 @@ export default function KitchenDisplay() {
           </div>
 
           {pendingCount > 0 && (
-            <div className="bg-red-600 text-white rounded-full w-16 h-16 flex items-center justify-center font-bold text-2xl">
+            <div className="bg-brand-600 text-white rounded-full w-16 h-16 flex items-center justify-center font-bold text-2xl">
               {pendingCount}
             </div>
           )}
@@ -300,7 +300,7 @@ export default function KitchenDisplay() {
 
       {/* Error Banner */}
       {error && (
-        <div className="bg-red-900/50 border-b border-red-800 px-6 py-3 text-red-200 flex items-center gap-3">
+        <div className="bg-brand-900/50 border-b border-brand-800 px-6 py-3 text-brand-200 flex items-center gap-3">
           <Volume2 size={20} />
           <span>{error}</span>
         </div>
@@ -312,7 +312,7 @@ export default function KitchenDisplay() {
           <div className="flex items-center justify-center min-h-[400px]">
             <div className="text-center">
               <div className="animate-spin mb-4">
-                <Clock size={64} className="text-red-500" />
+                <Clock size={64} className="text-brand-500" />
               </div>
               <p className="text-xl text-neutral-400">{t('orders.loadingOrders')}</p>
             </div>
@@ -405,12 +405,12 @@ function OrderCard({
       {/* Time Elapsed */}
       <div
         className={`flex items-center gap-2 mb-4 text-lg font-semibold ${
-          isUrgent(order.elapsedSeconds) ? 'text-red-400' : 'text-neutral-400'
+          isUrgent(order.elapsedSeconds) ? 'text-brand-400' : 'text-neutral-400'
         }`}
       >
         <Clock size={24} />
         <span>{formatTime(order.elapsedSeconds)}</span>
-        {isUrgent(order.elapsedSeconds) && <span className="text-red-500">{t('status.urgent')}</span>}
+        {isUrgent(order.elapsedSeconds) && <span className="text-brand-500">{t('status.urgent')}</span>}
       </div>
 
       {/* Items List */}
@@ -455,7 +455,7 @@ function OrderCard({
           <button
             onClick={() => handleAction('start')}
             disabled={isLoading}
-            className="bg-red-600 hover:bg-red-700 disabled:bg-red-800 disabled:opacity-50 text-white font-bold py-3 px-4 rounded-lg transition-colors text-lg min-h-[48px] flex items-center justify-center"
+            className="bg-brand-600 hover:bg-brand-700 disabled:bg-brand-800 disabled:opacity-50 text-white font-bold py-3 px-4 rounded-lg transition-colors text-lg min-h-[48px] flex items-center justify-center"
           >
             {isLoading ? (
               <span className="animate-pulse">{t('actions.starting')}</span>
@@ -510,7 +510,7 @@ function ItemDisplay({ item }: ItemDisplayProps) {
       {hasModifiers && (
         <div className="mt-1 space-y-0.5">
           {item.modifiers!.map((mod, i) => (
-            <p key={i} className="text-red-400 font-semibold text-sm bg-red-900/20 px-2 py-0.5 rounded">
+            <p key={i} className="text-brand-400 font-semibold text-sm bg-brand-900/20 px-2 py-0.5 rounded">
               + {mod.modifier_name}
             </p>
           ))}
@@ -518,7 +518,7 @@ function ItemDisplay({ item }: ItemDisplayProps) {
       )}
 
       {hasNotes && (
-        <p className="text-red-300 italic text-base bg-red-900/20 px-2 py-1 rounded mt-2 border-l-2 border-red-500">
+        <p className="text-brand-300 italic text-base bg-brand-900/20 px-2 py-1 rounded mt-2 border-l-2 border-brand-500">
           {item.notes}
         </p>
       )}
