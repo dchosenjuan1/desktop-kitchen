@@ -26,6 +26,7 @@ import adminRoutes from './routes/admin.js';
 import authRoutes from './routes/auth.js';
 import brandingRoutes from './routes/branding.js';
 import billingRoutes, { stripeWebhook } from './routes/billing.js';
+import deliveryIntelRoutes from './routes/delivery-intelligence.js';
 import { initAI } from './ai/index.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -75,6 +76,7 @@ app.use('/api/loyalty', loyaltyRoutes);
 app.use('/api/order-templates', orderTemplatesRoutes);
 app.use('/api/branding', brandingRoutes);
 app.use('/api/billing', billingRoutes);
+app.use('/api/delivery', deliveryIntelRoutes);
 
 // Serve index.html for all other routes (SPA)
 app.get('*', (req, res) => {

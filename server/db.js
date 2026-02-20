@@ -342,6 +342,66 @@ export function applySchema(database) {
 
   alterSafe(`ALTER TABLE orders ADD COLUMN delivery_order_id INTEGER DEFAULT NULL`);
 
+  // Delivery intelligence — markup rules per platform per item
+  database.exec(`
+    CREATE TABLE IF NOT EXISTS delivery_markup_rules (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      platform_id INTEGER NOT NULL REFERENCES delivery_platforms(id),
+      menu_item_id INTEGER REFERENCES menu_items(id),
+      category_id INTEGER REFERENCES menu_categories(id),
+      markup_type TEXT NOT NULL DEFAULT 'percent',
+      markup_value REAL NOT NULL DEFAULT 0,
+      active INTEGER DEFAULT 1,
+      UNIQUE(platform_id, menu_item_id),
+      UNIQUE(platform_id, category_id)
+    )
+  `);
+
+  // Virtual brands — different menu presentations per delivery platform
+  database.exec(`
+    CREATE TABLE IF NOT EXISTS virtual_brands (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL,
+      platform_id INTEGER NOT NULL REFERENCES delivery_platforms(id),
+      description TEXT,
+      logo_url TEXT,
+      active INTEGER DEFAULT 1,
+      created_at TEXT DEFAULT (datetime('now','localtime'))
+    )
+  `);
+
+  // Virtual brand menu item assignments
+  database.exec(`
+    CREATE TABLE IF NOT EXISTS virtual_brand_items (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      virtual_brand_id INTEGER NOT NULL REFERENCES virtual_brands(id),
+      menu_item_id INTEGER NOT NULL REFERENCES menu_items(id),
+      custom_name TEXT,
+      custom_price REAL,
+      active INTEGER DEFAULT 1,
+      UNIQUE(virtual_brand_id, menu_item_id)
+    )
+  `);
+
+  // Customer recapture tracking
+  database.exec(`
+    CREATE TABLE IF NOT EXISTS delivery_recapture (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      customer_phone TEXT NOT NULL,
+      customer_name TEXT,
+      platform TEXT NOT NULL,
+      last_delivery_order_id INTEGER REFERENCES delivery_orders(id),
+      sms_sent_at TEXT,
+      converted INTEGER DEFAULT 0,
+      created_at TEXT DEFAULT (datetime('now','localtime'))
+    )
+  `);
+
+  // Add markup-related columns to delivery_platforms
+  alterSafe(`ALTER TABLE delivery_platforms ADD COLUMN default_markup_percent REAL DEFAULT 0`);
+  alterSafe(`ALTER TABLE delivery_platforms ADD COLUMN avg_delivery_time_min INTEGER DEFAULT 30`);
+  alterSafe(`ALTER TABLE delivery_platforms ADD COLUMN notes TEXT DEFAULT ''`);
+
   // Role-Based Permissions
   database.exec(`
     CREATE TABLE IF NOT EXISTS role_permissions (

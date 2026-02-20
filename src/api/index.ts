@@ -992,3 +992,109 @@ export async function createOrderTemplate(data: {
     body: JSON.stringify(data),
   });
 }
+
+/* ==================== Delivery Intelligence Endpoints ==================== */
+
+export async function getDeliveryAnalytics(start?: string, end?: string): Promise<any> {
+  const qs = new URLSearchParams();
+  if (start) qs.append('start', start);
+  if (end) qs.append('end', end);
+  const s = qs.toString();
+  return apiRequest(`/delivery/analytics${s ? `?${s}` : ''}`);
+}
+
+export async function getMarkupRules(): Promise<any[]> {
+  return apiRequest('/delivery/markup-rules');
+}
+
+export async function createMarkupRule(data: {
+  platform_id: number;
+  menu_item_id?: number;
+  category_id?: number;
+  markup_type?: string;
+  markup_value: number;
+}): Promise<{ id: number }> {
+  return apiRequest('/delivery/markup-rules', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function updateMarkupRule(id: number, data: {
+  markup_type?: string;
+  markup_value?: number;
+  active?: boolean;
+}): Promise<any> {
+  return apiRequest(`/delivery/markup-rules/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function deleteMarkupRule(id: number): Promise<any> {
+  return apiRequest(`/delivery/markup-rules/${id}`, { method: 'DELETE' });
+}
+
+export async function getMarkupPreview(platformId: number): Promise<any[]> {
+  return apiRequest(`/delivery/markup-preview/${platformId}`);
+}
+
+export async function getVirtualBrands(): Promise<any[]> {
+  return apiRequest('/delivery/virtual-brands');
+}
+
+export async function createVirtualBrand(data: {
+  name: string;
+  platform_id: number;
+  description?: string;
+  logo_url?: string;
+}): Promise<{ id: number }> {
+  return apiRequest('/delivery/virtual-brands', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function updateVirtualBrand(id: number, data: any): Promise<any> {
+  return apiRequest(`/delivery/virtual-brands/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function getVirtualBrandItems(brandId: number): Promise<any[]> {
+  return apiRequest(`/delivery/virtual-brands/${brandId}/items`);
+}
+
+export async function setVirtualBrandItems(brandId: number, items: Array<{
+  menu_item_id: number;
+  custom_name?: string;
+  custom_price?: number;
+}>): Promise<any> {
+  return apiRequest(`/delivery/virtual-brands/${brandId}/items`, {
+    method: 'POST',
+    body: JSON.stringify({ items }),
+  });
+}
+
+export async function getRecaptureCandidates(days?: number): Promise<any[]> {
+  const qs = days ? `?days=${days}` : '';
+  return apiRequest(`/delivery/recapture/candidates${qs}`);
+}
+
+export async function sendRecaptureSMS(data: {
+  phone: string;
+  customer_name: string;
+  platform: string;
+  delivery_order_id?: number;
+  message?: string;
+}): Promise<any> {
+  return apiRequest('/delivery/recapture/send', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function markRecaptureConverted(id: number): Promise<any> {
+  return apiRequest(`/delivery/recapture/${id}/convert`, { method: 'POST' });
+}
