@@ -1,11 +1,5 @@
-const CACHE_NAME = 'juanbertos-pos-v2';
+const CACHE_NAME = 'juanbertos-pos-v3';
 const API_CACHE_NAME = 'juanbertos-api-v1';
-
-const STATIC_ASSETS = [
-  '/',
-  '/index.html',
-  '/manifest.json',
-];
 
 // GET API endpoints eligible for stale-while-revalidate caching
 const CACHEABLE_API_PATTERNS = [
@@ -22,15 +16,12 @@ function isApiCacheable(url) {
   return CACHEABLE_API_PATTERNS.some((p) => url.pathname.startsWith(p));
 }
 
-// Install: cache static assets
+// Install: skip waiting to activate immediately
 self.addEventListener('install', (event) => {
-  event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(STATIC_ASSETS))
-  );
   self.skipWaiting();
 });
 
-// Activate: clean old caches
+// Activate: clean old caches, claim clients
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((keys) =>
@@ -49,17 +40,18 @@ self.addEventListener('fetch', (event) => {
   const { request } = event;
   const url = new URL(request.url);
 
-  // Skip non-GET for API (POST/PUT handled by app-level IndexedDB)
-  if (url.pathname.startsWith('/api') && request.method !== 'GET') {
-    return;
-  }
+  // Only handle http/https requests (skip chrome-extension://, etc.)
+  if (!url.protocol.startsWith('http')) return;
+
+  // Skip non-GET requests (POST/PUT can't be cached)
+  if (request.method !== 'GET') return;
 
   // GET API requests: stale-while-revalidate for cacheable endpoints
   if (url.pathname.startsWith('/api')) {
     if (isApiCacheable(url)) {
       event.respondWith(staleWhileRevalidate(request));
     } else {
-      // Non-cacheable API (health, reports, etc.): network only
+      // Non-cacheable API: network only
       event.respondWith(
         fetch(request).catch(() =>
           new Response(JSON.stringify({ error: 'Offline' }), {
@@ -72,15 +64,39 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Static assets: cache-first (JS/CSS have content hashes from Vite)
+  // HTML navigation requests (/, /index.html): network-first
+  // This ensures new deploys are picked up immediately
+  if (request.mode === 'navigate' || url.pathname === '/' || url.pathname.endsWith('.html')) {
+    event.respondWith(networkFirst(request));
+    return;
+  }
+
+  // Static assets (JS/CSS with content hashes): cache-first
   event.respondWith(cacheFirst(request));
 });
+
+async function networkFirst(request) {
+  const cache = await caches.open(CACHE_NAME);
+  try {
+    const response = await fetch(request);
+    if (response.ok) {
+      cache.put(request, response.clone());
+    }
+    return response;
+  } catch {
+    const cached = await cache.match(request);
+    if (cached) return cached;
+    // Last resort: try cached root
+    const root = await cache.match('/');
+    if (root) return root;
+    return new Response('Offline', { status: 503 });
+  }
+}
 
 async function staleWhileRevalidate(request) {
   const cache = await caches.open(API_CACHE_NAME);
   const cached = await cache.match(request);
 
-  // Start network fetch in background
   const fetchPromise = fetch(request)
     .then((response) => {
       if (response.ok) {
@@ -90,14 +106,11 @@ async function staleWhileRevalidate(request) {
     })
     .catch(() => null);
 
-  // Return cached immediately if available, otherwise wait for network
   if (cached) {
-    // Background revalidate (don't await)
     fetchPromise;
     return cached;
   }
 
-  // No cache — must wait for network
   const networkResponse = await fetchPromise;
   if (networkResponse) return networkResponse;
 
@@ -119,9 +132,6 @@ async function cacheFirst(request) {
     }
     return response;
   } catch {
-    // SPA fallback: return index.html for navigation requests
-    const fallback = await cache.match('/');
-    if (fallback) return fallback;
     return new Response('Offline', { status: 503 });
   }
 }
