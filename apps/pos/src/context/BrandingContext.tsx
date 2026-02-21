@@ -18,7 +18,7 @@ interface BrandingContextType {
 
 const BrandingContext = createContext<BrandingContextType | undefined>(undefined);
 
-const DEFAULT_PRIMARY = '#dc2626';
+const DEFAULT_PRIMARY = '#0d9488';
 
 export const BrandingProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [branding, setBrandingState] = useState<BrandingConfig | null>(null);

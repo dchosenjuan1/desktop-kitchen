@@ -33,11 +33,11 @@ export function tenantMiddleware(req, res, next) {
     tenantId = tenant.id;
   }
 
-  // 2. Subdomain resolution (e.g., tacos-el-rey.pos.juanbertos.com)
+  // 2. Subdomain resolution (e.g., tacos-el-rey.app.desktop.kitchen)
   if (!tenantId) {
     const host = req.hostname || req.headers.host?.split(':')[0];
     if (host && host !== 'localhost' && host !== '127.0.0.1') {
-      // Extract subdomain: "tacos-el-rey.pos.juanbertos.com" → "tacos-el-rey"
+      // Extract subdomain: "tacos-el-rey.app.desktop.kitchen" → "tacos-el-rey"
       const parts = host.split('.');
       if (parts.length >= 3) {
         const subdomain = parts[0];

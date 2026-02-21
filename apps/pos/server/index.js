@@ -103,8 +103,8 @@ app.use((err, req, res, next) => {
     initMasterDb();
     initAI();
     app.listen(PORT, () => {
-      console.log(`Juanbertos POS server running on port ${PORT}`);
-      console.log(`Database: ${path.join(__dirname, '../data/juanbertos.db')}`);
+      console.log(`Desktop Kitchen POS server running on port ${PORT}`);
+      console.log(`Database: ${path.join(__dirname, '../data/desktop-kitchen.db')}`);
     });
   } catch (error) {
     console.error('Failed to initialize database:', error);

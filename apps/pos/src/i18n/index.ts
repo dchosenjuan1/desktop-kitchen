@@ -50,7 +50,7 @@ i18n
     },
     detection: {
       order: ['localStorage', 'navigator'],
-      lookupLocalStorage: 'juanbertos-lang',
+      lookupLocalStorage: 'dk-lang',
       caches: ['localStorage'],
     },
   });

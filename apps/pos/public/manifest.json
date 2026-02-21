@@ -1,11 +1,11 @@
 {
-  "name": "Juanbertos California Burritos POS",
-  "short_name": "Juanbertos POS",
-  "description": "Point of Sale System for Juanbertos California Burritos",
+  "name": "Desktop Kitchen POS",
+  "short_name": "Desktop Kitchen",
+  "description": "White-label POS system for restaurants",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#f97316",
-  "theme_color": "#f97316",
+  "background_color": "#0d9488",
+  "theme_color": "#0d9488",
   "orientation": "landscape",
   "icons": [
     {

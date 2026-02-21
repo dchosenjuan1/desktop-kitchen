@@ -65,7 +65,7 @@ export async function invalidateMenuCache(): Promise<void> {
   // 2. Clear the Service Worker API cache so stale-while-revalidate
   //    doesn't serve old data on the next page load
   if ('caches' in window) {
-    const cache = await caches.open('juanbertos-api-v1');
+    const cache = await caches.open('dk-api-v1');
     const keys = await cache.keys();
     await Promise.all(
       keys

@@ -101,8 +101,8 @@ const DEFAULT_FORM: FormData = {
   description: '',
   display_type: 'menu_board',
   font_family: '',
-  primary_color: '#dc2626',
-  secondary_color: '#991b1b',
+  primary_color: '#0d9488',
+  secondary_color: '#115e59',
   dark_bg: '#171717',
   active: true,
   show_in_pos: true,
@@ -164,8 +164,8 @@ export default function MenuBoardManagement() {
         description: brand.description || '',
         display_type: brand.display_type || 'delivery',
         font_family: brand.font_family || '',
-        primary_color: brand.primary_color || '#dc2626',
-        secondary_color: brand.secondary_color || '#991b1b',
+        primary_color: brand.primary_color || '#0d9488',
+        secondary_color: brand.secondary_color || '#115e59',
         dark_bg: brand.dark_bg || '#171717',
         active: !!brand.active,
         show_in_pos: !!brand.show_in_pos,
@@ -367,7 +367,7 @@ export default function MenuBoardManagement() {
                 <div
                   className="h-3 w-full"
                   style={{
-                    background: `linear-gradient(90deg, ${brand.primary_color || '#dc2626'}, ${brand.secondary_color || brand.primary_color || '#991b1b'})`,
+                    background: `linear-gradient(90deg, ${brand.primary_color || '#0d9488'}, ${brand.secondary_color || brand.primary_color || '#115e59'})`,
                   }}
                 />
                 <div className="p-6">
@@ -398,12 +398,12 @@ export default function MenuBoardManagement() {
                       <div className="flex items-center gap-1.5">
                         <div
                           className="w-5 h-5 rounded-full border border-neutral-700"
-                          style={{ backgroundColor: brand.primary_color || '#dc2626' }}
+                          style={{ backgroundColor: brand.primary_color || '#0d9488' }}
                           title="Primary"
                         />
                         <div
                           className="w-5 h-5 rounded-full border border-neutral-700"
-                          style={{ backgroundColor: brand.secondary_color || '#991b1b' }}
+                          style={{ backgroundColor: brand.secondary_color || '#115e59' }}
                           title="Secondary"
                         />
                         <div

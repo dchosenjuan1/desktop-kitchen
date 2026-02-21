@@ -1,5 +1,5 @@
 /**
- * Juanbertos POS — Peak-Hour Stress Test
+ * Desktop Kitchen POS — Peak-Hour Stress Test
  *
  * Simulates a busy Friday-night rush with concurrent "agent" customers,
  * cashiers, kitchen staff, and managers all hitting the API at once.
@@ -186,7 +186,7 @@ async function agentAI(menuItems) {
 
 async function main() {
   console.log('╔══════════════════════════════════════════════════════════╗');
-  console.log('║      Juanbertos POS — Peak-Hour Stress Test             ║');
+  console.log('║      Desktop Kitchen POS — Peak-Hour Stress Test         ║');
   console.log('╚══════════════════════════════════════════════════════════╝\n');
 
   // ── Pre-flight: verify server & load seed data ──

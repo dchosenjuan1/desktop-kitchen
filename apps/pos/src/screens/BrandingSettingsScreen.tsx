@@ -8,7 +8,7 @@ import BrandLogo from '../components/BrandLogo';
 import { generatePalette, type BrandPalette } from '../lib/colorUtils';
 
 const PRESET_COLORS = [
-  '#dc2626', // red
+  '#0d9488', // teal
   '#ea580c', // orange
   '#ca8a04', // yellow
   '#16a34a', // green
@@ -25,7 +25,7 @@ export default function BrandingSettingsScreen() {
 
   const [restaurantName, setRestaurantName] = useState('');
   const [tagline, setTagline] = useState('');
-  const [primaryColor, setPrimaryColor] = useState('#dc2626');
+  const [primaryColor, setPrimaryColor] = useState('#0d9488');
   const [customHex, setCustomHex] = useState('');
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
   const [logoFile, setLogoFile] = useState<File | null>(null);
@@ -40,7 +40,7 @@ export default function BrandingSettingsScreen() {
     if (branding) {
       setRestaurantName(branding.restaurantName || '');
       setTagline(branding.tagline || '');
-      setPrimaryColor(branding.primaryColor || '#dc2626');
+      setPrimaryColor(branding.primaryColor || '#0d9488');
       setLogoPreview(branding.logoUrl || null);
     }
   }, [branding]);
@@ -238,7 +238,7 @@ export default function BrandingSettingsScreen() {
               value={customHex || primaryColor}
               onChange={(e) => handleCustomHexChange(e.target.value)}
               className="w-28 bg-neutral-800 text-white rounded-lg px-3 py-2 border border-neutral-700 focus:border-brand-500 focus:outline-none text-sm font-mono"
-              placeholder="#dc2626"
+              placeholder="#0d9488"
               maxLength={7}
             />
             <div

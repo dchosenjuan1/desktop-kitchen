@@ -1,4 +1,4 @@
-# Juanbertos POS System - Backend Server Files
+# Desktop Kitchen POS System - Backend Server Files
 
 All backend server files have been created successfully. Here's a summary:
 

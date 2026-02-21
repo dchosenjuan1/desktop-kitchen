@@ -59,7 +59,7 @@ import {
 type Period = 'today' | 'week' | 'month';
 type Tab = 'overview' | 'cashcard' | 'cogs' | 'categories' | 'margin' | 'delivery' | 'fees' | 'refunds' | 'financials';
 
-const COLORS = ['#dc2626', '#16a34a', '#2563eb', '#ca8a04', '#7c3aed', '#ea580c'];
+const COLORS = ['#0d9488', '#16a34a', '#2563eb', '#ca8a04', '#7c3aed', '#ea580c'];
 
 export default function ReportsScreen() {
   const { t } = useTranslation('reports');
@@ -351,7 +351,7 @@ export default function ReportsScreen() {
                         <YAxis stroke="#737373" />
                         <Tooltip formatter={(value) => formatCurrency(value as number)} contentStyle={{ backgroundColor: '#171717', border: '1px solid #404040', borderRadius: '8px' }} labelStyle={{ color: '#a3a3a3' }} />
                         <Legend />
-                        <Bar dataKey="revenue" fill="#dc2626" name={t('sales.chartLegend.revenue')} />
+                        <Bar dataKey="revenue" fill="#0d9488" name={t('sales.chartLegend.revenue')} />
                         <Bar dataKey="orders" fill="#737373" name={t('sales.chartLegend.orders')} />
                       </BarChart>
                     </ResponsiveContainer>
@@ -368,7 +368,7 @@ export default function ReportsScreen() {
                         <YAxis type="category" dataKey="item_name" width={190} tick={{ fontSize: 12, fill: '#a3a3a3' }} stroke="#737373" />
                         <Tooltip formatter={(value) => formatCurrency(value as number)} contentStyle={{ backgroundColor: '#171717', border: '1px solid #404040', borderRadius: '8px' }} labelStyle={{ color: '#a3a3a3' }} />
                         <Legend />
-                        <Bar dataKey="revenue" fill="#dc2626" name={t('sales.chartLegend.revenue')} />
+                        <Bar dataKey="revenue" fill="#0d9488" name={t('sales.chartLegend.revenue')} />
                       </BarChart>
                     </ResponsiveContainer>
                   </div>
@@ -544,7 +544,7 @@ export default function ReportsScreen() {
                       <YAxis stroke="#737373" />
                       <Tooltip formatter={(value) => formatCurrency(value as number)} contentStyle={{ backgroundColor: '#171717', border: '1px solid #404040', borderRadius: '8px' }} />
                       <Legend />
-                      <Bar dataKey="revenue" fill="#dc2626" name={t('sales.chartLegend.revenue')} />
+                      <Bar dataKey="revenue" fill="#0d9488" name={t('sales.chartLegend.revenue')} />
                       <Bar dataKey="cogs" fill="#d97706" name={t('sales.chartLegend.cogs')} />
                       <Bar dataKey="margin" fill="#16a34a" name={t('sales.chartLegend.margin')} />
                     </BarChart>
@@ -587,7 +587,7 @@ export default function ReportsScreen() {
                       <YAxis stroke="#737373" />
                       <Tooltip formatter={(value) => formatCurrency(value as number)} contentStyle={{ backgroundColor: '#171717', border: '1px solid #404040', borderRadius: '8px' }} />
                       <Legend />
-                      <Line type="monotone" dataKey="revenue" stroke="#dc2626" strokeWidth={2} name={t('sales.chartLegend.revenue')} />
+                      <Line type="monotone" dataKey="revenue" stroke="#0d9488" strokeWidth={2} name={t('sales.chartLegend.revenue')} />
                       <Line type="monotone" dataKey="cogs" stroke="#d97706" strokeWidth={2} name={t('sales.chartLegend.cogs')} />
                       <Line type="monotone" dataKey="contribution_margin" stroke="#16a34a" strokeWidth={3} name={t('sales.chartLegend.contributionMargin')} />
                     </LineChart>
@@ -642,7 +642,7 @@ export default function ReportsScreen() {
                         <YAxis stroke="#737373" />
                         <Tooltip formatter={(value) => formatCurrency(value as number)} contentStyle={{ backgroundColor: '#171717', border: '1px solid #404040', borderRadius: '8px' }} />
                         <Legend />
-                        <Bar dataKey="revenue" fill="#dc2626" name={t('sales.chartLegend.revenue')} />
+                        <Bar dataKey="revenue" fill="#0d9488" name={t('sales.chartLegend.revenue')} />
                         <Bar dataKey="order_count" fill="#737373" name={t('sales.chartLegend.orders')} />
                       </BarChart>
                     </ResponsiveContainer>
@@ -710,7 +710,7 @@ export default function ReportsScreen() {
                         <Tooltip contentStyle={{ backgroundColor: '#171717', border: '1px solid #333', borderRadius: '8px' }} />
                         <Legend />
                         <Bar dataKey="revenue" fill="#16a34a" name={t('sales.fees.chartRevenue')} />
-                        <Bar dataKey="fees" fill="#dc2626" name={t('sales.fees.chartFees')} />
+                        <Bar dataKey="fees" fill="#0d9488" name={t('sales.fees.chartFees')} />
                       </BarChart>
                     </ResponsiveContainer>
                   </div>
@@ -782,7 +782,7 @@ export default function ReportsScreen() {
                         <XAxis dataKey="date" stroke="#888" tick={{ fontSize: 12 }} />
                         <YAxis stroke="#888" />
                         <Tooltip contentStyle={{ backgroundColor: '#171717', border: '1px solid #333', borderRadius: '8px' }} />
-                        <Line type="monotone" dataKey="amount" stroke="#dc2626" strokeWidth={2} name={t('sales.refunds.amount')} />
+                        <Line type="monotone" dataKey="amount" stroke="#0d9488" strokeWidth={2} name={t('sales.refunds.amount')} />
                         <Line type="monotone" dataKey="count" stroke="#ca8a04" strokeWidth={2} name={t('sales.refunds.count')} />
                       </LineChart>
                     </ResponsiveContainer>

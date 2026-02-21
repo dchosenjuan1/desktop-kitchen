@@ -68,7 +68,7 @@ class OfflineDatabase extends Dexie {
   employees!: Table<CachedEmployee, number>;
 
   constructor() {
-    super('juanbertos-pos-offline');
+    super('desktop-kitchen-offline');
 
     this.version(1).stores({
       menuCache: 'key',

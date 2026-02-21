@@ -21,7 +21,7 @@ const PLANS = [
 ];
 
 const COLOR_PRESETS = [
-  '#dc2626', '#ea580c', '#d97706', '#16a34a', '#2563eb', '#7c3aed', '#db2777', '#0d9488',
+  '#0d9488', '#ea580c', '#d97706', '#16a34a', '#2563eb', '#7c3aed', '#db2777', '#dc2626',
 ];
 
 const OnboardingScreen: React.FC = () => {
@@ -34,7 +34,7 @@ const OnboardingScreen: React.FC = () => {
     email: '',
     password: '',
     confirmPassword: '',
-    primaryColor: '#dc2626',
+    primaryColor: '#0d9488',
     logo_url: '',
     plan: 'trial',
   });
@@ -86,7 +86,7 @@ const OnboardingScreen: React.FC = () => {
       localStorage.setItem('tenant_name', result.tenant.name);
 
       // Save branding if custom color or logo
-      if (data.primaryColor !== '#dc2626' || data.logo_url) {
+      if (data.primaryColor !== '#0d9488' || data.logo_url) {
         await fetch(`${API_BASE}/branding`, {
           method: 'PUT',
           headers: {

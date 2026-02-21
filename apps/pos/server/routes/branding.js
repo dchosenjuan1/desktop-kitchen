@@ -54,16 +54,16 @@ router.get('/', (req, res) => {
     try { saved = JSON.parse(fs.readFileSync(brandingPath, 'utf8')); } catch {}
 
     return res.json({
-      primaryColor: saved.primaryColor || '#dc2626',
+      primaryColor: saved.primaryColor || '#0d9488',
       logoUrl: saved.logoUrl || null,
-      restaurantName: saved.restaurantName || 'Juanbertos',
-      tagline: saved.tagline || 'California Burritos',
+      restaurantName: saved.restaurantName || 'My Restaurant',
+      tagline: saved.tagline || '',
     });
   }
 
   const branding = tenant.branding || {};
   res.json({
-    primaryColor: branding.primaryColor || '#dc2626',
+    primaryColor: branding.primaryColor || '#0d9488',
     logoUrl: branding.logoUrl || null,
     restaurantName: tenant.name || 'Restaurant',
     tagline: branding.tagline || '',
@@ -94,7 +94,7 @@ router.put('/', requireOwner, (req, res) => {
     updateTenant(tenantId, { branding_json: JSON.stringify(updated) });
 
     res.json({
-      primaryColor: updated.primaryColor || '#dc2626',
+      primaryColor: updated.primaryColor || '#0d9488',
       logoUrl: updated.logoUrl || null,
       restaurantName: tenant.name,
       tagline: updated.tagline || '',
@@ -131,9 +131,9 @@ router.put('/settings', requireAuth('manage_branding'), (req, res) => {
       fs.writeFileSync(brandingPath, JSON.stringify(updated, null, 2));
 
       return res.json({
-        primaryColor: updated.primaryColor || '#dc2626',
+        primaryColor: updated.primaryColor || '#0d9488',
         logoUrl: updated.logoUrl || null,
-        restaurantName: updated.restaurantName || 'Juanbertos',
+        restaurantName: updated.restaurantName || 'My Restaurant',
         tagline: updated.tagline || '',
       });
     }
@@ -158,7 +158,7 @@ router.put('/settings', requireAuth('manage_branding'), (req, res) => {
     updateTenant(tenantId, tenantUpdates);
 
     res.json({
-      primaryColor: updated.primaryColor || '#dc2626',
+      primaryColor: updated.primaryColor || '#0d9488',
       logoUrl: updated.logoUrl || null,
       restaurantName: restaurantName || tenant.name,
       tagline: updated.tagline || '',
@@ -210,8 +210,8 @@ router.post('/logo', requireAuth('manage_branding'), (req, res) => {
 
         return res.json({
           logoUrl,
-          primaryColor: existing.primaryColor || '#dc2626',
-          restaurantName: existing.restaurantName || 'Juanbertos',
+          primaryColor: existing.primaryColor || '#0d9488',
+          restaurantName: existing.restaurantName || 'My Restaurant',
           tagline: existing.tagline || '',
         });
       }
@@ -234,7 +234,7 @@ router.post('/logo', requireAuth('manage_branding'), (req, res) => {
 
       res.json({
         logoUrl,
-        primaryColor: existing.primaryColor || '#dc2626',
+        primaryColor: existing.primaryColor || '#0d9488',
         restaurantName: tenant.name,
         tagline: existing.tagline || '',
       });

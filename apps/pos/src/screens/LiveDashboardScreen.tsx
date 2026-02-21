@@ -20,7 +20,7 @@ import {
 import { ArrowLeft, Maximize, RefreshCw } from 'lucide-react';
 import BrandLogo from '../components/BrandLogo';
 
-const COLORS = ['#dc2626', '#16a34a', '#2563eb', '#ca8a04'];
+const COLORS = ['#0d9488', '#16a34a', '#2563eb', '#ca8a04'];
 
 export default function LiveDashboardScreen() {
   const { t } = useTranslation('reports');
@@ -157,7 +157,7 @@ export default function LiveDashboardScreen() {
                     contentStyle={{ backgroundColor: '#171717', border: '1px solid #404040', borderRadius: '8px' }}
                     labelStyle={{ color: '#a3a3a3' }}
                   />
-                  <Bar dataKey="revenue" fill="#dc2626" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="revenue" fill="#0d9488" radius={[4, 4, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             </div>

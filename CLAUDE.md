@@ -5,10 +5,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Monorepo Structure
 
 ```
-juanbertos/
+desktop-kitchen/
 ├── apps/
 │   ├── pos/           # POS system (Vite + Express)
-│   └── landing/       # Marketing landing page (Next.js + i18n)
+│   ├── landing/       # Juanbertos restaurant landing page (Next.js + i18n) — OFF LIMITS
+│   └── docs/          # Documentation site (Docusaurus 3)
 ├── assets/            # Brand assets (PDF, logo) — not in git
 ├── CLAUDE.md
 └── .gitignore
@@ -18,7 +19,7 @@ juanbertos/
 
 ### POS (`apps/pos/`)
 
-Full-stack multi-tenant POS system for Mexican restaurants.
+Full-stack multi-tenant white-label POS system for restaurants.
 
 **Commands** (run from `apps/pos/`):
 ```bash
@@ -30,11 +31,11 @@ npm run start            # Production mode (NODE_ENV=production, serves /dist)
 npm run seed             # Seed database with demo data (employees, menu, inventory)
 ```
 
-**Deployment**: Railway → pos.juanbertos.com (Root Directory: `apps/pos`)
+**Deployment**: Railway → app.desktop.kitchen (Root Directory: `apps/pos`)
 
 ### Landing (`apps/landing/`)
 
-Marketing landing page with Next.js built-in i18n routing.
+Juanbertos restaurant landing page with Next.js built-in i18n routing. **DO NOT MODIFY** — this is a separate brand.
 
 **Commands** (run from `apps/landing/`):
 ```bash
@@ -47,6 +48,22 @@ npm run start            # Production mode
 **Deployment**: Vercel → www.juanbertos.com (Root Directory: `apps/landing`)
 
 **i18n**: Messages in `messages/en.json` and `messages/es.json`. Language switcher uses `<Link locale={otherLocale}>`. ~30 translated strings.
+
+### Docs (`apps/docs/`)
+
+Documentation site built with Docusaurus 3.
+
+**Commands** (run from `apps/docs/`):
+```bash
+npm run dev              # Docusaurus dev server on :3000
+npm run build            # Production build
+npm run serve            # Serve production build locally
+```
+
+**URL**: `docs.desktop.kitchen`
+**Deployment**: Vercel (Root Directory: `apps/docs`)
+
+**Structure**: Three doc sections — Getting Started, Feature Guides, Admin/Owner Guide. Sidebar config in `sidebars.js`. Docs served at root (`/`) via `routeBasePath: '/'`. i18n ready for `en` and `es`.
 
 ## POS Architecture
 
@@ -100,8 +117,8 @@ React + TypeScript frontend, Express.js backend, better-sqlite3 (native C++ SQLi
 
 - `src/lib/colorUtils.ts` — generates full Tailwind palette (50–900) from a single hex color
 - `src/context/BrandingContext.tsx` — fetches tenant branding from `GET /api/branding`, applies CSS variables to `:root`
-- `tailwind.config.js` — brand colors defined as `var(--brand-N, #fallback)` with red defaults
-- All 427 color references use `brand-*` classes (zero `red-*` in codebase) — default is red, zero visual change for Juanbertos
+- `tailwind.config.js` — brand colors defined as `var(--brand-N, #fallback)` with teal defaults (#0d9488)
+- All 427 color references use `brand-*` classes (zero hardcoded colors in codebase) — default is teal
 
 ### Stripe Billing
 
@@ -161,7 +178,7 @@ JWT_SECRET=...                          # JWT signing secret for owner auth
 # STRIPE_PRICE_STARTER=price_xxx
 # STRIPE_PRICE_PRO=price_xxx
 # STRIPE_WEBHOOK_SECRET=whsec_xxx
-# APP_URL=https://pos.juanbertos.com
+# APP_URL=https://app.desktop.kitchen
 
 # Twilio SMS (optional — enables loyalty + recapture SMS)
 TWILIO_ACCOUNT_SID=...
@@ -179,6 +196,6 @@ TWILIO_PHONE_NUMBER=+1234567890
 - **Combos**: `combo_definitions` with `combo_slots` (each slot allows a category or specific item). Orders track combo items via `combo_instance_id` (UUID).
 - **Delivery sources**: Orders have a `source` field (`pos`, `uber_eats`, `rappi`, `didi_food`) for channel tracking.
 - **Tenant-scoped DB**: All `run/get/all/exec` calls in route files automatically use the resolved tenant's DB via `AsyncLocalStorage`. No explicit tenant ID passing needed.
-- **Branding colors**: Use `brand-*` Tailwind classes (e.g., `bg-brand-600`, `text-brand-400`). Never use `red-*` — the brand palette defaults to red via CSS variable fallbacks.
+- **Branding colors**: Use `brand-*` Tailwind classes (e.g., `bg-brand-600`, `text-brand-400`). Never use hardcoded colors — the brand palette defaults to teal (#0d9488) via CSS variable fallbacks.
 - **Two auth systems**: Employee PIN login (`AuthContext`, `x-employee-id` header) for POS operations. Owner JWT (`ownerAuth.js`, `Authorization: Bearer` header) for tenant management/billing.
 - **Path alias**: `@/*` maps to `src/*` (configured in tsconfig.json and vite.config.ts).

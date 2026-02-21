@@ -1,5 +1,5 @@
-const CACHE_NAME = 'juanbertos-pos-v3';
-const API_CACHE_NAME = 'juanbertos-api-v1';
+const CACHE_NAME = 'dk-pos-v1';
+const API_CACHE_NAME = 'dk-api-v1';
 
 // GET API endpoints eligible for stale-while-revalidate caching
 const CACHEABLE_API_PATTERNS = [

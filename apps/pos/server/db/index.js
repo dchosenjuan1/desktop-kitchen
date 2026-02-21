@@ -7,13 +7,20 @@ import { applySchema } from './schema.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const dataDir = path.join(__dirname, '../../data');
-const dbPath = path.join(dataDir, 'juanbertos.db');
+const dbPath = path.join(dataDir, 'desktop-kitchen.db');
 
 let db = null;
 
 // Ensure data directory exists
 if (!fs.existsSync(dataDir)) {
   fs.mkdirSync(dataDir, { recursive: true });
+}
+
+// Auto-migrate from old database filename
+const oldDbPath = path.join(dataDir, 'juanbertos.db');
+if (!fs.existsSync(dbPath) && fs.existsSync(oldDbPath)) {
+  fs.renameSync(oldDbPath, dbPath);
+  console.log('Migrated database: juanbertos.db → desktop-kitchen.db');
 }
 
 // ==================== Tenant Context ====================

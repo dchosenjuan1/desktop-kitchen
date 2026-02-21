@@ -1,5 +1,5 @@
 /**
- * JUANBERTOS POS — OPENING DAY STRESS TEST
+ * DESKTOP KITCHEN POS — OPENING DAY STRESS TEST
  *
  * Simulates a full busy day with concurrent agents:
  *   - 2 Cashiers (Maria & Carlos) taking POS orders nonstop
@@ -644,7 +644,7 @@ function analyzePerformance() {
 
 async function main() {
   console.log('╔════════════════════════════════════════════════════════╗');
-  console.log('║     JUANBERTOS POS — OPENING DAY STRESS TEST         ║');
+  console.log('║     DESKTOP KITCHEN POS — OPENING DAY STRESS TEST    ║');
   console.log('║     Simulating a full busy day                       ║');
   console.log('╠════════════════════════════════════════════════════════╣');
   console.log(`║  Server: ${API.padEnd(45)}║`);

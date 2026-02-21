@@ -1,7 +1,7 @@
 {
-  "name": "juanbertos-pos",
+  "name": "desktop-kitchen",
   "version": "1.0.0",
-  "description": "POS System for Juanbertos California Burritos",
+  "description": "Desktop Kitchen — White-label POS for restaurants",
   "type": "module",
   "scripts": {
     "dev": "concurrently \"npm run dev:server\" \"npm run dev:client\"",

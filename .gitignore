@@ -10,8 +10,8 @@ tsconfig.tsbuildinfo
 
 # App-specific
 apps/pos/data/
-apps/pos/native-ios/JuanbertosPOS.xcodeproj/xcuserdata/
-apps/pos/native-ios/JuanbertosPOS.xcodeproj/project.xcworkspace/xcuserdata/
+apps/pos/native-ios/DesktopKitchenPOS.xcodeproj/xcuserdata/
+apps/pos/native-ios/DesktopKitchenPOS.xcodeproj/project.xcworkspace/xcuserdata/
 apps/pos/ios/App/Pods/
 apps/pos/ios/App/App.xcworkspace/xcuserdata/
 apps/pos/ios/App/App.xcodeproj/xcuserdata/
