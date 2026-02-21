@@ -1054,6 +1054,13 @@ export async function createVirtualBrand(data: {
   platform_id: number;
   description?: string;
   logo_url?: string;
+  display_type?: string;
+  primary_color?: string;
+  secondary_color?: string;
+  font_family?: string;
+  dark_bg?: string;
+  slug?: string;
+  show_in_pos?: boolean;
 }): Promise<{ id: number }> {
   return apiRequest('/delivery/virtual-brands', {
     method: 'POST',
@@ -1081,6 +1088,10 @@ export async function setVirtualBrandItems(brandId: number, items: Array<{
     method: 'POST',
     body: JSON.stringify({ items }),
   });
+}
+
+export async function removeVirtualBrandItem(brandId: number, menuItemId: number): Promise<any> {
+  return apiRequest(`/delivery/virtual-brands/${brandId}/items/${menuItemId}`, { method: 'DELETE' });
 }
 
 export async function getRecaptureCandidates(days?: number): Promise<any[]> {

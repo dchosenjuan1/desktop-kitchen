@@ -33,7 +33,9 @@
     "prepForecast": "Pronóstico de Prep",
     "prepForecastDesc": "Predicción de ingredientes con IA",
     "loyaltyCrm": "Lealtad y CRM",
-    "loyaltyDesc": "Recompensas, tarjetas de sellos y referidos"
+    "loyaltyDesc": "Recompensas, tarjetas de sellos y referidos",
+    "menuBoard": "Menu Board",
+    "menuBoardDesc": "Gestionar marcas, colores y productos del menú digital"
   },
   "lowStock": {
     "title": "Alertas de Bajo Stock",

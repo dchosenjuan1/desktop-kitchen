@@ -17,6 +17,7 @@ import {
   FileText,
   Calendar,
   Heart,
+  Tv,
 } from 'lucide-react';
 import { getSalesReport, getLowStock } from '../api';
 import { SalesReport, InventoryItem } from '../types';
@@ -239,6 +240,16 @@ export default function AdminPanel() {
               </div>
               <h2 className="text-xl font-bold text-white mb-2">{t('cards.loyaltyCrm')}</h2>
               <p className="text-neutral-400 text-sm">{t('cards.loyaltyDesc')}</p>
+            </div>
+          </Link>
+
+          <Link to="/admin/menu-board">
+            <div className="bg-neutral-900 p-8 rounded-lg border border-neutral-800 hover:border-brand-600 transition-all cursor-pointer h-full">
+              <div className="flex items-center justify-center w-12 h-12 bg-brand-600/10 rounded-lg mb-4">
+                <Tv className="text-brand-500" size={28} />
+              </div>
+              <h2 className="text-xl font-bold text-white mb-2">{t('cards.menuBoard')}</h2>
+              <p className="text-neutral-400 text-sm">{t('cards.menuBoardDesc')}</p>
             </div>
           </Link>
         </div>

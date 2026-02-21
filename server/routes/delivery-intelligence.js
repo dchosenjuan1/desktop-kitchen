@@ -242,14 +242,15 @@ router.get('/virtual-brands', requireAuth('manage_delivery'), (req, res) => {
  */
 router.post('/virtual-brands', requireAuth('manage_delivery'), (req, res) => {
   try {
-    const { name, platform_id, description, logo_url } = req.body;
+    const { name, platform_id, description, logo_url, display_type, primary_color, secondary_color, font_family, dark_bg, slug, show_in_pos } = req.body;
     if (!name || !platform_id) {
       return res.status(400).json({ error: 'name and platform_id required' });
     }
 
     const result = run(
-      `INSERT INTO virtual_brands (name, platform_id, description, logo_url) VALUES (?, ?, ?, ?)`,
-      [name, platform_id, description || null, logo_url || null]
+      `INSERT INTO virtual_brands (name, platform_id, description, logo_url, display_type, primary_color, secondary_color, font_family, dark_bg, slug, show_in_pos)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [name, platform_id, description || null, logo_url || null, display_type || 'delivery', primary_color || null, secondary_color || null, font_family || null, dark_bg || null, slug || null, show_in_pos !== undefined ? (show_in_pos ? 1 : 0) : 1]
     );
 
     res.status(201).json({ id: result.lastInsertRowid });
@@ -265,20 +266,47 @@ router.post('/virtual-brands', requireAuth('manage_delivery'), (req, res) => {
 router.put('/virtual-brands/:id', requireAuth('manage_delivery'), (req, res) => {
   try {
     const { id } = req.params;
-    const { name, description, logo_url, active } = req.body;
+    const { name, description, logo_url, active, display_type, primary_color, secondary_color, font_family, dark_bg, slug, show_in_pos } = req.body;
 
     const brand = get('SELECT * FROM virtual_brands WHERE id = ?', [id]);
     if (!brand) return res.status(404).json({ error: 'Virtual brand not found' });
 
     run(
-      `UPDATE virtual_brands SET name = ?, description = ?, logo_url = ?, active = ? WHERE id = ?`,
-      [name ?? brand.name, description ?? brand.description, logo_url ?? brand.logo_url, active !== undefined ? (active ? 1 : 0) : brand.active, id]
+      `UPDATE virtual_brands SET name = ?, description = ?, logo_url = ?, active = ?, display_type = ?, primary_color = ?, secondary_color = ?, font_family = ?, dark_bg = ?, slug = ?, show_in_pos = ? WHERE id = ?`,
+      [
+        name ?? brand.name,
+        description ?? brand.description,
+        logo_url ?? brand.logo_url,
+        active !== undefined ? (active ? 1 : 0) : brand.active,
+        display_type ?? brand.display_type,
+        primary_color ?? brand.primary_color,
+        secondary_color ?? brand.secondary_color,
+        font_family ?? brand.font_family,
+        dark_bg ?? brand.dark_bg,
+        slug ?? brand.slug,
+        show_in_pos !== undefined ? (show_in_pos ? 1 : 0) : brand.show_in_pos,
+        id
+      ]
     );
 
     res.json({ success: true });
   } catch (error) {
     console.error('Virtual brand update error:', error);
     res.status(500).json({ error: 'Failed to update virtual brand' });
+  }
+});
+
+/**
+ * DELETE /api/delivery/virtual-brands/:brandId/items/:itemId — remove item from virtual brand
+ */
+router.delete('/virtual-brands/:brandId/items/:itemId', requireAuth('manage_delivery'), (req, res) => {
+  try {
+    const { brandId, itemId } = req.params;
+    run('DELETE FROM virtual_brand_items WHERE virtual_brand_id = ? AND menu_item_id = ?', [brandId, itemId]);
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Virtual brand item delete error:', error);
+    res.status(500).json({ error: 'Failed to remove item from brand' });
   }
 });
 

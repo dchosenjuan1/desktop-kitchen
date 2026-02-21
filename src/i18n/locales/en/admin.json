@@ -33,7 +33,9 @@
     "prepForecast": "Prep Forecast",
     "prepForecastDesc": "AI-powered ingredient prediction",
     "loyaltyCrm": "Loyalty & CRM",
-    "loyaltyDesc": "Customer rewards, stamp cards, and referrals"
+    "loyaltyDesc": "Customer rewards, stamp cards, and referrals",
+    "menuBoard": "Menu Board",
+    "menuBoardDesc": "Manage menu board brands, colors, and items"
   },
   "lowStock": {
     "title": "Low Stock Alerts",

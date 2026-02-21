@@ -126,6 +126,12 @@ const MenuBoardScreen = React.lazy(() =>
   }))
 );
 
+const MenuBoardManagement = React.lazy(() =>
+  import('./screens/MenuBoardManagement').then((module) => ({
+    default: module.default || (() => <div>Menu Board Management</div>),
+  }))
+);
+
 /* ==================== Protected Route ==================== */
 
 interface ProtectedRouteProps {
@@ -345,6 +351,17 @@ const AppContent: React.FC = () => {
           element={
             <ProtectedRoute
               element={<LoyaltyScreen />}
+              requiredRole={['manager', 'admin']}
+            />
+          }
+        />
+
+        {/* Menu Board Management — manager/admin */}
+        <Route
+          path="/admin/menu-board"
+          element={
+            <ProtectedRoute
+              element={<MenuBoardManagement />}
               requiredRole={['manager', 'admin']}
             />
           }
