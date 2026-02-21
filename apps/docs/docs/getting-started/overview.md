@@ -12,7 +12,7 @@ Desktop Kitchen is a multi-tenant restaurant POS platform built for Mexican rest
 
 ### Tenants
 
-Each restaurant (or restaurant group) operates as a **tenant** with its own isolated database. Tenants get their own subdomain (e.g., `yourrestaurant.app.desktop.kitchen`), branding, menu, employees, and data — completely separated from other tenants.
+Each restaurant (or restaurant group) operates as a **tenant** with its own isolated database. Tenants get their own subdomain (e.g., `yourrestaurant.desktop.kitchen`), branding, menu, employees, and data — completely separated from other tenants.
 
 ### Brands (Virtual Brands)
 

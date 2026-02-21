@@ -5,7 +5,7 @@ const config: CapacitorConfig = {
   appName: 'Desktop Kitchen POS',
   webDir: 'dist',
   // No server.url — app loads from local dist/ for offline support.
-  // API calls go to app.desktop.kitchen via src/api/index.ts base URL detection.
+  // API calls go to pos.desktop.kitchen via src/api/index.ts base URL detection.
   ios: {
     contentInset: 'always',
     allowsLinkPreview: false,

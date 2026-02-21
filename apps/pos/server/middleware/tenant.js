@@ -1,12 +1,20 @@
 import { tenantContext } from '../db/index.js';
 import { getTenant, getTenantBySubdomain, openTenantDb } from '../tenants.js';
 
+// Subdomains that belong to the platform itself and should NOT be resolved as tenants.
+// Specific DNS records (www, es, docs, pos) take priority over the wildcard CNAME.
+const RESERVED_SUBDOMAINS = new Set([
+  'pos', 'app', 'api', 'admin', 'www', 'es', 'docs', 'staging',
+]);
+
 /**
  * Tenant resolution middleware.
  *
  * Resolution order:
  *   1. X-Tenant-ID header (for dev/testing)
  *   2. Subdomain from Host header (production)
+ *      e.g., juanbertos.desktop.kitchen → tenant "juanbertos"
+ *      Reserved subdomains (pos, www, docs, etc.) are skipped.
  *   3. Default tenant from DEFAULT_TENANT_ID env var
  *   4. No tenant — uses default DB (backward compat)
  *
@@ -33,20 +41,21 @@ export function tenantMiddleware(req, res, next) {
     tenantId = tenant.id;
   }
 
-  // 2. Subdomain resolution (e.g., tacos-el-rey.app.desktop.kitchen)
+  // 2. Subdomain resolution (e.g., juanbertos.desktop.kitchen)
   if (!tenantId) {
     const host = req.hostname || req.headers.host?.split(':')[0];
     if (host && host !== 'localhost' && host !== '127.0.0.1') {
-      // Extract subdomain: "tacos-el-rey.app.desktop.kitchen" → "tacos-el-rey"
       const parts = host.split('.');
       if (parts.length >= 3) {
         const subdomain = parts[0];
-        tenant = getTenantBySubdomain(subdomain);
-        if (tenant) {
-          if (!tenant.active) {
-            return res.status(403).json({ error: 'Tenant account is inactive' });
+        if (!RESERVED_SUBDOMAINS.has(subdomain)) {
+          tenant = getTenantBySubdomain(subdomain);
+          if (tenant) {
+            if (!tenant.active) {
+              return res.status(403).json({ error: 'Tenant account is inactive' });
+            }
+            tenantId = tenant.id;
           }
-          tenantId = tenant.id;
         }
       }
     }

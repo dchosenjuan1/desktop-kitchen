@@ -34,8 +34,29 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-// Middleware
-app.use(cors());
+// Railway (and most PaaS) sit behind a reverse proxy.
+// Without this, req.hostname won't reflect the actual Host header.
+app.set('trust proxy', 1);
+
+// CORS — allow *.desktop.kitchen, legacy pos.juanbertos.com, and localhost dev
+const CORS_ORIGIN_REGEX = /^https?:\/\/(.*\.desktop\.kitchen|pos\.juanbertos\.com|localhost(:\d+)?)$/;
+app.use(cors({
+  origin(origin, cb) {
+    // Allow requests with no Origin header (curl, server-to-server, same-origin)
+    if (!origin || CORS_ORIGIN_REGEX.test(origin)) return cb(null, true);
+    cb(new Error('Not allowed by CORS'));
+  },
+  credentials: true,
+}));
+
+// Legacy redirect: pos.juanbertos.com → juanbertos.desktop.kitchen
+app.use((req, res, next) => {
+  const host = req.hostname || req.headers.host?.split(':')[0];
+  if (host === 'pos.juanbertos.com') {
+    return res.redirect(301, `https://juanbertos.desktop.kitchen${req.originalUrl}`);
+  }
+  next();
+});
 
 // Stripe webhook needs raw body (before express.json)
 app.post('/api/billing/webhook', express.raw({ type: 'application/json' }), stripeWebhook);

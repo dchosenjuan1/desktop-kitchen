@@ -59,7 +59,7 @@ const config = {
             position: 'right',
           },
           {
-            href: 'https://app.desktop.kitchen',
+            href: 'https://pos.desktop.kitchen',
             label: 'Open POS',
             position: 'right',
           },
@@ -80,7 +80,7 @@ const config = {
             title: 'Product',
             items: [
               { label: 'Website', href: 'https://desktop.kitchen' },
-              { label: 'POS App', href: 'https://app.desktop.kitchen' },
+              { label: 'POS App', href: 'https://pos.desktop.kitchen' },
             ],
           },
         ],

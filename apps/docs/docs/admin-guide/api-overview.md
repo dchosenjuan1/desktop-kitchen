@@ -11,7 +11,7 @@ The Desktop Kitchen POS exposes a REST API for all operations. This overview cov
 ## Base URL
 
 ```
-https://app.desktop.kitchen/api
+https://pos.desktop.kitchen/api
 ```
 
 For tenant-specific access, include the `X-Tenant-ID` header or use the tenant's subdomain.
@@ -116,7 +116,7 @@ All endpoints return JSON:
 
 Tenant resolution happens automatically via:
 1. `X-Tenant-ID` header (highest priority)
-2. Subdomain (e.g., `yourrestaurant.app.desktop.kitchen`)
+2. Subdomain (e.g., `yourrestaurant.desktop.kitchen`)
 3. `DEFAULT_TENANT_ID` environment variable
 4. Default database fallback
 

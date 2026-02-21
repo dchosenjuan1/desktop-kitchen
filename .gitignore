@@ -22,6 +22,10 @@ build/
 *.dSYM.zip
 *.dSYM
 
+# Docs
+apps/docs/.docusaurus/
+apps/docs/build/
+
 # Landing
 apps/landing/.next/
 apps/landing/out/

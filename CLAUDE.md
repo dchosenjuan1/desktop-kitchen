@@ -31,7 +31,7 @@ npm run start            # Production mode (NODE_ENV=production, serves /dist)
 npm run seed             # Seed database with demo data (employees, menu, inventory)
 ```
 
-**Deployment**: Railway → app.desktop.kitchen (Root Directory: `apps/pos`)
+**Deployment**: Railway → pos.desktop.kitchen (Root Directory: `apps/pos`)
 
 ### Landing (`apps/landing/`)
 
@@ -178,7 +178,7 @@ JWT_SECRET=...                          # JWT signing secret for owner auth
 # STRIPE_PRICE_STARTER=price_xxx
 # STRIPE_PRICE_PRO=price_xxx
 # STRIPE_WEBHOOK_SECRET=whsec_xxx
-# APP_URL=https://app.desktop.kitchen
+# APP_URL=https://pos.desktop.kitchen
 
 # Twilio SMS (optional — enables loyalty + recapture SMS)
 TWILIO_ACCOUNT_SID=...

@@ -64,7 +64,7 @@ export function setCurrentEmployeeId(id: number | null) {
 
 // Capacitor native: API calls must go to the remote server (local dist/ has no backend)
 const isCapacitor = !!(window as any).Capacitor?.isNativePlatform?.();
-const API_BASE_URL = import.meta.env.VITE_API_URL || (isCapacitor ? 'https://app.desktop.kitchen/api' : '/api');
+const API_BASE_URL = import.meta.env.VITE_API_URL || (isCapacitor ? 'https://pos.desktop.kitchen/api' : '/api');
 
 // For iOS: try multiple LAN IPs when the primary fails
 const IOS_FALLBACK_URLS = (import.meta.env.VITE_API_URL_FALLBACKS || '')

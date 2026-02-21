@@ -12,7 +12,7 @@ const PRICE_IDS = {
   pro: process.env.STRIPE_PRICE_PRO || null,
 };
 
-const BASE_URL = process.env.APP_URL || 'https://app.desktop.kitchen';
+const BASE_URL = process.env.APP_URL || 'https://pos.desktop.kitchen';
 
 /**
  * GET /api/billing — current subscription status
