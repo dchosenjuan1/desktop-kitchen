@@ -44,6 +44,35 @@ async function withCache<T>(
   }
 }
 
+/**
+ * Invalidate all menu-related caches (IndexedDB + Service Worker).
+ * Call this after any menu mutation (toggle, edit, add, delete) so the
+ * POS screen picks up fresh data on next load.
+ */
+export async function invalidateMenuCache(): Promise<void> {
+  // 1. Clear IndexedDB menu cache entries
+  await offlineDb.menuCache.bulkDelete([
+    'menuItems',
+    'categories',
+    'popularItems',
+    'combos',
+    'itemsWithModifiers',
+    'categorySuggestedOrder',
+  ]);
+
+  // 2. Clear the Service Worker API cache so stale-while-revalidate
+  //    doesn't serve old data on the next page load
+  if ('caches' in window) {
+    const cache = await caches.open('juanbertos-api-v1');
+    const keys = await cache.keys();
+    await Promise.all(
+      keys
+        .filter(req => req.url.includes('/api/menu/') || req.url.includes('/api/combos'))
+        .map(req => cache.delete(req))
+    );
+  }
+}
+
 /* ==================== Cached API Functions ==================== */
 
 export function getCachedCategories(): Promise<MenuCategory[]> {

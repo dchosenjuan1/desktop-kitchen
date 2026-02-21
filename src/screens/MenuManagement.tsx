@@ -28,6 +28,7 @@ import {
   removeModifierGroupFromItem,
 } from '../api';
 import { MenuCategory, MenuItem, ModifierGroup } from '../types';
+import { invalidateMenuCache } from '../lib/menuCache';
 import { formatPrice } from '../utils/currency';
 
 type ModalMode = 'add' | 'edit' | null;
@@ -185,6 +186,7 @@ export default function MenuManagement() {
           )
         );
       }
+      await invalidateMenuCache();
       // Refresh items for the category the item was added to
       const targetCategory = parseInt(formData.category_id);
       if (targetCategory === selectedCategory) {
@@ -214,6 +216,7 @@ export default function MenuManagement() {
         description: formData.description.trim() || undefined,
         image_url: formData.image_url.trim() || undefined,
       });
+      await invalidateMenuCache();
       const targetCategory = parseInt(formData.category_id);
       if (selectedCategory) {
         await fetchMenuItems(selectedCategory);
@@ -235,6 +238,8 @@ export default function MenuManagement() {
     try {
       setError(null);
       await toggleMenuItem(id);
+      // Bust SW + IndexedDB caches so POS screen picks up changes
+      await invalidateMenuCache();
       await fetchMenuItems(selectedCategory);
     } catch (err) {
       setError(err instanceof Error ? err.message : t('errors.toggleItem'));
@@ -344,6 +349,7 @@ export default function MenuManagement() {
     try {
       setError(null);
       await toggleCategory(id);
+      await invalidateMenuCache();
       await fetchCategories();
     } catch (err) {
       setError(err instanceof Error ? err.message : t('errors.toggleCategory'));
