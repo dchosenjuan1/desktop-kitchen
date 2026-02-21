@@ -379,37 +379,38 @@ import { initDb, run, exec, saveDbSync } from './db/index.js';
 
     console.log('✓ Seeded 2 menu board brands');
 
-    // Assign ALL 30 menu items to Main Kitchen (IDs 1-30)
-    for (let itemId = 1; itemId <= 30; itemId++) {
+    // Query actual menu item IDs (don't hardcode — IDs vary on re-seed)
+    const { all: allFn } = await import('./db/index.js');
+    const allItems = allFn('SELECT id, name FROM menu_items ORDER BY id');
+    const itemByName = Object.fromEntries(allItems.map(i => [i.name, i.id]));
+
+    // Assign ALL menu items to Main Kitchen
+    for (const item of allItems) {
       run('INSERT INTO virtual_brand_items (virtual_brand_id, menu_item_id, active) VALUES (?, ?, 1)',
-        [mainBrandId, itemId]);
+        [mainBrandId, item.id]);
     }
 
-    console.log('✓ Assigned 30 items to Main Kitchen brand');
+    console.log(`✓ Assigned ${allItems.length} items to Main Kitchen brand`);
 
-    // Assign curated subset to Express Lunch
-    const expressLunchItems = [
-      { itemId: 11, customName: null, customPrice: null },  // Club Sandwich
-      { itemId: 12, customName: null, customPrice: null },  // Grilled Cheese
-      { itemId: 13, customName: null, customPrice: null },  // Chicken Wrap
-      { itemId: 14, customName: null, customPrice: null },  // BLT
-      { itemId: 15, customName: null, customPrice: null },  // Caesar Salad
-      { itemId: 16, customName: null, customPrice: null },  // Garden Salad
-      { itemId: 17, customName: null, customPrice: null },  // Grilled Chicken Salad
-      { itemId: 18, customName: null, customPrice: null },  // French Fries
-      { itemId: 21, customName: null, customPrice: null },  // Rice & Beans
-      { itemId: 22, customName: null, customPrice: null },  // Fresh Lemonade
-      { itemId: 23, customName: null, customPrice: null },  // Iced Tea
-      { itemId: 24, customName: null, customPrice: null },  // Soda
-      { itemId: 25, customName: null, customPrice: null },  // Water
+    // Assign curated subset to Express Lunch (sandwiches, salads, sides, drinks)
+    const expressLunchNames = [
+      'Club Sandwich', 'Grilled Cheese', 'Chicken Wrap', 'BLT',
+      'Caesar Salad', 'Garden Salad', 'Grilled Chicken Salad',
+      'French Fries', 'Rice & Beans',
+      'Fresh Lemonade', 'Iced Tea', 'Soda', 'Water',
     ];
 
-    for (const { itemId, customName, customPrice } of expressLunchItems) {
-      run('INSERT INTO virtual_brand_items (virtual_brand_id, menu_item_id, custom_name, custom_price, active) VALUES (?, ?, ?, ?, 1)',
-        [lunchBrandId, itemId, customName, customPrice]);
+    let lunchCount = 0;
+    for (const name of expressLunchNames) {
+      const id = itemByName[name];
+      if (id) {
+        run('INSERT INTO virtual_brand_items (virtual_brand_id, menu_item_id, active) VALUES (?, ?, 1)',
+          [lunchBrandId, id]);
+        lunchCount++;
+      }
     }
 
-    console.log('✓ Assigned 13 items to Express Lunch brand');
+    console.log(`✓ Assigned ${lunchCount} items to Express Lunch brand`);
 
     saveDbSync(); // Flush to disk immediately
     console.log('\n✅ Database seeding complete!');
