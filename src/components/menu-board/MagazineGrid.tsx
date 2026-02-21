@@ -1,26 +1,7 @@
 import React from 'react';
 import MenuItemCard from './MenuItemCard';
 import type { LayoutPlan } from './useMenuLayout';
-
-interface Badge {
-  type: string;
-  label: string;
-}
-
-interface MenuItemData {
-  id: number;
-  name: string;
-  price: number;
-  description?: string;
-  imageUrl?: string | null;
-  badges: Badge[];
-}
-
-interface CategoryData {
-  id: number;
-  name: string;
-  items: MenuItemData[];
-}
+import type { CategoryData } from '../../types/menu-board';
 
 interface MagazineGridProps {
   layout: LayoutPlan;

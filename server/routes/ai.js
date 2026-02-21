@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { run, all, get } from '../db.js';
+import { run, all, get } from '../db/index.js';
 import { getCartSuggestions, getInventoryPush } from '../ai/heuristics.js';
 import { getAllConfig, setConfig, setMultipleConfig, getConfigNumber } from '../ai/config.js';
 import { readSuggestions } from '../ai/cache.js';

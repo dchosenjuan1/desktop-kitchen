@@ -1,4 +1,4 @@
-import { run } from '../db.js';
+import { run } from '../db/index.js';
 
 const TWILIO_SID = process.env.TWILIO_ACCOUNT_SID;
 const TWILIO_TOKEN = process.env.TWILIO_AUTH_TOKEN;

@@ -1,19 +1,6 @@
 import React from 'react';
 import MenuItemCard from './MenuItemCard';
-
-interface Badge {
-  type: string;
-  label: string;
-}
-
-interface MenuItemData {
-  id: number;
-  name: string;
-  price: number;
-  description?: string;
-  imageUrl?: string | null;
-  badges: Badge[];
-}
+import type { MenuItemData } from '../../types/menu-board';
 
 interface CategorySectionProps {
   name: string;

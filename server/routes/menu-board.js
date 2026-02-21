@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { all } from '../db.js';
+import { all } from '../db/index.js';
 import { computePromotionBadges } from '../ai/menu-board-promotions.js';
 
 const router = Router();

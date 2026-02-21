@@ -1,37 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import MenuBoardClock from './MenuBoardClock';
 import type { ComboData } from './ComboHero';
-
-interface MenuItemData {
-  id: number;
-  name: string;
-  price: number;
-  description?: string;
-  imageUrl?: string | null;
-  badges: { type: string; label: string }[];
-}
-
-interface CategoryData {
-  id: number;
-  name: string;
-  items: MenuItemData[];
-}
-
-interface BrandTheme {
-  primaryColor: string;
-  secondaryColor?: string;
-  fontFamily?: string;
-  darkBg: string;
-}
-
-interface BrandData {
-  id: number;
-  name: string;
-  slug: string;
-  description?: string;
-  theme: BrandTheme;
-  categories: CategoryData[];
-}
+import type { BrandData, CategoryData } from '../../types/menu-board';
 
 interface MenuListViewProps {
   brand: BrandData;

@@ -1,4 +1,4 @@
-import { tenantContext } from '../db.js';
+import { tenantContext } from '../db/index.js';
 import { getTenant, getTenantBySubdomain, openTenantDb } from '../tenants.js';
 
 /**

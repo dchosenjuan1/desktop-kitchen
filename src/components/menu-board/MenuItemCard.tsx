@@ -1,10 +1,6 @@
 import React, { useState } from 'react';
 import ItemBadge from './ItemBadge';
-
-interface Badge {
-  type: string;
-  label: string;
-}
+import type { Badge } from '../../types/menu-board';
 
 export type MenuItemVariant = 'hero' | 'standard' | 'compact' | 'mini';
 

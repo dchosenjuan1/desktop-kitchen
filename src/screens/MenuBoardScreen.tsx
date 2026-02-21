@@ -1,42 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { GrainOverlay, BrandView, BrandTransition, MenuListView } from '../components/menu-board';
 import type { ComboData } from '../components/menu-board/ComboHero';
-
-interface Badge {
-  type: string;
-  label: string;
-}
-
-interface MenuItemData {
-  id: number;
-  name: string;
-  price: number;
-  description?: string;
-  imageUrl?: string | null;
-  badges: Badge[];
-}
-
-interface CategoryData {
-  id: number;
-  name: string;
-  items: MenuItemData[];
-}
-
-interface BrandTheme {
-  primaryColor: string;
-  secondaryColor?: string;
-  fontFamily?: string;
-  darkBg: string;
-}
-
-interface BrandData {
-  id: number;
-  name: string;
-  slug: string;
-  description?: string;
-  theme: BrandTheme;
-  categories: CategoryData[];
-}
+import type { BrandData } from '../types/menu-board';
 
 interface MenuBoardResponse {
   brands: BrandData[];

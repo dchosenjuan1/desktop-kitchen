@@ -1,9 +1,5 @@
 import React from 'react';
-
-interface Badge {
-  type: string;
-  label: string;
-}
+import type { Badge } from '../../types/menu-board';
 
 const BADGE_STYLES: Record<string, string> = {
   bestseller: 'bg-amber-500/25 text-amber-200 border-amber-400/40',

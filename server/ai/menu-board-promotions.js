@@ -1,4 +1,4 @@
-import { all } from '../db.js';
+import { all } from '../db/index.js';
 
 const BADGE_PRIORITY = { bestseller: 1, 'popular-now': 2, 'chef-pick': 3, 'try-it': 4 };
 const BADGE_LABELS = {

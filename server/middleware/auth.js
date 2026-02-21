@@ -1,4 +1,4 @@
-import { get, all } from '../db.js';
+import { get, all } from '../db/index.js';
 
 /**
  * Auth middleware factory.

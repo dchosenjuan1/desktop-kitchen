@@ -1,4 +1,4 @@
-import { initDb, run, exec, saveDbSync } from './db.js';
+import { initDb, run, exec, saveDbSync } from './db/index.js';
 
 (async () => {
   try {

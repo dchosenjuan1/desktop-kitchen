@@ -1,4 +1,4 @@
-import { all, get, run } from '../db.js';
+import { all, get, run } from '../db/index.js';
 
 /**
  * Capture hourly snapshot of sales data

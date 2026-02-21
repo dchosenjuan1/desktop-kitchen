@@ -1,4 +1,4 @@
-import { all } from '../../db.js';
+import { all } from '../../db/index.js';
 import { getConfigNumber } from '../config.js';
 
 /**

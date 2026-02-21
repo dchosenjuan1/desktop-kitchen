@@ -1,26 +1,7 @@
 import { useMemo } from 'react';
+import type { CategoryData, MenuItemData } from '../../types/menu-board';
 
 // ── Types ──────────────────────────────────────────────────────────────────
-
-interface Badge {
-  type: string;
-  label: string;
-}
-
-interface MenuItemData {
-  id: number;
-  name: string;
-  price: number;
-  description?: string;
-  imageUrl?: string | null;
-  badges: Badge[];
-}
-
-interface CategoryData {
-  id: number;
-  name: string;
-  items: MenuItemData[];
-}
 
 export type LayoutMode = 'standard' | 'compact';
 export type CardVariant = 'hero' | 'standard' | 'compact' | 'mini';

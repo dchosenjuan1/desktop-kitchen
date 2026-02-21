@@ -2,7 +2,7 @@ import { Router } from 'express';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import { getMasterDb, createTenant, getTenantByEmail, openTenantDb } from '../tenants.js';
-import { applySchema } from '../db.js';
+import { applySchema } from '../db/index.js';
 
 const router = Router();
 

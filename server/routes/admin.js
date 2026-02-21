@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { createTenant, getTenant, listTenants, updateTenant, openTenantDb } from '../tenants.js';
-import { applySchema, createDbHelpers } from '../db.js';
+import { applySchema, createDbHelpers } from '../db/index.js';
 
 const router = Router();
 

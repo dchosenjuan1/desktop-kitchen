@@ -3,7 +3,7 @@ import express from 'express';
 import cors from 'cors';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { initDb } from './db.js';
+import { initDb } from './db/index.js';
 import { initMasterDb } from './tenants.js';
 import { tenantMiddleware } from './middleware/tenant.js';
 

@@ -1,4 +1,4 @@
-import { all, get } from '../../db.js';
+import { all, get } from '../../db/index.js';
 
 /**
  * Predict stockouts and suggest reorder quantities using velocity data.

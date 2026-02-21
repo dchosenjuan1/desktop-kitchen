@@ -1,4 +1,4 @@
-import { all, get } from '../../db.js';
+import { all, get } from '../../db/index.js';
 import { isRushHour, isSlowHour, getConfigBool } from '../config.js';
 
 /**

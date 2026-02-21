@@ -1,4 +1,4 @@
-import { all, get, run } from '../db.js';
+import { all, get, run } from '../db/index.js';
 
 const DEFAULT_CONFIG = {
   restaurant_name: 'Juanberto\'s California Burritos',
