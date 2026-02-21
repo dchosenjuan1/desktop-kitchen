@@ -50,7 +50,7 @@ interface Slide {
   view: 'photo' | 'list';
 }
 
-const ROTATE_INTERVAL = 30_000; // 30s per slide
+const ROTATE_INTERVAL = 12_000; // 12s per slide
 const REFETCH_INTERVAL = 5 * 60_000; // 5 min
 const CURSOR_HIDE_DELAY = 3_000;
 

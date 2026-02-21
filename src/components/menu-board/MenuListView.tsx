@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import MenuBoardClock from './MenuBoardClock';
 import type { ComboData } from './ComboHero';
 
@@ -57,11 +57,9 @@ function distributeColumns(categories: CategoryData[], numCols: number): ColumnD
     itemCount: 0,
   }));
 
-  // Sort categories largest-first for better packing
   const sorted = [...categories].sort((a, b) => b.items.length - a.items.length);
 
   for (const cat of sorted) {
-    // Place in the column with fewest items
     let minIdx = 0;
     for (let i = 1; i < columns.length; i++) {
       if (columns[i].itemCount < columns[minIdx].itemCount) minIdx = i;
@@ -73,42 +71,17 @@ function distributeColumns(categories: CategoryData[], numCols: number): ColumnD
   return columns;
 }
 
-// ── Item row: name ··· $price ──────────────────────────────────────────────
-
-const ListItem: React.FC<{ name: string; price: number; isBold?: boolean }> = ({ name, price, isBold }) => (
-  <div className={`flex items-baseline gap-1 py-[3px] px-1 ${isBold ? 'opacity-100' : 'opacity-85'}`}>
-    <span className={`text-[13px] text-white/90 truncate shrink-0 max-w-[72%] ${isBold ? 'font-bold' : ''}`}>
-      {name}
-    </span>
-    <span className="flex-1 border-b border-dotted border-white/10 min-w-[8px] translate-y-[-3px]" />
-    <span
-      className={`text-[13px] shrink-0 ${isBold ? 'font-bold' : 'font-semibold'}`}
-      style={{ color: 'var(--mb-secondary, var(--mb-primary))' }}
-    >
-      ${price}
-    </span>
-  </div>
-);
-
-// ── Category block ─────────────────────────────────────────────────────────
-
-const CategoryBlock: React.FC<{ category: CategoryData }> = ({ category }) => (
-  <div className="mb-3">
-    <div className="flex items-center gap-2 mb-1 px-1">
-      <div className="w-1 h-3.5 rounded-full shrink-0" style={{ backgroundColor: 'var(--mb-primary)' }} />
-      <span
-        className="text-[11px] font-black uppercase tracking-[0.2em]"
-        style={{ color: 'var(--mb-primary)', fontFamily: 'var(--mb-font-heading, inherit)' }}
-      >
-        {category.name}
-      </span>
-      <div className="flex-1 h-px" style={{ backgroundColor: 'var(--mb-primary)', opacity: 0.2 }} />
-    </div>
-    {category.items.map(item => (
-      <ListItem key={item.id} name={item.name} price={item.price} />
-    ))}
-  </div>
-);
+function useViewportSize() {
+  const [size, setSize] = useState({ width: window.innerWidth, height: window.innerHeight });
+  const handleResize = useCallback(() => {
+    setSize({ width: window.innerWidth, height: window.innerHeight });
+  }, []);
+  useEffect(() => {
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, [handleResize]);
+  return size;
+}
 
 // ── Main component ─────────────────────────────────────────────────────────
 
@@ -128,12 +101,12 @@ const MenuListView: React.FC<MenuListViewProps> = ({ brand, combos, isPortrait }
     '--mb-font-body': `'${bodyFont}', sans-serif`,
   } as React.CSSProperties;
 
-  // All categories including combos (as a virtual category)
+  const { height: vh } = useViewportSize();
+
+  // All categories including combos as a virtual category
   const allCategories: CategoryData[] = [
     ...brand.categories.filter(c => c.name.toLowerCase() !== 'combos'),
   ];
-
-  // Add combos as a category if present
   if (combos.length > 0) {
     allCategories.push({
       id: -1,
@@ -149,6 +122,25 @@ const MenuListView: React.FC<MenuListViewProps> = ({ brand, combos, isPortrait }
 
   const numCols = isPortrait ? 2 : 3;
   const columns = distributeColumns(allCategories, numCols);
+
+  // Dynamic sizing: compute row height to fill the screen
+  const headerH = 48;
+  const footerH = 28;
+  const paddingY = 32;
+  const availableH = vh - headerH - footerH - paddingY;
+
+  // The tallest column determines the row count
+  const maxRows = Math.max(...columns.map(c => c.itemCount), 1);
+
+  // Compute font size and row height to fill exactly
+  const categoryHeaderH = Math.max(20, Math.floor(availableH * 0.035));
+  const totalCatHeaders = Math.max(...columns.map(c => c.categories.length), 1);
+  const headerSpace = totalCatHeaders * categoryHeaderH;
+  const itemRowH = Math.max(18, Math.floor((availableH - headerSpace) / (maxRows - totalCatHeaders)));
+
+  // Scale font size proportionally to row height (baseline 13px at 28px row)
+  const fontSize = Math.max(12, Math.min(22, Math.floor(itemRowH * 0.52)));
+  const catFontSize = Math.max(10, Math.min(18, Math.floor(categoryHeaderH * 0.55)));
 
   return (
     <div
@@ -175,15 +167,64 @@ const MenuListView: React.FC<MenuListViewProps> = ({ brand, combos, isPortrait }
         </div>
       </div>
 
-      {/* Multi-column list */}
+      {/* Multi-column list — fills remaining space */}
       <div
-        className="flex-1 overflow-hidden px-6 py-4 flex min-h-0"
+        className="flex-1 overflow-hidden px-6 py-3 flex min-h-0"
         style={{ gap: isPortrait ? 16 : 32 }}
       >
         {columns.map((col, colIdx) => (
           <div key={colIdx} className="flex-1 min-w-0 flex flex-col min-h-0 overflow-hidden">
             {col.categories.map(cat => (
-              <CategoryBlock key={cat.id} category={cat} />
+              <div key={cat.id} className="flex flex-col">
+                {/* Category header */}
+                <div
+                  className="flex items-center gap-2 px-1"
+                  style={{ height: categoryHeaderH, marginBottom: 2 }}
+                >
+                  <div
+                    className="rounded-full shrink-0"
+                    style={{
+                      width: Math.max(3, catFontSize * 0.25),
+                      height: categoryHeaderH * 0.6,
+                      backgroundColor: 'var(--mb-primary)',
+                    }}
+                  />
+                  <span
+                    className="font-black uppercase truncate"
+                    style={{
+                      fontSize: catFontSize,
+                      letterSpacing: '0.2em',
+                      color: 'var(--mb-primary)',
+                      fontFamily: 'var(--mb-font-heading, inherit)',
+                    }}
+                  >
+                    {cat.name}
+                  </span>
+                  <div className="flex-1 h-px" style={{ backgroundColor: 'var(--mb-primary)', opacity: 0.2 }} />
+                </div>
+                {/* Items */}
+                {cat.items.map(item => (
+                  <div
+                    key={item.id}
+                    className="flex items-baseline gap-1 px-1 opacity-90"
+                    style={{ height: itemRowH }}
+                  >
+                    <span
+                      className="text-white/90 truncate shrink-0"
+                      style={{ fontSize, maxWidth: '72%' }}
+                    >
+                      {item.name}
+                    </span>
+                    <span className="flex-1 border-b border-dotted border-white/10 min-w-[8px] translate-y-[-3px]" />
+                    <span
+                      className="font-semibold shrink-0"
+                      style={{ fontSize, color: 'var(--mb-secondary, var(--mb-primary))' }}
+                    >
+                      ${item.price}
+                    </span>
+                  </div>
+                ))}
+              </div>
             ))}
           </div>
         ))}
