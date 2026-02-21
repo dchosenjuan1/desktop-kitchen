@@ -2,18 +2,13 @@ import React, { useState, useEffect, useCallback } from 'react';
 import MenuBoardClock from './MenuBoardClock';
 import type { ComboData } from './ComboHero';
 
-interface Badge {
-  type: string;
-  label: string;
-}
-
 interface MenuItemData {
   id: number;
   name: string;
   price: number;
   description?: string;
   imageUrl?: string | null;
-  badges: Badge[];
+  badges: { type: string; label: string }[];
 }
 
 interface CategoryData {
@@ -44,33 +39,6 @@ interface MenuListViewProps {
   isPortrait: boolean;
 }
 
-// ── Balance categories into columns ────────────────────────────────────────
-
-interface ColumnData {
-  categories: CategoryData[];
-  itemCount: number;
-}
-
-function distributeColumns(categories: CategoryData[], numCols: number): ColumnData[] {
-  const columns: ColumnData[] = Array.from({ length: numCols }, () => ({
-    categories: [],
-    itemCount: 0,
-  }));
-
-  const sorted = [...categories].sort((a, b) => b.items.length - a.items.length);
-
-  for (const cat of sorted) {
-    let minIdx = 0;
-    for (let i = 1; i < columns.length; i++) {
-      if (columns[i].itemCount < columns[minIdx].itemCount) minIdx = i;
-    }
-    columns[minIdx].categories.push(cat);
-    columns[minIdx].itemCount += cat.items.length + 1; // +1 for header
-  }
-
-  return columns;
-}
-
 function useViewportSize() {
   const [size, setSize] = useState({ width: window.innerWidth, height: window.innerHeight });
   const handleResize = useCallback(() => {
@@ -82,8 +50,6 @@ function useViewportSize() {
   }, [handleResize]);
   return size;
 }
-
-// ── Main component ─────────────────────────────────────────────────────────
 
 const MenuListView: React.FC<MenuListViewProps> = ({ brand, combos, isPortrait }) => {
   const { theme } = brand;
@@ -101,9 +67,9 @@ const MenuListView: React.FC<MenuListViewProps> = ({ brand, combos, isPortrait }
     '--mb-font-body': `'${bodyFont}', sans-serif`,
   } as React.CSSProperties;
 
-  const { height: vh } = useViewportSize();
+  const { height: vh, width: vw } = useViewportSize();
 
-  // All categories including combos as a virtual category
+  // Build all categories, adding combos as a virtual one
   const allCategories: CategoryData[] = [
     ...brand.categories.filter(c => c.name.toLowerCase() !== 'combos'),
   ];
@@ -120,27 +86,17 @@ const MenuListView: React.FC<MenuListViewProps> = ({ brand, combos, isPortrait }
     });
   }
 
-  const numCols = isPortrait ? 2 : 3;
-  const columns = distributeColumns(allCategories, numCols);
+  // Adaptive sizing based on viewport
+  const totalItems = allCategories.reduce((s, c) => s + c.items.length, 0);
+  const colCount = isPortrait ? 2 : (totalItems > 25 ? 3 : 2);
 
-  // Dynamic sizing: compute row height to fill the screen
-  const headerH = 48;
-  const footerH = 28;
-  const paddingY = 32;
-  const availableH = vh - headerH - footerH - paddingY;
-
-  // The tallest column determines the row count
-  const maxRows = Math.max(...columns.map(c => c.itemCount), 1);
-
-  // Compute font size and row height to fill exactly
-  const categoryHeaderH = Math.max(20, Math.floor(availableH * 0.035));
-  const totalCatHeaders = Math.max(...columns.map(c => c.categories.length), 1);
-  const headerSpace = totalCatHeaders * categoryHeaderH;
-  const itemRowH = Math.max(18, Math.floor((availableH - headerSpace) / (maxRows - totalCatHeaders)));
-
-  // Scale font size proportionally to row height (baseline 13px at 28px row)
-  const fontSize = Math.max(12, Math.min(22, Math.floor(itemRowH * 0.52)));
-  const catFontSize = Math.max(10, Math.min(18, Math.floor(categoryHeaderH * 0.55)));
+  // Scale typography to viewport
+  const scale = Math.min(vh / 1080, vw / 1920) * (isPortrait ? 1.1 : 1);
+  const itemFont = Math.max(14, Math.min(24, Math.round(18 * scale)));
+  const priceFont = Math.max(14, Math.min(22, Math.round(17 * scale)));
+  const catFont = Math.max(11, Math.min(16, Math.round(13 * scale)));
+  const itemPad = Math.max(4, Math.round(8 * scale));
+  const catGap = Math.max(12, Math.round(24 * scale));
 
   return (
     <div
@@ -148,91 +104,85 @@ const MenuListView: React.FC<MenuListViewProps> = ({ brand, combos, isPortrait }
       style={{ ...cssVars, backgroundColor: theme.darkBg, fontFamily: `var(--mb-font-body)` }}
     >
       {/* Header */}
-      <div className="flex items-center justify-between px-6 py-2.5 border-b border-white/[0.06] shrink-0">
+      <div className="flex items-center justify-between px-8 py-3 border-b border-white/[0.06] shrink-0">
         <div className="flex items-center gap-3">
           <div className="w-1.5 h-7 rounded-full" style={{ backgroundColor: theme.primaryColor }} />
           <h1
-            className="text-lg font-black uppercase tracking-wider text-white"
+            className="text-xl font-black uppercase tracking-wider text-white"
             style={{ fontFamily: `var(--mb-font-heading)` }}
           >
             {brand.name}
           </h1>
-          <span className="text-[10px] text-white/25 uppercase tracking-widest ml-2">
-            Full Menu
-          </span>
         </div>
         <div className="flex items-center gap-4 text-white/30">
           <MenuBoardClock />
-          <span className="text-[9px] uppercase tracking-widest">MXN</span>
+          <span className="text-[10px] uppercase tracking-widest">Precios en MXN</span>
         </div>
       </div>
 
-      {/* Multi-column list — fills remaining space */}
+      {/* Flowing multi-column content — newspaper style */}
       <div
-        className="flex-1 overflow-hidden px-6 py-3 flex min-h-0"
-        style={{ gap: isPortrait ? 16 : 32 }}
+        className="flex-1 overflow-hidden px-8 py-5"
+        style={{
+          columnCount: colCount,
+          columnGap: isPortrait ? 24 : 48,
+          columnRule: '1px solid rgba(255,255,255,0.04)',
+        }}
       >
-        {columns.map((col, colIdx) => (
-          <div key={colIdx} className="flex-1 min-w-0 flex flex-col min-h-0 overflow-hidden">
-            {col.categories.map(cat => (
-              <div key={cat.id} className="flex flex-col">
-                {/* Category header */}
-                <div
-                  className="flex items-center gap-2 px-1"
-                  style={{ height: categoryHeaderH, marginBottom: 2 }}
+        {allCategories.map((cat, catIdx) => (
+          <div
+            key={cat.id}
+            style={{
+              breakInside: 'avoid',
+              WebkitColumnBreakInside: 'avoid',
+              paddingBottom: catGap,
+            } as React.CSSProperties}
+          >
+            {/* Centered decorative category header */}
+            <div className="flex items-center gap-3 mb-2">
+              <div className="flex-1 h-px" style={{ background: `linear-gradient(90deg, transparent, var(--mb-primary), transparent)`, opacity: 0.3 }} />
+              <span
+                className="font-black uppercase tracking-[0.25em] shrink-0"
+                style={{
+                  fontSize: catFont,
+                  color: 'var(--mb-primary)',
+                  fontFamily: 'var(--mb-font-heading, inherit)',
+                }}
+              >
+                {cat.name}
+              </span>
+              <div className="flex-1 h-px" style={{ background: `linear-gradient(90deg, transparent, var(--mb-primary), transparent)`, opacity: 0.3 }} />
+            </div>
+
+            {/* Items — clean, spacious rows */}
+            {cat.items.map((item, itemIdx) => (
+              <div
+                key={item.id}
+                className="flex items-baseline justify-between"
+                style={{
+                  paddingTop: itemPad,
+                  paddingBottom: itemPad,
+                  paddingLeft: 4,
+                  paddingRight: 4,
+                  borderBottom: itemIdx < cat.items.length - 1 ? '1px solid rgba(255,255,255,0.03)' : 'none',
+                }}
+              >
+                <span
+                  className="text-white/90 truncate"
+                  style={{ fontSize: itemFont, maxWidth: '75%' }}
                 >
-                  <div
-                    className="rounded-full shrink-0"
-                    style={{
-                      width: Math.max(3, catFontSize * 0.25),
-                      height: categoryHeaderH * 0.6,
-                      backgroundColor: 'var(--mb-primary)',
-                    }}
-                  />
-                  <span
-                    className="font-black uppercase truncate"
-                    style={{
-                      fontSize: catFontSize,
-                      letterSpacing: '0.2em',
-                      color: 'var(--mb-primary)',
-                      fontFamily: 'var(--mb-font-heading, inherit)',
-                    }}
-                  >
-                    {cat.name}
-                  </span>
-                  <div className="flex-1 h-px" style={{ backgroundColor: 'var(--mb-primary)', opacity: 0.2 }} />
-                </div>
-                {/* Items */}
-                {cat.items.map(item => (
-                  <div
-                    key={item.id}
-                    className="flex items-baseline gap-1 px-1 opacity-90"
-                    style={{ height: itemRowH }}
-                  >
-                    <span
-                      className="text-white/90 truncate shrink-0"
-                      style={{ fontSize, maxWidth: '72%' }}
-                    >
-                      {item.name}
-                    </span>
-                    <span className="flex-1 border-b border-dotted border-white/10 min-w-[8px] translate-y-[-3px]" />
-                    <span
-                      className="font-semibold shrink-0"
-                      style={{ fontSize, color: 'var(--mb-secondary, var(--mb-primary))' }}
-                    >
-                      ${item.price}
-                    </span>
-                  </div>
-                ))}
+                  {item.name}
+                </span>
+                <span
+                  className="font-bold shrink-0 ml-3"
+                  style={{ fontSize: priceFont, color: 'var(--mb-secondary, var(--mb-primary))' }}
+                >
+                  ${item.price}
+                </span>
               </div>
             ))}
           </div>
         ))}
-      </div>
-
-      {/* Footer */}
-      <div className="flex items-center justify-center px-5 py-1.5 border-t border-white/[0.06] text-white/30 shrink-0">
-        <span className="text-[9px] uppercase tracking-widest">Precios en MXN · IVA incluido</span>
       </div>
     </div>
   );
