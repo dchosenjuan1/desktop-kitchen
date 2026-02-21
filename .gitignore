@@ -1,20 +1,27 @@
 node_modules/
 dist/
 dist2/
-data/
 .env
 .env.ios
+.env.local
 *.timestamp-*.mjs
+.DS_Store
+tsconfig.tsbuildinfo
 
-# Xcode / iOS
-native-ios/JuanbertosPOS.xcodeproj/xcuserdata/
-native-ios/JuanbertosPOS.xcodeproj/project.xcworkspace/xcuserdata/
-ios/App/Pods/
-ios/App/App.xcworkspace/xcuserdata/
-ios/App/App.xcodeproj/xcuserdata/
+# App-specific
+apps/pos/data/
+apps/pos/native-ios/JuanbertosPOS.xcodeproj/xcuserdata/
+apps/pos/native-ios/JuanbertosPOS.xcodeproj/project.xcworkspace/xcuserdata/
+apps/pos/ios/App/Pods/
+apps/pos/ios/App/App.xcworkspace/xcuserdata/
+apps/pos/ios/App/App.xcodeproj/xcuserdata/
 *.xcuserstate
 DerivedData/
 build/
 *.ipa
 *.dSYM.zip
 *.dSYM
+
+# Landing
+apps/landing/.next/
+apps/landing/out/

@@ -1,0 +1,20 @@
+node_modules/
+dist/
+dist2/
+data/
+.env
+.env.ios
+*.timestamp-*.mjs
+
+# Xcode / iOS
+native-ios/JuanbertosPOS.xcodeproj/xcuserdata/
+native-ios/JuanbertosPOS.xcodeproj/project.xcworkspace/xcuserdata/
+ios/App/Pods/
+ios/App/App.xcworkspace/xcuserdata/
+ios/App/App.xcodeproj/xcuserdata/
+*.xcuserstate
+DerivedData/
+build/
+*.ipa
+*.dSYM.zip
+*.dSYM
