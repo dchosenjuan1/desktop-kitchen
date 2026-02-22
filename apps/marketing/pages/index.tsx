@@ -1,6 +1,5 @@
 import type { NextPage } from "next";
 import Head from "next/head";
-import Link from "next/link";
 import { useRouter } from "next/router";
 import { useRef } from "react";
 import { motion, useInView, useScroll, useTransform } from "framer-motion";
@@ -182,14 +181,13 @@ const Home: NextPage = () => {
       {/* Top accent bar */}
       <div className="fixed top-0 left-0 right-0 h-1 bg-teal-600 z-50" />
 
-      {/* Language switcher */}
-      <Link
-        href="/"
-        locale={otherLocale}
+      {/* Language switcher — links between subdomains */}
+      <a
+        href={`https://${t.langSwitchDomain}`}
         className="fixed top-4 right-6 z-50 text-[11px] uppercase tracking-[0.2em] text-white/30 hover:text-white/60 transition-colors duration-200 font-mono"
       >
         {t.langSwitch}
-      </Link>
+      </a>
 
       {/* Grain overlay */}
       <div className="grain-overlay" />
