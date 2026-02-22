@@ -8,6 +8,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 desktop-kitchen/
 ├── apps/
 │   ├── pos/           # POS system (Vite + Express)
+│   ├── marketing/     # Desktop Kitchen marketing landing (Next.js + i18n)
 │   ├── landing/       # Juanbertos restaurant landing page (Next.js + i18n) — OFF LIMITS
 │   └── docs/          # Documentation site (Docusaurus 3)
 ├── assets/            # Brand assets (PDF, logo) — not in git
@@ -32,6 +33,24 @@ npm run seed             # Seed database with demo data (employees, menu, invent
 ```
 
 **Deployment**: Railway → pos.desktop.kitchen (Root Directory: `apps/pos`)
+
+### Marketing (`apps/marketing/`)
+
+Desktop Kitchen SaaS marketing landing page. Single-page site with Hero, Features, How It Works, Pricing, CTA, and Footer sections. Teal `#0d9488` branding, Framer Motion scroll animations, dark backgrounds.
+
+**Commands** (run from `apps/marketing/`):
+```bash
+npm run dev              # Next.js dev server on :3000
+npm run build            # Production build
+npm run start            # Production mode
+```
+
+**URLs**: `www.desktop.kitchen` (English), `es.desktop.kitchen` (Spanish)
+**Deployment**: Vercel → www.desktop.kitchen (Root Directory: `apps/marketing`)
+
+**i18n**: Messages in `messages/en.json` and `messages/es.json` (~70 keys). Subdomain-based locale via `i18n.domains` config in `next.config.js`. `localeDetection: false` to prevent browser-language redirects. Language switcher uses direct `<a href>` links between domains (not Next.js `<Link locale>`).
+
+**Key patterns**: `FadeIn` component (useInView + motion.div), hero parallax (useScroll + useTransform), PricingCard inline component, feature/step data arrays with inline SVG icons. CTA buttons link to `pos.desktop.kitchen`.
 
 ### Landing (`apps/landing/`)
 
