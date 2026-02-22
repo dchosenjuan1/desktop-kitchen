@@ -29,3 +29,7 @@ apps/docs/build/
 # Landing
 apps/landing/.next/
 apps/landing/out/
+
+# Marketing
+apps/marketing/.next/
+apps/marketing/out/
