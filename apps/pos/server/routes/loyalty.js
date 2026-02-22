@@ -84,7 +84,7 @@ router.post('/customers', requireAuth('pos_access'), async (req, res) => {
     const normalized = normalizePhone(phone);
     if (normalized.length < 10) return res.status(400).json({ error: 'Invalid phone number' });
 
-    const { customer, created } = await findOrCreateCustomer(normalized, name, referral_code_used, sms_opt_in);
+    const { customer, created } = await findOrCreateCustomer(normalized, name, referral_code_used, sms_opt_in, req.tenant?.name || 'Restaurant');
 
     if (!created && sms_opt_in !== undefined) {
       run('UPDATE loyalty_customers SET sms_opt_in = ? WHERE id = ?', [sms_opt_in ? 1 : 0, customer.id]);
@@ -128,7 +128,7 @@ router.post('/customers/:id/stamps', requireAuth('pos_access'), async (req, res)
     const customer = get('SELECT * FROM loyalty_customers WHERE id = ?', [customerId]);
     if (!customer) return res.status(404).json({ error: 'Customer not found' });
 
-    const result = await addStampsForOrder(customerId, order_id);
+    const result = await addStampsForOrder(customerId, order_id, 1, req.tenant?.name || 'Restaurant');
 
     // Update total_spent from order
     if (order_id) {

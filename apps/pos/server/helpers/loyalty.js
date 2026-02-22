@@ -76,7 +76,7 @@ export function getActiveStampCard(customerId) {
 
 /* ==================== Customer Operations ==================== */
 
-export async function findOrCreateCustomer(phone, name, referralCodeUsed, smsOptIn = false) {
+export async function findOrCreateCustomer(phone, name, referralCodeUsed, smsOptIn = false, restaurantName = 'Our') {
   const normalized = normalizePhone(phone);
   let customer = get('SELECT * FROM loyalty_customers WHERE phone = ?', [normalized]);
 
@@ -97,12 +97,12 @@ export async function findOrCreateCustomer(phone, name, referralCodeUsed, smsOpt
 
   // Process referral if code provided
   if (referralCodeUsed) {
-    await processReferral(referralCodeUsed, customer.id);
+    await processReferral(referralCodeUsed, customer.id, restaurantName);
   }
 
   // Send welcome SMS (non-blocking)
   if (customer.sms_opt_in && getConfigValue('sms_enabled', 'true') === 'true') {
-    sendWelcomeSMS(normalized, name, referralCode).catch(() => {});
+    sendWelcomeSMS(normalized, name, referralCode, restaurantName).catch(() => {});
   }
 
   return { customer: get('SELECT * FROM loyalty_customers WHERE id = ?', [customer.id]), created: true };
@@ -110,7 +110,7 @@ export async function findOrCreateCustomer(phone, name, referralCodeUsed, smsOpt
 
 /* ==================== Stamp Operations ==================== */
 
-export async function addStampsForOrder(customerId, orderId, count = 1) {
+export async function addStampsForOrder(customerId, orderId, count = 1, restaurantName = 'us') {
   const card = getActiveStampCard(customerId);
   const newStamps = card.stamps_earned + count;
   const cardCompleted = newStamps >= card.stamps_required;
@@ -146,11 +146,11 @@ export async function addStampsForOrder(customerId, orderId, count = 1) {
   // Send SMS notifications (non-blocking)
   if (customer.sms_opt_in && getConfigValue('sms_enabled', 'true') === 'true') {
     if (cardCompleted) {
-      sendCardCompletedSMS(customer.phone, customer.name, updatedCard.reward_description, customerId).catch(() => {});
+      sendCardCompletedSMS(customer.phone, customer.name, updatedCard.reward_description, customerId, restaurantName).catch(() => {});
       // Auto-create next card
       getActiveStampCard(customerId);
     } else {
-      sendStampEarnedSMS(customer.phone, customer.name, updatedCard.stamps_earned, updatedCard.stamps_required, customerId).catch(() => {});
+      sendStampEarnedSMS(customer.phone, customer.name, updatedCard.stamps_earned, updatedCard.stamps_required, customerId, restaurantName).catch(() => {});
     }
   } else if (cardCompleted) {
     // Still auto-create next card even if SMS disabled
@@ -198,7 +198,7 @@ export function addBonusStamps(customerId, count, eventType = 'manual') {
 
 /* ==================== Referral ==================== */
 
-export async function processReferral(referralCode, newCustomerId) {
+export async function processReferral(referralCode, newCustomerId, restaurantName = 'Our') {
   const referrer = get('SELECT * FROM loyalty_customers WHERE referral_code = ?', [referralCode]);
   if (!referrer) return null;
   if (referrer.id === newCustomerId) return null; // can't refer yourself
@@ -228,7 +228,7 @@ export async function processReferral(referralCode, newCustomerId) {
   // Notify referrer via SMS
   const referee = get('SELECT * FROM loyalty_customers WHERE id = ?', [newCustomerId]);
   if (referrer.sms_opt_in && getConfigValue('sms_enabled', 'true') === 'true') {
-    sendReferralSuccessSMS(referrer.phone, referrer.name, referee.name, bonus, referrer.id).catch(() => {});
+    sendReferralSuccessSMS(referrer.phone, referrer.name, referee.name, bonus, referrer.id, restaurantName).catch(() => {});
   }
 
   return { referrer_id: referrer.id, referee_id: newCustomerId, bonus };

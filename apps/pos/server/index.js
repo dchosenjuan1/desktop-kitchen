@@ -117,6 +117,12 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: 'Internal server error' });
 });
 
+// Fail fast if JWT_SECRET is not set in production
+if (process.env.NODE_ENV === 'production' && !process.env.JWT_SECRET) {
+  console.error('FATAL: JWT_SECRET environment variable is required in production.');
+  process.exit(1);
+}
+
 // Start server (async IIFE to handle initDb)
 (async () => {
   try {

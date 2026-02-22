@@ -68,14 +68,18 @@ const OnboardingScreen: React.FC = () => {
     setError('');
 
     try {
+      const registerBody: Record<string, string> = {
+        email: data.email,
+        password: data.password,
+        restaurant_name: data.restaurant_name,
+      };
+      if (data.primaryColor !== '#0d9488') registerBody.primaryColor = data.primaryColor;
+      if (data.logo_url) registerBody.logoUrl = data.logo_url;
+
       const res = await fetch(`${API_BASE}/auth/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email: data.email,
-          password: data.password,
-          restaurant_name: data.restaurant_name,
-        }),
+        body: JSON.stringify(registerBody),
       });
 
       const result = await res.json();
@@ -86,21 +90,6 @@ const OnboardingScreen: React.FC = () => {
       localStorage.setItem('owner_token', result.token);
       localStorage.setItem('tenant_id', result.tenant.id);
       localStorage.setItem('tenant_name', result.tenant.name);
-
-      // Save branding if custom color or logo
-      if (data.primaryColor !== '#0d9488' || data.logo_url) {
-        await fetch(`${API_BASE}/branding`, {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${result.token}`,
-          },
-          body: JSON.stringify({
-            primaryColor: data.primaryColor,
-            logoUrl: data.logo_url,
-          }),
-        });
-      }
 
       // Done — redirect to POS login
       setStep(4);

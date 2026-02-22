@@ -414,7 +414,8 @@ router.post('/recapture/send', requireAuth('manage_delivery'), async (req, res) 
       return res.status(400).json({ error: 'phone and customer_name required' });
     }
 
-    const defaultMsg = `Hey ${customer_name}! We noticed you love ordering from us on ${platform}. Visit us in-store for 10% off your next order! Show this text at checkout. — Juanberto's`;
+    const brandName = req.tenant?.name || 'Restaurant';
+    const defaultMsg = `Hey ${customer_name}! We noticed you love ordering from us on ${platform}. Visit us in-store for 10% off your next order! Show this text at checkout. — ${brandName}`;
     const body = message || defaultMsg;
 
     const sid = await sendSMS(phone, body);

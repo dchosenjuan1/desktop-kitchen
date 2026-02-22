@@ -62,22 +62,22 @@ export async function sendSMS(to, body, customerId = null, messageType = 'genera
   }
 }
 
-export async function sendWelcomeSMS(phone, name, referralCode) {
-  const body = `Welcome to Juanberto's Rewards, ${name}! You'll earn a stamp with every order. Share your code ${referralCode} with friends — you both get 2 bonus stamps!`;
+export async function sendWelcomeSMS(phone, name, referralCode, restaurantName = 'Our') {
+  const body = `Welcome to ${restaurantName} Rewards, ${name}! You'll earn a stamp with every order. Share your code ${referralCode} with friends — you both get 2 bonus stamps!`;
   return sendSMS(phone, body, null, 'welcome');
 }
 
-export async function sendStampEarnedSMS(phone, name, earned, required, customerId) {
-  const body = `Hey ${name}! You earned a stamp at Juanberto's! ${earned}/${required} stamps collected. Keep going!`;
+export async function sendStampEarnedSMS(phone, name, earned, required, customerId, restaurantName = 'us') {
+  const body = `Hey ${name}! You earned a stamp at ${restaurantName}! ${earned}/${required} stamps collected. Keep going!`;
   return sendSMS(phone, body, customerId, 'stamp_earned');
 }
 
-export async function sendCardCompletedSMS(phone, name, reward, customerId) {
-  const body = `Congrats ${name}! You completed your stamp card at Juanberto's! Your reward: ${reward}. Redeem it on your next visit!`;
+export async function sendCardCompletedSMS(phone, name, reward, customerId, restaurantName = 'us') {
+  const body = `Congrats ${name}! You completed your stamp card at ${restaurantName}! Your reward: ${reward}. Redeem it on your next visit!`;
   return sendSMS(phone, body, customerId, 'card_completed');
 }
 
-export async function sendReferralSuccessSMS(phone, name, refereeName, bonus, customerId) {
-  const body = `Hey ${name}! Your friend ${refereeName} joined Juanberto's Rewards using your code. You both earned ${bonus} bonus stamps!`;
+export async function sendReferralSuccessSMS(phone, name, refereeName, bonus, customerId, restaurantName = 'Our') {
+  const body = `Hey ${name}! Your friend ${refereeName} joined ${restaurantName} Rewards using your code. You both earned ${bonus} bonus stamps!`;
   return sendSMS(phone, body, customerId, 'referral_success');
 }

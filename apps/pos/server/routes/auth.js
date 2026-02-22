@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
+import rateLimit from 'express-rate-limit';
 import { getMasterDb, createTenant, getTenantByEmail, openTenantDb } from '../tenants.js';
 import { applySchema } from '../db/index.js';
 import { sendPinEmail } from '../helpers/email.js';
@@ -10,6 +11,24 @@ const router = Router();
 const JWT_SECRET = process.env.JWT_SECRET || 'dev-jwt-secret-change-me';
 const JWT_EXPIRES_IN = '7d';
 const BCRYPT_ROUNDS = 12;
+
+// Rate limiting: 5 registration attempts per IP per 15 minutes
+const registerLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many registration attempts. Please try again later.' },
+});
+
+// Rate limiting: 10 login attempts per IP per 15 minutes
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many login attempts. Please try again later.' },
+});
 
 function signToken(payload) {
   return jwt.sign(payload, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
@@ -21,9 +40,9 @@ function signToken(payload) {
  * Body: { email, password, restaurant_name, subdomain? }
  * Returns: { token, tenant }
  */
-router.post('/register', async (req, res) => {
+router.post('/register', registerLimiter, async (req, res) => {
   try {
-    const { email, password, restaurant_name, subdomain } = req.body;
+    const { email, password, restaurant_name, subdomain, primaryColor, logoUrl } = req.body;
 
     if (!email || !password || !restaurant_name) {
       return res.status(400).json({ error: 'Required: email, password, restaurant_name' });
@@ -56,6 +75,12 @@ router.post('/register', async (req, res) => {
     // Hash password
     const passwordHash = await bcrypt.hash(password, BCRYPT_ROUNDS);
 
+    // Build branding JSON if custom color or logo provided
+    const branding = {};
+    if (primaryColor) branding.primaryColor = primaryColor;
+    if (logoUrl) branding.logoUrl = logoUrl;
+    const branding_json = Object.keys(branding).length > 0 ? JSON.stringify(branding) : null;
+
     // Create tenant
     const tenant = createTenant({
       id: slug,
@@ -64,6 +89,7 @@ router.post('/register', async (req, res) => {
       owner_email: email,
       owner_password_hash: passwordHash,
       plan: 'trial',
+      branding_json,
     });
 
     // Generate random 4-digit PIN for the admin employee
@@ -106,7 +132,7 @@ router.post('/register', async (req, res) => {
  * Body: { email, password }
  * Returns: { token, tenant }
  */
-router.post('/login', async (req, res) => {
+router.post('/login', loginLimiter, async (req, res) => {
   try {
     const { email, password } = req.body;
 
