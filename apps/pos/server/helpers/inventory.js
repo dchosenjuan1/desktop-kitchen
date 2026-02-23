@@ -8,14 +8,14 @@ export async function deductInventoryForOrder(orderId) {
   const orderItems = await all(`
     SELECT menu_item_id, quantity
     FROM order_items
-    WHERE order_id = ?
+    WHERE order_id = $1
   `, [orderId]);
 
   for (const orderItem of orderItems) {
     const ingredients = await all(`
       SELECT inventory_item_id, quantity_used
       FROM menu_item_ingredients
-      WHERE menu_item_id = ?
+      WHERE menu_item_id = $1
     `, [orderItem.menu_item_id]);
 
     for (const ingredient of ingredients) {
@@ -23,15 +23,15 @@ export async function deductInventoryForOrder(orderId) {
       const inventoryItem = await get(`
         SELECT id, quantity
         FROM inventory_items
-        WHERE id = ?
+        WHERE id = $1
       `, [ingredient.inventory_item_id]);
 
       if (inventoryItem) {
         const newQuantity = Math.max(0, inventoryItem.quantity - totalNeeded);
         await run(`
           UPDATE inventory_items
-          SET quantity = ?
-          WHERE id = ?
+          SET quantity = $1
+          WHERE id = $2
         `, [newQuantity, ingredient.inventory_item_id]);
       }
     }
@@ -47,7 +47,7 @@ export async function restoreInventoryForItems(items) {
     const orderItem = await get(`
       SELECT menu_item_id, quantity
       FROM order_items
-      WHERE id = ?
+      WHERE id = $1
     `, [refundItem.order_item_id]);
 
     if (!orderItem) continue;
@@ -55,15 +55,15 @@ export async function restoreInventoryForItems(items) {
     const ingredients = await all(`
       SELECT inventory_item_id, quantity_used
       FROM menu_item_ingredients
-      WHERE menu_item_id = ?
+      WHERE menu_item_id = $1
     `, [orderItem.menu_item_id]);
 
     for (const ingredient of ingredients) {
       const totalToRestore = ingredient.quantity_used * refundItem.quantity;
       await run(`
         UPDATE inventory_items
-        SET quantity = quantity + ?
-        WHERE id = ?
+        SET quantity = quantity + $1
+        WHERE id = $2
       `, [totalToRestore, ingredient.inventory_item_id]);
     }
   }

@@ -15,7 +15,7 @@ export async function generateReferralCode() {
     for (let i = 0; i < 4; i++) {
       code += chars[Math.floor(Math.random() * chars.length)];
     }
-    const existing = await get('SELECT id FROM loyalty_customers WHERE referral_code = ?', [code]);
+    const existing = await get('SELECT id FROM loyalty_customers WHERE referral_code = $1', [code]);
     if (!existing) return code;
   }
   // Fallback: longer code
@@ -43,13 +43,13 @@ export async function getLoyaltyConfig() {
 }
 
 export async function getConfigValue(key, defaultVal = null) {
-  const row = await get('SELECT value FROM loyalty_config WHERE key = ?', [key]);
+  const row = await get('SELECT value FROM loyalty_config WHERE key = $1', [key]);
   return row ? row.value : defaultVal;
 }
 
 export async function updateLoyaltyConfig(key, value) {
   await run(
-    `INSERT INTO loyalty_config (key, value, updated_at) VALUES (?, ?, NOW())
+    `INSERT INTO loyalty_config (key, value, updated_at) VALUES ($1, $2, NOW())
      ON CONFLICT(tenant_id, key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()`,
     [key, value]
   );
@@ -59,17 +59,17 @@ export async function updateLoyaltyConfig(key, value) {
 
 export async function getActiveStampCard(customerId) {
   let card = await get(
-    `SELECT * FROM stamp_cards WHERE customer_id = ? AND completed = false ORDER BY id DESC LIMIT 1`,
+    `SELECT * FROM stamp_cards WHERE customer_id = $1 AND completed = false ORDER BY id DESC LIMIT 1`,
     [customerId]
   );
   if (!card) {
     const stampsRequired = parseInt(await getConfigValue('stamps_required', '10'));
     const rewardDesc = await getConfigValue('reward_description', 'Free item of your choice');
     const { lastInsertRowid } = await run(
-      `INSERT INTO stamp_cards (customer_id, stamps_required, reward_description) VALUES (?, ?, ?)`,
+      `INSERT INTO stamp_cards (customer_id, stamps_required, reward_description) VALUES ($1, $2, $3)`,
       [customerId, stampsRequired, rewardDesc]
     );
-    card = await get('SELECT * FROM stamp_cards WHERE id = ?', [lastInsertRowid]);
+    card = await get('SELECT * FROM stamp_cards WHERE id = $1', [lastInsertRowid]);
   }
   return card;
 }
@@ -78,7 +78,7 @@ export async function getActiveStampCard(customerId) {
 
 export async function findOrCreateCustomer(phone, name, referralCodeUsed, smsOptIn = false, restaurantName = 'Our') {
   const normalized = normalizePhone(phone);
-  let customer = await get('SELECT * FROM loyalty_customers WHERE phone = ?', [normalized]);
+  let customer = await get('SELECT * FROM loyalty_customers WHERE phone = $1', [normalized]);
 
   if (customer) {
     return { customer, created: false };
@@ -86,11 +86,11 @@ export async function findOrCreateCustomer(phone, name, referralCodeUsed, smsOpt
 
   const referralCode = await generateReferralCode();
   const { lastInsertRowid } = await run(
-    `INSERT INTO loyalty_customers (phone, name, referral_code, sms_opt_in) VALUES (?, ?, ?, ?)`,
+    `INSERT INTO loyalty_customers (phone, name, referral_code, sms_opt_in) VALUES ($1, $2, $3, $4)`,
     [normalized, name, referralCode, smsOptIn]
   );
 
-  customer = await get('SELECT * FROM loyalty_customers WHERE id = ?', [lastInsertRowid]);
+  customer = await get('SELECT * FROM loyalty_customers WHERE id = $1', [lastInsertRowid]);
 
   // Create first stamp card
   await getActiveStampCard(customer.id);
@@ -106,7 +106,7 @@ export async function findOrCreateCustomer(phone, name, referralCodeUsed, smsOpt
     sendWelcomeSMS(normalized, name, referralCode, restaurantName).catch(() => {});
   }
 
-  return { customer: await get('SELECT * FROM loyalty_customers WHERE id = ?', [customer.id]), created: true };
+  return { customer: await get('SELECT * FROM loyalty_customers WHERE id = $1', [customer.id]), created: true };
 }
 
 /* ==================== Stamp Operations ==================== */
@@ -117,7 +117,7 @@ export async function addStampsForOrder(customerId, orderId, count = 1, restaura
   const cardCompleted = newStamps >= card.stamps_required;
 
   await run(
-    `UPDATE stamp_cards SET stamps_earned = ?, completed = ?, completed_at = ? WHERE id = ?`,
+    `UPDATE stamp_cards SET stamps_earned = $1, completed = $2, completed_at = $3 WHERE id = $4`,
     [
       Math.min(newStamps, card.stamps_required),
       cardCompleted,
@@ -127,22 +127,22 @@ export async function addStampsForOrder(customerId, orderId, count = 1, restaura
   );
 
   await run(
-    `INSERT INTO stamp_events (stamp_card_id, order_id, stamps_added, event_type) VALUES (?, ?, ?, 'purchase')`,
+    `INSERT INTO stamp_events (stamp_card_id, order_id, stamps_added, event_type) VALUES ($1, $2, $3, 'purchase')`,
     [card.id, orderId, count]
   );
 
   // Update customer totals
   await run(
-    `UPDATE loyalty_customers SET stamps_earned = stamps_earned + ?, orders_count = orders_count + 1, last_visit = NOW() WHERE id = ?`,
+    `UPDATE loyalty_customers SET stamps_earned = stamps_earned + $1, orders_count = orders_count + 1, last_visit = NOW() WHERE id = $2`,
     [count, customerId]
   );
 
   // Link order to customer
-  await run(`UPDATE orders SET loyalty_customer_id = ? WHERE id = ?`, [customerId, orderId]);
+  await run(`UPDATE orders SET loyalty_customer_id = $1 WHERE id = $2`, [customerId, orderId]);
 
   // Get updated card
-  const updatedCard = await get('SELECT * FROM stamp_cards WHERE id = ?', [card.id]);
-  const customer = await get('SELECT * FROM loyalty_customers WHERE id = ?', [customerId]);
+  const updatedCard = await get('SELECT * FROM stamp_cards WHERE id = $1', [card.id]);
+  const customer = await get('SELECT * FROM loyalty_customers WHERE id = $1', [customerId]);
 
   // Send SMS notifications (non-blocking)
   const smsEnabled = await getConfigValue('sms_enabled', 'true');
@@ -160,9 +160,9 @@ export async function addStampsForOrder(customerId, orderId, count = 1, restaura
   }
 
   return {
-    stampCard: await get('SELECT * FROM stamp_cards WHERE id = ?', [card.id]),
+    stampCard: await get('SELECT * FROM stamp_cards WHERE id = $1', [card.id]),
     cardCompleted,
-    customer: await get('SELECT * FROM loyalty_customers WHERE id = ?', [customerId]),
+    customer: await get('SELECT * FROM loyalty_customers WHERE id = $1', [customerId]),
   };
 }
 
@@ -172,7 +172,7 @@ export async function addBonusStamps(customerId, count, eventType = 'manual') {
   const cardCompleted = newStamps >= card.stamps_required;
 
   await run(
-    `UPDATE stamp_cards SET stamps_earned = ?, completed = ?, completed_at = ? WHERE id = ?`,
+    `UPDATE stamp_cards SET stamps_earned = $1, completed = $2, completed_at = $3 WHERE id = $4`,
     [
       Math.min(newStamps, card.stamps_required),
       cardCompleted,
@@ -182,12 +182,12 @@ export async function addBonusStamps(customerId, count, eventType = 'manual') {
   );
 
   await run(
-    `INSERT INTO stamp_events (stamp_card_id, stamps_added, event_type) VALUES (?, ?, ?)`,
+    `INSERT INTO stamp_events (stamp_card_id, stamps_added, event_type) VALUES ($1, $2, $3)`,
     [card.id, count, eventType]
   );
 
   await run(
-    `UPDATE loyalty_customers SET stamps_earned = stamps_earned + ? WHERE id = ?`,
+    `UPDATE loyalty_customers SET stamps_earned = stamps_earned + $1 WHERE id = $2`,
     [count, customerId]
   );
 
@@ -195,19 +195,19 @@ export async function addBonusStamps(customerId, count, eventType = 'manual') {
     await getActiveStampCard(customerId); // auto-create next card
   }
 
-  return await get('SELECT * FROM stamp_cards WHERE id = ?', [card.id]);
+  return await get('SELECT * FROM stamp_cards WHERE id = $1', [card.id]);
 }
 
 /* ==================== Referral ==================== */
 
 export async function processReferral(referralCode, newCustomerId, restaurantName = 'Our') {
-  const referrer = await get('SELECT * FROM loyalty_customers WHERE referral_code = ?', [referralCode]);
+  const referrer = await get('SELECT * FROM loyalty_customers WHERE referral_code = $1', [referralCode]);
   if (!referrer) return null;
   if (referrer.id === newCustomerId) return null; // can't refer yourself
 
   // Check if this referral already happened
   const existing = await get(
-    'SELECT id FROM referral_events WHERE referrer_id = ? AND referee_id = ?',
+    'SELECT id FROM referral_events WHERE referrer_id = $1 AND referee_id = $2',
     [referrer.id, newCustomerId]
   );
   if (existing) return null;
@@ -220,15 +220,15 @@ export async function processReferral(referralCode, newCustomerId, restaurantNam
 
   // Record referral
   await run(
-    `INSERT INTO referral_events (referrer_id, referee_id, referrer_stamps_added, referee_stamps_added) VALUES (?, ?, ?, ?)`,
+    `INSERT INTO referral_events (referrer_id, referee_id, referrer_stamps_added, referee_stamps_added) VALUES ($1, $2, $3, $4)`,
     [referrer.id, newCustomerId, bonus, bonus]
   );
 
   // Update referred_by
-  await run(`UPDATE loyalty_customers SET referred_by = ? WHERE id = ?`, [referrer.id, newCustomerId]);
+  await run(`UPDATE loyalty_customers SET referred_by = $1 WHERE id = $2`, [referrer.id, newCustomerId]);
 
   // Notify referrer via SMS
-  const referee = await get('SELECT * FROM loyalty_customers WHERE id = ?', [newCustomerId]);
+  const referee = await get('SELECT * FROM loyalty_customers WHERE id = $1', [newCustomerId]);
   const smsEnabled = await getConfigValue('sms_enabled', 'true');
   if (referrer.sms_opt_in && smsEnabled === 'true') {
     sendReferralSuccessSMS(referrer.phone, referrer.name, referee.name, bonus, referrer.id, restaurantName).catch(() => {});
@@ -240,34 +240,34 @@ export async function processReferral(referralCode, newCustomerId, restaurantNam
 /* ==================== Redemption ==================== */
 
 export async function redeemReward(stampCardId) {
-  const card = await get('SELECT * FROM stamp_cards WHERE id = ?', [stampCardId]);
+  const card = await get('SELECT * FROM stamp_cards WHERE id = $1', [stampCardId]);
   if (!card) throw new Error('Stamp card not found');
   if (!card.completed) throw new Error('Card is not completed');
   if (card.redeemed) throw new Error('Card already redeemed');
 
   await run(
-    `UPDATE stamp_cards SET redeemed = true, redeemed_at = NOW() WHERE id = ?`,
+    `UPDATE stamp_cards SET redeemed = true, redeemed_at = NOW() WHERE id = $1`,
     [stampCardId]
   );
 
-  return await get('SELECT * FROM stamp_cards WHERE id = ?', [stampCardId]);
+  return await get('SELECT * FROM stamp_cards WHERE id = $1', [stampCardId]);
 }
 
 /* ==================== Queries ==================== */
 
 export async function getCustomerWithCard(customerId) {
-  const customer = await get('SELECT * FROM loyalty_customers WHERE id = ?', [customerId]);
+  const customer = await get('SELECT * FROM loyalty_customers WHERE id = $1', [customerId]);
   if (!customer) return null;
 
   const activeCard = await getActiveStampCard(customerId);
   const allCards = await all(
-    'SELECT * FROM stamp_cards WHERE customer_id = ? ORDER BY id DESC',
+    'SELECT * FROM stamp_cards WHERE customer_id = $1 ORDER BY id DESC',
     [customerId]
   );
   const events = await all(
     `SELECT se.*, sc.stamps_required FROM stamp_events se
      JOIN stamp_cards sc ON sc.id = se.stamp_card_id
-     WHERE sc.customer_id = ? ORDER BY se.id DESC LIMIT 20`,
+     WHERE sc.customer_id = $1 ORDER BY se.id DESC LIMIT 20`,
     [customerId]
   );
 

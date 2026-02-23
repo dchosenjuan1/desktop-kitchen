@@ -22,7 +22,7 @@ router.get('/', async (req, res) => {
         FROM combo_slots cs
         LEFT JOIN menu_categories mc ON cs.category_id = mc.id
         LEFT JOIN menu_items mi ON cs.specific_item_id = mi.id
-        WHERE cs.combo_id = ?
+        WHERE cs.combo_id = $1
         ORDER BY cs.sort_order ASC
       `, [combo.id]);
       result.push({ ...combo, slots });
@@ -39,7 +39,7 @@ router.get('/', async (req, res) => {
 router.get('/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const combo = await get('SELECT * FROM combo_definitions WHERE id = ?', [id]);
+    const combo = await get('SELECT * FROM combo_definitions WHERE id = $1', [id]);
     if (!combo) return res.status(404).json({ error: 'Combo not found' });
 
     const slots = await all(`
@@ -47,7 +47,7 @@ router.get('/:id', async (req, res) => {
       FROM combo_slots cs
       LEFT JOIN menu_categories mc ON cs.category_id = mc.id
       LEFT JOIN menu_items mi ON cs.specific_item_id = mi.id
-      WHERE cs.combo_id = ?
+      WHERE cs.combo_id = $1
       ORDER BY cs.sort_order ASC
     `, [id]);
 
@@ -74,7 +74,7 @@ router.post('/', async (req, res) => {
 
     const result = await run(`
       INSERT INTO combo_definitions (name, description, combo_price, active)
-      VALUES (?, ?, ?, true)
+      VALUES ($1, $2, $3, true)
     `, [name, description || '', combo_price]);
 
     const comboId = result.lastInsertRowid;
@@ -82,7 +82,7 @@ router.post('/', async (req, res) => {
     for (const slot of slots) {
       await run(`
         INSERT INTO combo_slots (combo_id, slot_label, category_id, specific_item_id, sort_order)
-        VALUES (?, ?, ?, ?, ?)
+        VALUES ($1, $2, $3, $4, $5)
       `, [comboId, slot.slot_label, slot.category_id || null, slot.specific_item_id || null, slot.sort_order || 0]);
     }
 
@@ -99,19 +99,19 @@ router.put('/:id', async (req, res) => {
     const { id } = req.params;
     const { name, description, combo_price, active } = req.body;
 
-    const existing = await get('SELECT id FROM combo_definitions WHERE id = ?', [id]);
+    const existing = await get('SELECT id FROM combo_definitions WHERE id = $1', [id]);
     if (!existing) return res.status(404).json({ error: 'Combo not found' });
 
     const updates = [];
     const params = [];
-    if (name !== undefined) { updates.push('name = ?'); params.push(name); }
-    if (description !== undefined) { updates.push('description = ?'); params.push(description); }
-    if (combo_price !== undefined) { updates.push('combo_price = ?'); params.push(combo_price); }
-    if (active !== undefined) { updates.push('active = ?'); params.push(active ? true : false); }
+    if (name !== undefined) { updates.push(`name = $${params.length + 1}`); params.push(name); }
+    if (description !== undefined) { updates.push(`description = $${params.length + 1}`); params.push(description); }
+    if (combo_price !== undefined) { updates.push(`combo_price = $${params.length + 1}`); params.push(combo_price); }
+    if (active !== undefined) { updates.push(`active = $${params.length + 1}`); params.push(active ? true : false); }
 
     if (updates.length > 0) {
       params.push(id);
-      await run(`UPDATE combo_definitions SET ${updates.join(', ')} WHERE id = ?`, params);
+      await run(`UPDATE combo_definitions SET ${updates.join(', ')} WHERE id = $${params.length}`, params);
     }
 
     res.json({ id, message: 'Updated' });

@@ -44,8 +44,8 @@ export async function sendSMS(to, body, customerId = null, messageType = 'genera
     const data = await res.json();
 
     if (customerId) {
-      run(
-        `INSERT INTO loyalty_messages (customer_id, message_type, twilio_sid, status) VALUES (?, ?, ?, ?)`,
+      await run(
+        `INSERT INTO loyalty_messages (customer_id, message_type, twilio_sid, status) VALUES ($1, $2, $3, $4)`,
         [customerId, messageType, data.sid || null, res.ok ? 'sent' : 'failed']
       );
     }

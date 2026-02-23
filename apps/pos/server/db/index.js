@@ -113,12 +113,26 @@ export async function run(sql, params = []) {
   const isInsert = /^\s*INSERT\s/i.test(pgSql);
   const hasReturning = /\bRETURNING\b/i.test(pgSql);
 
-  let finalSql = pgSql;
   if (isInsert && !hasReturning) {
-    finalSql = pgSql.replace(/;?\s*$/, ' RETURNING id');
+    // Try with RETURNING id; fall back to plain INSERT for tables without an id column
+    const withReturning = pgSql.replace(/;?\s*$/, ' RETURNING id');
+    try {
+      const rows = await conn.unsafe(withReturning, params);
+      if (rows.length > 0 && rows[0].id != null) {
+        return { lastInsertRowid: Number(rows[0].id) };
+      }
+      return { lastInsertRowid: 0, changes: rows.count ?? 0 };
+    } catch (err) {
+      // '42703' = undefined_column — table has no "id" column (e.g. junction tables)
+      if (err.code === '42703') {
+        const rows = await conn.unsafe(pgSql, params);
+        return { lastInsertRowid: 0, changes: rows.count ?? 0 };
+      }
+      throw err;
+    }
   }
 
-  const rows = await conn.unsafe(finalSql, params);
+  const rows = await conn.unsafe(pgSql, params);
 
   if (isInsert && rows.length > 0 && rows[0].id != null) {
     return { lastInsertRowid: Number(rows[0].id) };
@@ -186,11 +200,23 @@ export function createDbHelpers(conn) {
       const pgSql = convertParams(sql);
       const isInsert = /^\s*INSERT\s/i.test(pgSql);
       const hasReturning = /\bRETURNING\b/i.test(pgSql);
-      let finalSql = pgSql;
       if (isInsert && !hasReturning) {
-        finalSql = pgSql.replace(/;?\s*$/, ' RETURNING id');
+        const withReturning = pgSql.replace(/;?\s*$/, ' RETURNING id');
+        try {
+          const rows = await conn.unsafe(withReturning, params);
+          if (rows.length > 0 && rows[0].id != null) {
+            return { lastInsertRowid: Number(rows[0].id) };
+          }
+          return { lastInsertRowid: 0, changes: rows.count ?? 0 };
+        } catch (err) {
+          if (err.code === '42703') {
+            const rows = await conn.unsafe(pgSql, params);
+            return { lastInsertRowid: 0, changes: rows.count ?? 0 };
+          }
+          throw err;
+        }
       }
-      const rows = await conn.unsafe(finalSql, params);
+      const rows = await conn.unsafe(pgSql, params);
       if (isInsert && rows.length > 0 && rows[0].id != null) {
         return { lastInsertRowid: Number(rows[0].id) };
       }

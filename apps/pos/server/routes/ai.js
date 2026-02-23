@@ -85,7 +85,7 @@ router.post('/suggestions/feedback', async (req, res) => {
 
     await run(`
       INSERT INTO ai_suggestion_events (suggestion_type, suggestion_data, action, employee_id, order_id)
-      VALUES (?, ?, ?, ?, ?)
+      VALUES ($1, $2, $3, $4, $5)
     `, [
       suggestion_type,
       suggestion_data ? JSON.stringify(suggestion_data) : null,
@@ -201,7 +201,7 @@ router.get('/analytics', async (req, res) => {
 
     switch (period) {
       case 'today':
-        dateFilter = `DATE(created_at) = CURRENT_DATE`;
+        dateFilter = `created_at::date = CURRENT_DATE`;
         break;
       case 'week':
         dateFilter = `created_at >= NOW() - INTERVAL '7 days'`;
@@ -224,10 +224,10 @@ router.get('/analytics', async (req, res) => {
 
     // Daily trend
     const dailyTrend = await all(`
-      SELECT DATE(created_at) as date, action, COUNT(*) as count
+      SELECT created_at::date as date, action, COUNT(*) as count
       FROM ai_suggestion_events
       WHERE ${dateFilter}
-      GROUP BY DATE(created_at), action
+      GROUP BY created_at::date, action
       ORDER BY date
     `);
 
@@ -280,20 +280,20 @@ router.post('/pricing-suggestions/:id/apply', requireAuth('manage_ai'), async (r
       return res.status(400).json({ error: 'Missing menu_item_id or new_price' });
     }
 
-    const item = await get('SELECT id, price FROM menu_items WHERE id = ?', [menu_item_id]);
+    const item = await get('SELECT id, price FROM menu_items WHERE id = $1', [menu_item_id]);
     if (!item) {
       return res.status(404).json({ error: 'Menu item not found' });
     }
 
     // Store original price for reverting
     await run(`
-      UPDATE menu_items SET price = ? WHERE id = ?
+      UPDATE menu_items SET price = $1 WHERE id = $2
     `, [new_price, menu_item_id]);
 
     // Log the event
     await run(`
       INSERT INTO ai_suggestion_events (suggestion_type, suggestion_data, action)
-      VALUES ('dynamic_pricing', ?, 'accepted')
+      VALUES ('dynamic_pricing', $1, 'accepted')
     `, [JSON.stringify({
       menu_item_id,
       original_price: item.price,
@@ -466,12 +466,12 @@ router.put('/category-roles/:categoryId', requireAuth('manage_ai'), async (req, 
       return res.status(400).json({ error: 'Missing role' });
     }
 
-    const existing = await get('SELECT id FROM ai_category_roles WHERE category_id = ?', [categoryId]);
+    const existing = await get('SELECT id FROM ai_category_roles WHERE category_id = $1', [categoryId]);
 
     if (existing) {
-      await run('UPDATE ai_category_roles SET role = ? WHERE category_id = ?', [role, categoryId]);
+      await run('UPDATE ai_category_roles SET role = $1 WHERE category_id = $2', [role, categoryId]);
     } else {
-      await run('INSERT INTO ai_category_roles (category_id, role) VALUES (?, ?)', [categoryId, role]);
+      await run('INSERT INTO ai_category_roles (category_id, role) VALUES ($1, $2)', [categoryId, role]);
     }
 
     res.json({ success: true, category_id: parseInt(categoryId), role });
@@ -521,11 +521,11 @@ router.post('/config/import', requireAuth('manage_ai'), async (req, res) => {
 
     if (category_roles && Array.isArray(category_roles)) {
       for (const role of category_roles) {
-        const existing = await get('SELECT id FROM ai_category_roles WHERE category_id = ?', [role.category_id]);
+        const existing = await get('SELECT id FROM ai_category_roles WHERE category_id = $1', [role.category_id]);
         if (existing) {
-          await run('UPDATE ai_category_roles SET role = ? WHERE category_id = ?', [role.role, role.category_id]);
+          await run('UPDATE ai_category_roles SET role = $1 WHERE category_id = $2', [role.role, role.category_id]);
         } else {
-          await run('INSERT INTO ai_category_roles (category_id, role) VALUES (?, ?)', [role.category_id, role.role]);
+          await run('INSERT INTO ai_category_roles (category_id, role) VALUES ($1, $2)', [role.category_id, role.role]);
         }
       }
     }

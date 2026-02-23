@@ -16,21 +16,20 @@ const tenantId = process.argv[2] || 'default';
     // Set tenant context for RLS
     await adminSql`SELECT set_config('app.tenant_id', ${tenantId}, false)`;
 
-    // Disable FK checks during cleanup
-    await adminSql`SET session_replication_role = 'replica'`;
-
-    // Clear existing data for this tenant
+    // Clear existing data for this tenant (FK-safe order: children before parents)
     const tenantTables = [
       'stamp_events', 'referral_events', 'loyalty_messages', 'stamp_cards', 'loyalty_customers',
+      'ai_suggestion_events', 'ai_suggestion_cache', 'ai_hourly_snapshots',
+      'ai_item_pairs', 'ai_inventory_velocity', 'ai_restock_log', 'ai_category_roles', 'ai_config',
       'virtual_brand_items', 'virtual_brands',
-      'delivery_orders', 'delivery_platforms', 'delivery_markup_rules', 'delivery_recapture',
+      'delivery_orders', 'delivery_markup_rules', 'delivery_recapture', 'delivery_platforms',
+      'order_item_modifiers', 'order_items',
+      'order_payment_items', 'order_payments', 'orders',
+      'menu_item_modifier_groups', 'menu_item_ingredients',
       'combo_slots', 'combo_definitions',
-      'order_item_modifiers', 'menu_item_modifier_groups', 'modifiers', 'modifier_groups',
-      'order_payment_items', 'order_payments',
+      'modifiers', 'modifier_groups',
       'category_printer_routes', 'printers',
-      'ai_suggestion_cache', 'ai_category_roles', 'ai_config', 'ai_suggestion_events',
-      'ai_hourly_snapshots', 'ai_item_pairs', 'ai_inventory_velocity', 'ai_restock_log',
-      'menu_item_ingredients', 'order_items', 'orders', 'menu_items', 'menu_categories',
+      'menu_items', 'menu_categories',
       'inventory_items', 'inventory_counts', 'shrinkage_alerts',
       'refunds', 'crypto_payments',
       'vendor_items', 'purchase_order_items', 'purchase_orders', 'vendors',
@@ -40,11 +39,10 @@ const tenantId = process.argv[2] || 'default';
     ];
 
     for (const table of tenantTables) {
-      await adminSql.unsafe(`DELETE FROM ${table} WHERE tenant_id = $1`, [tenantId]);
+      try {
+        await adminSql.unsafe(`DELETE FROM ${table} WHERE tenant_id = $1`, [tenantId]);
+      } catch (e) { /* table may not exist */ }
     }
-
-    // Re-enable FK checks
-    await adminSql`SET session_replication_role = 'origin'`;
 
     // Helper for inserts with tenant context
     const ins = async (sql, params = []) => {

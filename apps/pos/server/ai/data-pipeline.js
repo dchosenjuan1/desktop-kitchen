@@ -11,7 +11,7 @@ export async function captureHourlySnapshot() {
 
     // Check if already captured this hour
     const existing = await get(
-      `SELECT id FROM ai_hourly_snapshots WHERE snapshot_hour = ?`,
+      `SELECT id FROM ai_hourly_snapshots WHERE snapshot_hour = $1`,
       [hourStr]
     );
     if (existing) return;
@@ -28,13 +28,13 @@ export async function captureHourlySnapshot() {
         COALESCE(SUM(total), 0) as revenue,
         COALESCE(AVG(total), 0) as avg_ticket
       FROM orders
-      WHERE created_at >= ? AND created_at <= ?
+      WHERE created_at >= $1 AND created_at <= $2
         AND status != 'cancelled'
     `, [hourStart.toISOString(), hourEnd.toISOString()]);
 
     await run(`
       INSERT INTO ai_hourly_snapshots (snapshot_hour, order_count, revenue, avg_ticket, day_of_week)
-      VALUES (?, ?, ?, ?, ?)
+      VALUES ($1, $2, $3, $4, $5)
     `, [hourStr, stats.order_count, stats.revenue, stats.avg_ticket, dayOfWeek]);
 
     console.log(`[AI Pipeline] Hourly snapshot captured: ${hourStr}`);
@@ -61,7 +61,7 @@ export async function updateItemPairs() {
 
     for (const { order_id } of recentOrders) {
       const items = await all(
-        `SELECT menu_item_id FROM order_items WHERE order_id = ?`,
+        `SELECT menu_item_id FROM order_items WHERE order_id = $1`,
         [order_id]
       );
 
@@ -72,18 +72,18 @@ export async function updateItemPairs() {
           const b = Math.max(items[i].menu_item_id, items[j].menu_item_id);
 
           const existing = await get(
-            `SELECT id, pair_count FROM ai_item_pairs WHERE item_a_id = ? AND item_b_id = ?`,
+            `SELECT id, pair_count FROM ai_item_pairs WHERE item_a_id = $1 AND item_b_id = $2`,
             [a, b]
           );
 
           if (existing) {
             await run(
-              `UPDATE ai_item_pairs SET pair_count = pair_count + 1, last_seen = NOW() WHERE id = ?`,
+              `UPDATE ai_item_pairs SET pair_count = pair_count + 1, last_seen = NOW() WHERE id = $1`,
               [existing.id]
             );
           } else {
             await run(
-              `INSERT INTO ai_item_pairs (item_a_id, item_b_id, pair_count) VALUES (?, ?, 1)`,
+              `INSERT INTO ai_item_pairs (item_a_id, item_b_id, pair_count) VALUES ($1, $2, 1)`,
               [a, b]
             );
           }
@@ -113,25 +113,25 @@ export async function updateInventoryVelocity() {
       FROM order_items oi
       JOIN menu_item_ingredients mii ON oi.menu_item_id = mii.menu_item_id
       JOIN orders o ON oi.order_id = o.id
-      WHERE o.created_at::date = ?::date
+      WHERE o.created_at::date = $1::date
         AND o.status != 'cancelled'
       GROUP BY mii.inventory_item_id
     `, [today]);
 
     for (const row of consumption) {
       const existing = await get(
-        `SELECT id FROM ai_inventory_velocity WHERE inventory_item_id = ? AND date = ?`,
+        `SELECT id FROM ai_inventory_velocity WHERE inventory_item_id = $1 AND date = $2`,
         [row.inventory_item_id, today]
       );
 
       if (existing) {
         await run(
-          `UPDATE ai_inventory_velocity SET quantity_used = ?, orders_count = ? WHERE id = ?`,
+          `UPDATE ai_inventory_velocity SET quantity_used = $1, orders_count = $2 WHERE id = $3`,
           [row.total_used, row.orders_count, existing.id]
         );
       } else {
         await run(
-          `INSERT INTO ai_inventory_velocity (inventory_item_id, date, quantity_used, orders_count) VALUES (?, ?, ?, ?)`,
+          `INSERT INTO ai_inventory_velocity (inventory_item_id, date, quantity_used, orders_count) VALUES ($1, $2, $3, $4)`,
           [row.inventory_item_id, today, row.total_used, row.orders_count]
         );
       }
@@ -190,7 +190,7 @@ export async function logRestockEvent(inventoryItemId, quantityBefore, quantityA
   try {
     await run(`
       INSERT INTO ai_restock_log (inventory_item_id, quantity_before, quantity_added, quantity_after)
-      VALUES (?, ?, ?, ?)
+      VALUES ($1, $2, $3, $4)
     `, [inventoryItemId, quantityBefore, quantityAdded, quantityBefore + quantityAdded]);
   } catch (error) {
     console.error('[AI Pipeline] Error logging restock:', error.message);
@@ -224,7 +224,7 @@ export async function detectShrinkagePatterns() {
     for (const pattern of patterns) {
       const existingAlert = await get(`
         SELECT id FROM shrinkage_alerts
-        WHERE inventory_item_id = ? AND acknowledged = false AND alert_type = 'pattern'
+        WHERE inventory_item_id = $1 AND acknowledged = false AND alert_type = 'pattern'
       `, [pattern.inventory_item_id]);
 
       if (existingAlert) continue;
@@ -234,7 +234,7 @@ export async function detectShrinkagePatterns() {
 
       await run(`
         INSERT INTO shrinkage_alerts (inventory_item_id, alert_type, severity, message, variance_amount)
-        VALUES (?, 'pattern', ?, ?, ?)
+        VALUES ($1, 'pattern', $2, $3, $4)
       `, [
         pattern.inventory_item_id,
         severity,
@@ -261,6 +261,6 @@ export async function getTopItemPairs(limit = 20) {
     JOIN menu_items ma ON aip.item_a_id = ma.id
     JOIN menu_items mb ON aip.item_b_id = mb.id
     ORDER BY aip.pair_count DESC
-    LIMIT ?
+    LIMIT $1
   `, [limit]);
 }

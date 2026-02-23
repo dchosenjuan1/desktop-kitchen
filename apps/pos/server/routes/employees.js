@@ -48,7 +48,7 @@ router.post('/', async (req, res) => {
 
     const result = await run(`
       INSERT INTO employees (name, pin, role, active)
-      VALUES (?, ?, ?, true)
+      VALUES ($1, $2, $3, true)
     `, [name, pin, role]);
 
     res.status(201).json({
@@ -75,7 +75,7 @@ router.post('/login', async (req, res) => {
     const employee = await get(`
       SELECT id, name, pin, role, active, created_at
       FROM employees
-      WHERE pin = ?
+      WHERE pin = $1
     `, [pin]);
 
     if (!employee) {
@@ -88,7 +88,7 @@ router.post('/login', async (req, res) => {
 
     // Fetch permissions for this role
     const perms = await all(
-      'SELECT permission FROM role_permissions WHERE role = ? AND granted = true',
+      'SELECT permission FROM role_permissions WHERE role = $1 AND granted = true',
       [employee.role]
     );
     const permissions = perms.map(p => p.permission);
@@ -150,18 +150,18 @@ router.put('/permissions/:role', requireAuth('manage_permissions'), async (req, 
 
     for (const [permission, granted] of Object.entries(permissions)) {
       const existing = await get(
-        'SELECT id FROM role_permissions WHERE role = ? AND permission = ?',
+        'SELECT id FROM role_permissions WHERE role = $1 AND permission = $2',
         [role, permission]
       );
 
       if (existing) {
         await run(
-          'UPDATE role_permissions SET granted = ? WHERE role = ? AND permission = ?',
+          'UPDATE role_permissions SET granted = $1 WHERE role = $2 AND permission = $3',
           [granted ? true : false, role, permission]
         );
       } else {
         await run(
-          'INSERT INTO role_permissions (role, permission, granted) VALUES (?, ?, ?)',
+          'INSERT INTO role_permissions (role, permission, granted) VALUES ($1, $2, $3)',
           [role, permission, granted ? true : false]
         );
       }
@@ -180,7 +180,7 @@ router.put('/:id', async (req, res) => {
     const { id } = req.params;
     const { name, pin, role } = req.body;
 
-    const employee = await get('SELECT id FROM employees WHERE id = ?', [id]);
+    const employee = await get('SELECT id FROM employees WHERE id = $1', [id]);
     if (!employee) {
       return res.status(404).json({ error: 'Employee not found' });
     }
@@ -189,11 +189,11 @@ router.put('/:id', async (req, res) => {
     const values = [];
 
     if (name !== undefined) {
-      updates.push('name = ?');
+      updates.push(`name = $${values.length + 1}`);
       values.push(name);
     }
     if (pin !== undefined) {
-      updates.push('pin = ?');
+      updates.push(`pin = $${values.length + 1}`);
       values.push(pin);
     }
     if (role !== undefined) {
@@ -201,7 +201,7 @@ router.put('/:id', async (req, res) => {
       if (!validRoles.includes(role)) {
         return res.status(400).json({ error: 'Invalid role' });
       }
-      updates.push('role = ?');
+      updates.push(`role = $${values.length + 1}`);
       values.push(role);
     }
 
@@ -214,7 +214,7 @@ router.put('/:id', async (req, res) => {
     await run(`
       UPDATE employees
       SET ${updates.join(', ')}
-      WHERE id = ?
+      WHERE id = $${values.length}
     `, values);
 
     res.json({ message: 'Employee updated successfully' });
@@ -229,13 +229,13 @@ router.put('/:id/toggle', async (req, res) => {
   try {
     const { id } = req.params;
 
-    const employee = await get('SELECT id, active FROM employees WHERE id = ?', [id]);
+    const employee = await get('SELECT id, active FROM employees WHERE id = $1', [id]);
     if (!employee) {
       return res.status(404).json({ error: 'Employee not found' });
     }
 
     const newActive = !employee.active;
-    await run('UPDATE employees SET active = ? WHERE id = ?', [newActive, id]);
+    await run('UPDATE employees SET active = $1 WHERE id = $2', [newActive, id]);
 
     res.json({ id, active: newActive });
   } catch (error) {

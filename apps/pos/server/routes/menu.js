@@ -36,7 +36,7 @@ router.post('/categories', requireAuth('manage_menu'), async (req, res) => {
 
     const result = await run(`
       INSERT INTO menu_categories (name, sort_order, active)
-      VALUES (?, ?, true)
+      VALUES ($1, $2, true)
     `, [name.trim(), order]);
 
     res.status(201).json({
@@ -57,7 +57,7 @@ router.put('/categories/:id', requireAuth('manage_menu'), async (req, res) => {
     const { id } = req.params;
     const { name, sort_order } = req.body;
 
-    const category = await get('SELECT id FROM menu_categories WHERE id = ?', [id]);
+    const category = await get('SELECT id FROM menu_categories WHERE id = $1', [id]);
     if (!category) {
       return res.status(404).json({ error: 'Category not found' });
     }
@@ -67,11 +67,11 @@ router.put('/categories/:id', requireAuth('manage_menu'), async (req, res) => {
 
     if (name !== undefined) {
       if (!name.trim()) return res.status(400).json({ error: 'Category name cannot be empty' });
-      updates.push('name = ?');
+      updates.push(`name = $${values.length + 1}`);
       values.push(name.trim());
     }
     if (sort_order !== undefined) {
-      updates.push('sort_order = ?');
+      updates.push(`sort_order = $${values.length + 1}`);
       values.push(sort_order);
     }
 
@@ -80,7 +80,7 @@ router.put('/categories/:id', requireAuth('manage_menu'), async (req, res) => {
     }
 
     values.push(id);
-    await run(`UPDATE menu_categories SET ${updates.join(', ')} WHERE id = ?`, values);
+    await run(`UPDATE menu_categories SET ${updates.join(', ')} WHERE id = $${values.length}`, values);
 
     res.json({ message: 'Category updated successfully' });
   } catch (error) {
@@ -94,13 +94,13 @@ router.put('/categories/:id/toggle', requireAuth('manage_menu'), async (req, res
   try {
     const { id } = req.params;
 
-    const category = await get('SELECT id, active FROM menu_categories WHERE id = ?', [id]);
+    const category = await get('SELECT id, active FROM menu_categories WHERE id = $1', [id]);
     if (!category) {
       return res.status(404).json({ error: 'Category not found' });
     }
 
     const newActive = !category.active;
-    await run('UPDATE menu_categories SET active = ? WHERE id = ?', [newActive, id]);
+    await run('UPDATE menu_categories SET active = $1 WHERE id = $2', [newActive, id]);
 
     res.json({ id: parseInt(id), active: newActive });
   } catch (error) {
@@ -121,7 +121,7 @@ router.get('/items/popular', async (req, res) => {
       WHERE mi.active = true
       GROUP BY mi.id, mi.category_id, mi.name, mi.price, mi.description, mi.image_url, mi.active
       ORDER BY total_sold DESC
-      LIMIT ?
+      LIMIT $1
     `, [limit]);
     res.json(items);
   } catch (error) {
@@ -139,7 +139,7 @@ router.get('/categories/suggested-order', async (req, res) => {
       FROM order_items oi
       JOIN menu_items mi ON oi.menu_item_id = mi.id
       JOIN orders o ON oi.order_id = o.id
-      WHERE EXTRACT(HOUR FROM o.created_at)::int = ?
+      WHERE EXTRACT(HOUR FROM o.created_at)::int = $1
       GROUP BY mi.category_id
       ORDER BY order_count DESC
     `, [hour]);
@@ -162,8 +162,8 @@ router.get('/items', async (req, res) => {
     }
 
     if (category_id) {
-      conditions.push('category_id = ?');
       params.push(category_id);
+      conditions.push(`category_id = $${params.length}`);
     }
 
     const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
@@ -190,7 +190,7 @@ router.get('/items/:id', async (req, res) => {
     const item = await get(`
       SELECT id, category_id, name, price, description, image_url
       FROM menu_items
-      WHERE id = ? AND active = true
+      WHERE id = $1 AND active = true
     `, [id]);
 
     if (!item) {
@@ -223,7 +223,7 @@ router.post('/items', requireAuth('manage_menu'), async (req, res) => {
 
     const result = await run(`
       INSERT INTO menu_items (category_id, name, price, description, image_url, active)
-      VALUES (?, ?, ?, ?, ?, true)
+      VALUES ($1, $2, $3, $4, $5, true)
     `, [category_id, name, price, description || null, image_url || null]);
 
     res.status(201).json({
@@ -247,7 +247,7 @@ router.put('/items/:id', requireAuth('manage_menu'), async (req, res) => {
     const { category_id, name, price, description, image_url } = req.body;
 
     // Check if item exists
-    const item = await get('SELECT id FROM menu_items WHERE id = ?', [id]);
+    const item = await get('SELECT id FROM menu_items WHERE id = $1', [id]);
     if (!item) {
       return res.status(404).json({ error: 'Item not found' });
     }
@@ -256,23 +256,23 @@ router.put('/items/:id', requireAuth('manage_menu'), async (req, res) => {
     const values = [];
 
     if (category_id !== undefined) {
-      updates.push('category_id = ?');
+      updates.push(`category_id = $${values.length + 1}`);
       values.push(category_id);
     }
     if (name !== undefined) {
-      updates.push('name = ?');
+      updates.push(`name = $${values.length + 1}`);
       values.push(name);
     }
     if (price !== undefined) {
-      updates.push('price = ?');
+      updates.push(`price = $${values.length + 1}`);
       values.push(price);
     }
     if (description !== undefined) {
-      updates.push('description = ?');
+      updates.push(`description = $${values.length + 1}`);
       values.push(description);
     }
     if (image_url !== undefined) {
-      updates.push('image_url = ?');
+      updates.push(`image_url = $${values.length + 1}`);
       values.push(image_url);
     }
 
@@ -285,7 +285,7 @@ router.put('/items/:id', requireAuth('manage_menu'), async (req, res) => {
     await run(`
       UPDATE menu_items
       SET ${updates.join(', ')}
-      WHERE id = ?
+      WHERE id = $${values.length}
     `, values);
 
     res.json({ message: 'Item updated successfully' });
@@ -300,13 +300,13 @@ router.put('/items/:id/toggle', requireAuth('manage_menu'), async (req, res) => 
   try {
     const { id } = req.params;
 
-    const item = await get('SELECT id, active FROM menu_items WHERE id = ?', [id]);
+    const item = await get('SELECT id, active FROM menu_items WHERE id = $1', [id]);
     if (!item) {
       return res.status(404).json({ error: 'Item not found' });
     }
 
     const newActive = !item.active;
-    await run('UPDATE menu_items SET active = ? WHERE id = ?', [newActive, id]);
+    await run('UPDATE menu_items SET active = $1 WHERE id = $2', [newActive, id]);
 
     res.json({ id, active: newActive });
   } catch (error) {
@@ -331,7 +331,7 @@ router.get('/pos-brands', async (req, res) => {
         SELECT vbi.menu_item_id, vbi.custom_name, vbi.custom_price, mi.category_id
         FROM virtual_brand_items vbi
         JOIN menu_items mi ON vbi.menu_item_id = mi.id
-        WHERE vbi.virtual_brand_id = ? AND vbi.active = true AND mi.active = true
+        WHERE vbi.virtual_brand_id = $1 AND vbi.active = true AND mi.active = true
       `, [brand.id]);
 
       result.push({ ...brand, items });

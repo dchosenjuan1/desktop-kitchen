@@ -41,7 +41,7 @@ export function requireAuth(permission) {
     }
 
     const employee = await get(
-      'SELECT id, name, role, active FROM employees WHERE id = ?',
+      'SELECT id, name, role, active FROM employees WHERE id = $1',
       [decoded.employeeId]
     );
 
@@ -61,7 +61,7 @@ export function requireAuth(permission) {
     }
 
     const perm = await get(
-      'SELECT granted FROM role_permissions WHERE role = ? AND permission = ?',
+      'SELECT granted FROM role_permissions WHERE role = $1 AND permission = $2',
       [employee.role, permission]
     );
 

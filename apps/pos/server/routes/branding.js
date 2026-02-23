@@ -79,12 +79,12 @@ router.get('/', (req, res) => {
  * PUT /api/branding — update branding (owner-only)
  * Body: { primaryColor, logoUrl }
  */
-router.put('/', requireOwner, (req, res) => {
+router.put('/', requireOwner, async (req, res) => {
   try {
     const { primaryColor, logoUrl } = req.body;
     const tenantId = req.owner.tenantId;
 
-    const tenant = getTenant(tenantId);
+    const tenant = await getTenant(tenantId);
     if (!tenant) {
       return res.status(404).json({ error: 'Tenant not found' });
     }
@@ -96,7 +96,7 @@ router.put('/', requireOwner, (req, res) => {
       ...(logoUrl !== undefined && { logoUrl }),
     };
 
-    updateTenant(tenantId, { branding_json: JSON.stringify(updated) });
+    await updateTenant(tenantId, { branding_json: JSON.stringify(updated) });
 
     res.json({
       primaryColor: updated.primaryColor || '#0d9488',
@@ -114,7 +114,7 @@ router.put('/', requireOwner, (req, res) => {
  * PUT /api/branding/settings — update branding via employee auth
  * Body: { primaryColor, restaurantName, tagline }
  */
-router.put('/settings', requireAuth('manage_branding'), (req, res) => {
+router.put('/settings', requireAuth('manage_branding'), async (req, res) => {
   try {
     const { primaryColor, restaurantName, tagline } = req.body;
     const tenantId = req.tenant?.id;
@@ -149,7 +149,7 @@ router.put('/settings', requireAuth('manage_branding'), (req, res) => {
       return res.status(403).json({ error: 'Branding customization requires a paid plan', upgrade: true });
     }
 
-    const tenant = getTenant(tenantId);
+    const tenant = await getTenant(tenantId);
     if (!tenant) {
       return res.status(404).json({ error: 'Tenant not found' });
     }
@@ -166,7 +166,7 @@ router.put('/settings', requireAuth('manage_branding'), (req, res) => {
       tenantUpdates.name = restaurantName;
     }
 
-    updateTenant(tenantId, tenantUpdates);
+    await updateTenant(tenantId, tenantUpdates);
 
     res.json({
       primaryColor: updated.primaryColor || '#0d9488',
@@ -185,7 +185,7 @@ router.put('/settings', requireAuth('manage_branding'), (req, res) => {
  * Accepts multipart form with 'logo' file field
  */
 router.post('/logo', requireAuth('manage_branding'), (req, res) => {
-  upload.single('logo')(req, res, (err) => {
+  upload.single('logo')(req, res, async (err) => {
     if (err) {
       if (err instanceof multer.MulterError) {
         if (err.code === 'LIMIT_FILE_SIZE') {
@@ -227,7 +227,7 @@ router.post('/logo', requireAuth('manage_branding'), (req, res) => {
         });
       }
 
-      const tenant = getTenant(tenantId);
+      const tenant = await getTenant(tenantId);
       if (!tenant) {
         return res.status(404).json({ error: 'Tenant not found' });
       }
@@ -241,7 +241,7 @@ router.post('/logo', requireAuth('manage_branding'), (req, res) => {
       }
 
       existing.logoUrl = logoUrl;
-      updateTenant(tenantId, { branding_json: JSON.stringify(existing) });
+      await updateTenant(tenantId, { branding_json: JSON.stringify(existing) });
 
       res.json({
         logoUrl,

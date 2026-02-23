@@ -60,8 +60,8 @@ export async function computePromotionBadges(itemIds) {
       SELECT oi.menu_item_id, SUM(oi.quantity) as total_qty
       FROM order_items oi
       JOIN orders o ON o.id = oi.order_id
-      WHERE EXTRACT(HOUR FROM o.created_at)::int = ?
-        AND EXTRACT(DOW FROM o.created_at)::int = ?
+      WHERE EXTRACT(HOUR FROM o.created_at)::int = $1
+        AND EXTRACT(DOW FROM o.created_at)::int = $2
         AND o.status NOT IN ('cancelled')
         AND oi.menu_item_id IS NOT NULL
       GROUP BY oi.menu_item_id

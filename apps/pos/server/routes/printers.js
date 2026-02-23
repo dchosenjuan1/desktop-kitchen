@@ -28,7 +28,7 @@ router.post('/', requireAuth('manage_printers'), async (req, res) => {
     if (!name) return res.status(400).json({ error: 'Name is required' });
 
     const result = await run(
-      'INSERT INTO printers (name, printer_type, address, active) VALUES (?, ?, ?, true)',
+      'INSERT INTO printers (name, printer_type, address, active) VALUES ($1, $2, $3, true)',
       [name, printer_type || 'receipt', address || '']
     );
 
@@ -45,11 +45,11 @@ router.put('/:id', requireAuth('manage_printers'), async (req, res) => {
     const { id } = req.params;
     const { name, printer_type, address, active } = req.body;
 
-    const printer = await get('SELECT * FROM printers WHERE id = ?', [id]);
+    const printer = await get('SELECT * FROM printers WHERE id = $1', [id]);
     if (!printer) return res.status(404).json({ error: 'Printer not found' });
 
     await run(
-      'UPDATE printers SET name = ?, printer_type = ?, address = ?, active = ? WHERE id = ?',
+      'UPDATE printers SET name = $1, printer_type = $2, address = $3, active = $4 WHERE id = $5',
       [
         name ?? printer.name,
         printer_type ?? printer.printer_type,
@@ -88,11 +88,11 @@ router.put('/routes', requireAuth('manage_printers'), async (req, res) => {
     const { category_id, printer_id } = req.body;
     if (!category_id) return res.status(400).json({ error: 'category_id is required' });
 
-    const existing = await get('SELECT * FROM category_printer_routes WHERE category_id = ?', [category_id]);
+    const existing = await get('SELECT * FROM category_printer_routes WHERE category_id = $1', [category_id]);
     if (existing) {
-      await run('UPDATE category_printer_routes SET printer_id = ? WHERE category_id = ?', [printer_id, category_id]);
+      await run('UPDATE category_printer_routes SET printer_id = $1 WHERE category_id = $2', [printer_id, category_id]);
     } else {
-      await run('INSERT INTO category_printer_routes (category_id, printer_id) VALUES (?, ?)', [category_id, printer_id]);
+      await run('INSERT INTO category_printer_routes (category_id, printer_id) VALUES ($1, $2)', [category_id, printer_id]);
     }
 
     res.json({ success: true });
@@ -108,21 +108,21 @@ router.post('/print-ticket', async (req, res) => {
     const { order_id } = req.body;
     if (!order_id) return res.status(400).json({ error: 'order_id is required' });
 
-    const order = await get('SELECT * FROM orders WHERE id = ?', [order_id]);
+    const order = await get('SELECT * FROM orders WHERE id = $1', [order_id]);
     if (!order) return res.status(404).json({ error: 'Order not found' });
 
     const items = await all(`
       SELECT oi.*, mi.category_id
       FROM order_items oi
       JOIN menu_items mi ON oi.menu_item_id = mi.id
-      WHERE oi.order_id = ?
+      WHERE oi.order_id = $1
     `, [order_id]);
 
     // Group items by printer
     const printerGroups = {};
     for (const item of items) {
       const route = await get(
-        'SELECT printer_id FROM category_printer_routes WHERE category_id = ?',
+        'SELECT printer_id FROM category_printer_routes WHERE category_id = $1',
         [item.category_id]
       );
       const printerId = route?.printer_id || 'default';

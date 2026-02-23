@@ -10,7 +10,7 @@ export async function writeSuggestion({ type, context, data, priority = 50, ttlM
 
   await run(`
     INSERT INTO ai_suggestion_cache (suggestion_type, trigger_context, suggestion_data, priority, expires_at)
-    VALUES (?, ?, ?, ?, ?)
+    VALUES ($1, $2, $3, $4, $5)
   `, [type, triggerContext, suggestionData, priority, expiresAt]);
 }
 
@@ -21,13 +21,13 @@ export async function readSuggestions(type, context = null) {
   let query = `
     SELECT id, suggestion_type, trigger_context, suggestion_data, priority, expires_at, created_at
     FROM ai_suggestion_cache
-    WHERE suggestion_type = ?
+    WHERE suggestion_type = $1
       AND expires_at > NOW()
   `;
   const params = [type];
 
   if (context) {
-    query += ` AND trigger_context = ?`;
+    query += ` AND trigger_context = $2`;
     params.push(typeof context === 'string' ? context : JSON.stringify(context));
   }
 
@@ -63,7 +63,7 @@ export async function readAllSuggestions() {
  * Clear all suggestions of a given type
  */
 export async function clearSuggestions(type) {
-  await run('DELETE FROM ai_suggestion_cache WHERE suggestion_type = ?', [type]);
+  await run('DELETE FROM ai_suggestion_cache WHERE suggestion_type = $1', [type]);
 }
 
 /**

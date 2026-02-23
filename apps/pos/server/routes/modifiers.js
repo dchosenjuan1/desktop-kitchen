@@ -33,7 +33,7 @@ router.get('/groups', async (req, res) => {
       const modifiers = await all(`
         SELECT id, group_id, name, price_adjustment, sort_order, active
         FROM modifiers
-        WHERE group_id = ?
+        WHERE group_id = $1
         ORDER BY sort_order ASC
       `, [group.id]);
       result.push({ ...group, modifiers });
@@ -55,7 +55,7 @@ router.get('/groups/item/:menuItemId', async (req, res) => {
       SELECT mg.id, mg.name, mg.selection_type, mg.required, mg.min_selections, mg.max_selections, mg.sort_order, mg.active
       FROM modifier_groups mg
       JOIN menu_item_modifier_groups mimg ON mg.id = mimg.modifier_group_id
-      WHERE mimg.menu_item_id = ? AND mg.active = true
+      WHERE mimg.menu_item_id = $1 AND mg.active = true
       ORDER BY mimg.sort_order ASC
     `, [menuItemId]);
 
@@ -64,7 +64,7 @@ router.get('/groups/item/:menuItemId', async (req, res) => {
       const modifiers = await all(`
         SELECT id, group_id, name, price_adjustment, sort_order, active
         FROM modifiers
-        WHERE group_id = ? AND active = true
+        WHERE group_id = $1 AND active = true
         ORDER BY sort_order ASC
       `, [group.id]);
       result.push({ ...group, modifiers });
@@ -93,7 +93,7 @@ router.post('/groups', requireAuth('manage_modifiers'), async (req, res) => {
 
     const result = await run(`
       INSERT INTO modifier_groups (name, selection_type, required, min_selections, max_selections, sort_order, active)
-      VALUES (?, ?, ?, ?, ?, ?, true)
+      VALUES ($1, $2, $3, $4, $5, $6, true)
     `, [name, selection_type, required ? true : false, min_selections, max_selections, sort_order]);
 
     res.status(201).json({ id: result.lastInsertRowid, name, selection_type });
@@ -109,22 +109,22 @@ router.put('/groups/:id', requireAuth('manage_modifiers'), async (req, res) => {
     const { id } = req.params;
     const { name, selection_type, required, min_selections, max_selections, sort_order, active } = req.body;
 
-    const existing = await get('SELECT id FROM modifier_groups WHERE id = ?', [id]);
+    const existing = await get('SELECT id FROM modifier_groups WHERE id = $1', [id]);
     if (!existing) return res.status(404).json({ error: 'Modifier group not found' });
 
     const updates = [];
     const params = [];
-    if (name !== undefined) { updates.push('name = ?'); params.push(name); }
-    if (selection_type !== undefined) { updates.push('selection_type = ?'); params.push(selection_type); }
-    if (required !== undefined) { updates.push('required = ?'); params.push(required ? true : false); }
-    if (min_selections !== undefined) { updates.push('min_selections = ?'); params.push(min_selections); }
-    if (max_selections !== undefined) { updates.push('max_selections = ?'); params.push(max_selections); }
-    if (sort_order !== undefined) { updates.push('sort_order = ?'); params.push(sort_order); }
-    if (active !== undefined) { updates.push('active = ?'); params.push(active ? true : false); }
+    if (name !== undefined) { updates.push(`name = $${params.length + 1}`); params.push(name); }
+    if (selection_type !== undefined) { updates.push(`selection_type = $${params.length + 1}`); params.push(selection_type); }
+    if (required !== undefined) { updates.push(`required = $${params.length + 1}`); params.push(required ? true : false); }
+    if (min_selections !== undefined) { updates.push(`min_selections = $${params.length + 1}`); params.push(min_selections); }
+    if (max_selections !== undefined) { updates.push(`max_selections = $${params.length + 1}`); params.push(max_selections); }
+    if (sort_order !== undefined) { updates.push(`sort_order = $${params.length + 1}`); params.push(sort_order); }
+    if (active !== undefined) { updates.push(`active = $${params.length + 1}`); params.push(active ? true : false); }
 
     if (updates.length > 0) {
       params.push(id);
-      await run(`UPDATE modifier_groups SET ${updates.join(', ')} WHERE id = ?`, params);
+      await run(`UPDATE modifier_groups SET ${updates.join(', ')} WHERE id = $${params.length}`, params);
     }
 
     res.json({ id, message: 'Updated' });
@@ -142,7 +142,7 @@ router.post('/', requireAuth('manage_modifiers'), async (req, res) => {
 
     const result = await run(`
       INSERT INTO modifiers (group_id, name, price_adjustment, sort_order, active)
-      VALUES (?, ?, ?, ?, true)
+      VALUES ($1, $2, $3, $4, true)
     `, [group_id, name, price_adjustment, sort_order]);
 
     res.status(201).json({ id: result.lastInsertRowid, group_id, name, price_adjustment });
@@ -158,19 +158,19 @@ router.put('/:id', requireAuth('manage_modifiers'), async (req, res) => {
     const { id } = req.params;
     const { name, price_adjustment, sort_order, active } = req.body;
 
-    const existing = await get('SELECT id FROM modifiers WHERE id = ?', [id]);
+    const existing = await get('SELECT id FROM modifiers WHERE id = $1', [id]);
     if (!existing) return res.status(404).json({ error: 'Modifier not found' });
 
     const updates = [];
     const params = [];
-    if (name !== undefined) { updates.push('name = ?'); params.push(name); }
-    if (price_adjustment !== undefined) { updates.push('price_adjustment = ?'); params.push(price_adjustment); }
-    if (sort_order !== undefined) { updates.push('sort_order = ?'); params.push(sort_order); }
-    if (active !== undefined) { updates.push('active = ?'); params.push(active ? true : false); }
+    if (name !== undefined) { updates.push(`name = $${params.length + 1}`); params.push(name); }
+    if (price_adjustment !== undefined) { updates.push(`price_adjustment = $${params.length + 1}`); params.push(price_adjustment); }
+    if (sort_order !== undefined) { updates.push(`sort_order = $${params.length + 1}`); params.push(sort_order); }
+    if (active !== undefined) { updates.push(`active = $${params.length + 1}`); params.push(active ? true : false); }
 
     if (updates.length > 0) {
       params.push(id);
-      await run(`UPDATE modifiers SET ${updates.join(', ')} WHERE id = ?`, params);
+      await run(`UPDATE modifiers SET ${updates.join(', ')} WHERE id = $${params.length}`, params);
     }
 
     res.json({ id, message: 'Updated' });
@@ -188,7 +188,7 @@ router.post('/assign', requireAuth('manage_modifiers'), async (req, res) => {
 
     await run(`
       INSERT INTO menu_item_modifier_groups (menu_item_id, modifier_group_id, sort_order)
-      VALUES (?, ?, ?)
+      VALUES ($1, $2, $3)
       ON CONFLICT (menu_item_id, modifier_group_id) DO UPDATE SET sort_order = EXCLUDED.sort_order
     `, [menu_item_id, modifier_group_id, sort_order]);
 
@@ -207,7 +207,7 @@ router.post('/unassign', requireAuth('manage_modifiers'), async (req, res) => {
 
     await run(`
       DELETE FROM menu_item_modifier_groups
-      WHERE menu_item_id = ? AND modifier_group_id = ?
+      WHERE menu_item_id = $1 AND modifier_group_id = $2
     `, [menu_item_id, modifier_group_id]);
 
     res.json({ message: 'Unassigned' });
