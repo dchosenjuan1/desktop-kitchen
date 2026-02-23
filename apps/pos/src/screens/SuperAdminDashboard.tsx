@@ -277,21 +277,29 @@ function TenantsTab() {
     setDdLoading(false);
   };
 
+  const [actionError, setActionError] = useState('');
+
   const handlePlanChange = async (id: string, plan: string) => {
+    setActionError('');
     try {
       await patchTenant(id, { plan });
       fetchTenants();
       if (selectedId === id && deepDive) {
         setDeepDive({ ...deepDive, tenant: { ...deepDive.tenant, plan } });
       }
-    } catch {}
+    } catch (err: any) {
+      setActionError(err.message || 'Failed to update plan');
+    }
   };
 
   const handleToggleActive = async (id: string, active: boolean) => {
+    setActionError('');
     try {
       await patchTenant(id, { active: !active });
       fetchTenants();
-    } catch {}
+    } catch (err: any) {
+      setActionError(err.message || 'Failed to toggle status');
+    }
   };
 
   const handleSeed = async (id: string) => {
@@ -318,6 +326,14 @@ function TenantsTab() {
 
   return (
     <div className="space-y-4">
+      {actionError && (
+        <div className="bg-red-900/50 border border-red-700 text-red-200 rounded-lg px-4 py-2.5 text-sm flex items-center justify-between">
+          <span>{actionError}</span>
+          <button onClick={() => setActionError('')} className="text-red-400 hover:text-red-200 ml-3">
+            <X size={16} />
+          </button>
+        </div>
+      )}
       {/* Filters + Create button */}
       <div className="flex gap-3">
         <div className="relative flex-1">
