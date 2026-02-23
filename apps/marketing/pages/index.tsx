@@ -342,6 +342,88 @@ const Home: NextPage = () => {
           </div>
         </section>
 
+        {/* ─── COMPARISON ─── */}
+        <section className="py-24 md:py-40 px-6 bg-neutral-950">
+          <div className="max-w-5xl mx-auto">
+            <FadeIn>
+              <div className="text-center mb-16">
+                <p className="text-xs uppercase tracking-[0.3em] text-teal-500/60 font-mono mb-6">
+                  {t.comparisonLabel}
+                </p>
+                <h2 className="text-4xl sm:text-5xl md:text-6xl font-black tracking-tighter text-white leading-[0.85]">
+                  {t.comparisonHeadline}
+                </h2>
+                <p className="mt-6 text-lg text-white/40 max-w-2xl mx-auto">
+                  {t.comparisonSub}
+                </p>
+              </div>
+            </FadeIn>
+
+            <FadeIn delay={0.1}>
+              <div className="rounded-2xl overflow-hidden border border-white/10">
+                {/* Table Header */}
+                <div className="grid grid-cols-2 bg-white/[0.06]">
+                  <div className="px-6 sm:px-8 py-4 text-white/40 font-semibold text-sm uppercase tracking-wider border-r border-white/10">
+                    {t.comparisonTraditional}
+                  </div>
+                  <div className="px-6 sm:px-8 py-4 text-teal-500 font-semibold text-sm uppercase tracking-wider flex items-center gap-2">
+                    <span>{t.comparisonDesktopKitchen}</span>
+                    <span className="hidden sm:inline bg-teal-600/10 text-teal-500 text-xs px-2 py-0.5 rounded-full border border-teal-500/20">
+                      {t.comparisonBadge}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Rows */}
+                {t.comparisonPains.map((pain: string, i: number) => (
+                  <div
+                    key={i}
+                    className={`grid grid-cols-2 border-t border-white/10 ${
+                      i % 2 === 0 ? "bg-white/[0.03]" : "bg-white/[0.015]"
+                    }`}
+                  >
+                    <div className="px-6 sm:px-8 py-5 flex items-start gap-3 border-r border-white/10">
+                      <span className="text-red-400 text-lg flex-shrink-0 leading-6">&#10007;</span>
+                      <span className="text-white/40 text-sm sm:text-base">{pain}</span>
+                    </div>
+                    <div className="px-6 sm:px-8 py-5 flex items-start gap-3">
+                      <span className="text-teal-500 text-lg flex-shrink-0 leading-6">&#10003;</span>
+                      <span className="text-white text-sm sm:text-base">{(t.comparisonDesktop as string[])[i]}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </FadeIn>
+
+            {/* Pull Quote */}
+            <FadeIn delay={0.2}>
+              <div className="mt-12 bg-white/[0.03] border border-white/10 rounded-2xl px-8 py-8 text-center">
+                <p className="text-lg sm:text-xl text-white font-medium max-w-3xl mx-auto leading-relaxed">
+                  &ldquo;{t.comparisonQuote}&rdquo;
+                </p>
+                <p className="text-white/30 mt-4 text-sm">
+                  {t.comparisonQuoteAuthor}
+                </p>
+              </div>
+            </FadeIn>
+
+            {/* CTA */}
+            <FadeIn delay={0.3}>
+              <div className="mt-12 text-center">
+                <p className="text-white/40 mb-6">
+                  {t.comparisonCtaText}
+                </p>
+                <a
+                  href="https://pos.desktop.kitchen/#/onboarding"
+                  className="inline-block bg-teal-600 text-white font-semibold px-8 py-4 rounded text-sm uppercase tracking-wider transition-all duration-200 hover:bg-teal-700 active:scale-[0.98]"
+                >
+                  {t.comparisonCtaButton}
+                </a>
+              </div>
+            </FadeIn>
+          </div>
+        </section>
+
         {/* ─── PRICING ─── */}
         <section id="pricing" className="py-24 md:py-40 px-6 bg-neutral-950">
           <div className="max-w-5xl mx-auto">

@@ -62,6 +62,35 @@
   "pricingProFeatures": ["Everything in Starter", "Unlimited employees", "Delivery intelligence", "Loyalty & CRM", "AI suggestions", "Priority support"],
   "pricingProCta": "Go Pro",
 
+  "comparisonLabel": "Why Operators Switch",
+  "comparisonHeadline": "MOST POS SYSTEMS WEREN'T BUILT FOR THIS.",
+  "comparisonSub": "Traditional POS software was designed for dine-in restaurants with waitstaff and table numbers. If 50%+ of your revenue comes from delivery platforms, you've been using the wrong tool.",
+  "comparisonTraditional": "Traditional POS",
+  "comparisonDesktopKitchen": "Desktop Kitchen",
+  "comparisonBadge": "Built for delivery",
+  "comparisonPains": [
+    "Tracks gross sales",
+    "One brand per system",
+    "Built for waitstaff and dine-in",
+    "Manual reconciliation with delivery platforms",
+    "Generic sales reports",
+    "No customer data from delivery platforms",
+    "Commission costs buried in deposits"
+  ],
+  "comparisonDesktop": [
+    "Tracks real profit after Rappi, Uber Eats & DiDi commissions",
+    "Unlimited virtual brands from a single kitchen",
+    "Built for delivery-first operators",
+    "Automatic order import & revenue reconciliation",
+    "Ghost kitchen P&L by brand, by platform, by hour",
+    "Customer recapture tools to own your audience",
+    "Commission impact visible on every order"
+  ],
+  "comparisonQuote": "I was paying for a POS that had no idea I existed on four delivery platforms. My accountant hated me. Now everything reconciles automatically and I finally know which brand is actually making money.",
+  "comparisonQuoteAuthor": "Ghost kitchen operator, Mexico City",
+  "comparisonCtaText": "Ready to see your real numbers?",
+  "comparisonCtaButton": "Get Early Access",
+
   "ctaHeadline": "READY TO RUN YOUR KITCHEN YOUR WAY?",
   "ctaSub": "Join restaurants already using Desktop Kitchen to streamline operations and grow revenue.",
   "ctaButton": "Start Your Free Trial",

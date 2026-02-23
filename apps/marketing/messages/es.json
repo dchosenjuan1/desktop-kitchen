@@ -62,6 +62,35 @@
   "pricingProFeatures": ["Todo en Starter", "Empleados ilimitados", "Inteligencia de delivery", "Lealtad y CRM", "Sugerencias IA", "Soporte prioritario"],
   "pricingProCta": "Ir a Pro",
 
+  "comparisonLabel": "Por Qué Operadores Cambian",
+  "comparisonHeadline": "LA MAYORÍA DE LOS POS NO FUERON HECHOS PARA ESTO.",
+  "comparisonSub": "El software POS tradicional fue diseñado para restaurantes con meseros y números de mesa. Si más del 50% de tus ingresos viene de plataformas de delivery, has estado usando la herramienta equivocada.",
+  "comparisonTraditional": "POS Tradicional",
+  "comparisonDesktopKitchen": "Desktop Kitchen",
+  "comparisonBadge": "Hecho para delivery",
+  "comparisonPains": [
+    "Rastrea ventas brutas",
+    "Una marca por sistema",
+    "Hecho para meseros y servicio en mesa",
+    "Reconciliación manual con plataformas de delivery",
+    "Reportes de ventas genéricos",
+    "Sin datos de clientes de plataformas de delivery",
+    "Costos de comisión enterrados en depósitos"
+  ],
+  "comparisonDesktop": [
+    "Rastrea ganancia real después de comisiones de Rappi, Uber Eats y DiDi",
+    "Marcas virtuales ilimitadas desde una sola cocina",
+    "Hecho para operadores delivery-first",
+    "Importación automática de pedidos y reconciliación de ingresos",
+    "P&L de ghost kitchen por marca, por plataforma, por hora",
+    "Herramientas de recaptura de clientes para ser dueño de tu audiencia",
+    "Impacto de comisiones visible en cada pedido"
+  ],
+  "comparisonQuote": "Estaba pagando por un POS que no tenía idea de que yo existía en cuatro plataformas de delivery. Mi contador me odiaba. Ahora todo se reconcilia automáticamente y por fin sé qué marca realmente está ganando dinero.",
+  "comparisonQuoteAuthor": "Operador de ghost kitchen, Ciudad de México",
+  "comparisonCtaText": "¿Listo para ver tus números reales?",
+  "comparisonCtaButton": "Acceso Anticipado",
+
   "ctaHeadline": "¿LISTO PARA MANEJAR TU COCINA A TU MANERA?",
   "ctaSub": "Únete a los restaurantes que ya usan Desktop Kitchen para optimizar operaciones y crecer ingresos.",
   "ctaButton": "Empieza Tu Prueba Gratis",
