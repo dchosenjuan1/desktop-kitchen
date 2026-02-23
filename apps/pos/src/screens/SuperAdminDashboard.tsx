@@ -7,13 +7,18 @@ import {
   Shield, Users, DollarSign, ShoppingCart, Activity,
   Server, Cpu, HardDrive, Search, ChevronRight,
   RefreshCw, LogOut, X, TrendingUp, TrendingDown,
+  Plus, Pencil, Sprout, KeyRound, Download, Trash2, Loader2,
 } from 'lucide-react';
 import {
   getOverview, getSignups, getRevenue, getChurn, getHealth, getActivity,
-  getTenants, getTenantDeepDive, patchTenant, verifySecret,
+  getTenants, getTenantDeepDive, patchTenant, seedTenant, verifySecret,
   type OverviewData, type MonthlyData, type HealthData, type ActivityData,
   type TenantRecord, type DeepDiveData,
 } from '../api/superAdmin';
+import {
+  CreateTenantModal, EditTenantModal, ResetPasswordModal, DeleteTenantModal,
+  downloadTenantExport,
+} from '../components/admin/TenantManagement';
 
 const PLAN_COLORS: Record<string, string> = {
   trial: '#6b7280',
@@ -242,6 +247,14 @@ function TenantsTab() {
   const [deepDive, setDeepDive] = useState<DeepDiveData | null>(null);
   const [ddLoading, setDdLoading] = useState(false);
 
+  // Modal state
+  const [showCreate, setShowCreate] = useState(false);
+  const [editingTenant, setEditingTenant] = useState<TenantRecord | null>(null);
+  const [resetPwTenant, setResetPwTenant] = useState<TenantRecord | null>(null);
+  const [deletingTenant, setDeletingTenant] = useState<TenantRecord | null>(null);
+  const [seedingId, setSeedingId] = useState<string | null>(null);
+  const [exportingId, setExportingId] = useState<string | null>(null);
+
   const fetchTenants = useCallback(async () => {
     setLoading(true);
     try {
@@ -281,9 +294,31 @@ function TenantsTab() {
     } catch {}
   };
 
+  const handleSeed = async (id: string) => {
+    if (!confirm(`Seed demo data for tenant "${id}"?`)) return;
+    setSeedingId(id);
+    try {
+      await seedTenant(id);
+      fetchTenants();
+      if (selectedId === id) openDeepDive(id);
+    } catch {}
+    setSeedingId(null);
+  };
+
+  const handleExport = async (id: string, name: string) => {
+    setExportingId(id);
+    try {
+      await downloadTenantExport(id, name);
+    } catch {}
+    setExportingId(null);
+  };
+
+  // Find tenant record for deep-dive actions
+  const ddTenant = deepDive?.tenant ?? tenants.find(t => t.id === selectedId) ?? null;
+
   return (
     <div className="space-y-4">
-      {/* Filters */}
+      {/* Filters + Create button */}
       <div className="flex gap-3">
         <div className="relative flex-1">
           <Search size={16} className="absolute left-3 top-3 text-neutral-500" />
@@ -305,6 +340,12 @@ function TenantsTab() {
           <option value="starter">Starter</option>
           <option value="pro">Pro</option>
         </select>
+        <button
+          onClick={() => setShowCreate(true)}
+          className="flex items-center gap-1.5 px-4 py-2.5 bg-teal-600 text-white rounded-lg hover:bg-teal-700 text-sm font-semibold transition-colors"
+        >
+          <Plus size={16} /> Create Tenant
+        </button>
       </div>
 
       <div className="flex gap-6">
@@ -356,12 +397,29 @@ function TenantsTab() {
                       <td className="px-4 py-3 text-right text-neutral-300">{t.order_count}</td>
                       <td className="px-4 py-3 text-right text-neutral-300">{t.employee_count}</td>
                       <td className="px-4 py-3 text-center">
-                        <button
-                          onClick={e => { e.stopPropagation(); handleToggleActive(t.id, t.active); }}
-                          className={`text-xs px-2.5 py-1 rounded ${t.active ? 'bg-red-900/30 text-red-400 hover:bg-red-900/50' : 'bg-green-900/30 text-green-400 hover:bg-green-900/50'} transition-colors`}
-                        >
-                          {t.active ? 'Deactivate' : 'Activate'}
-                        </button>
+                        <div className="flex items-center justify-center gap-1.5" onClick={e => e.stopPropagation()}>
+                          <button
+                            onClick={() => handleSeed(t.id)}
+                            disabled={seedingId === t.id}
+                            title="Seed demo data"
+                            className="p-1.5 rounded text-neutral-400 hover:text-teal-400 hover:bg-neutral-800 transition-colors disabled:opacity-50"
+                          >
+                            {seedingId === t.id ? <Loader2 size={14} className="animate-spin" /> : <Sprout size={14} />}
+                          </button>
+                          <button
+                            onClick={() => setEditingTenant(t)}
+                            title="Edit"
+                            className="p-1.5 rounded text-neutral-400 hover:text-teal-400 hover:bg-neutral-800 transition-colors"
+                          >
+                            <Pencil size={14} />
+                          </button>
+                          <button
+                            onClick={() => handleToggleActive(t.id, t.active)}
+                            className={`text-xs px-2 py-1 rounded ${t.active ? 'bg-red-900/30 text-red-400 hover:bg-red-900/50' : 'bg-green-900/30 text-green-400 hover:bg-green-900/50'} transition-colors`}
+                          >
+                            {t.active ? 'Deactivate' : 'Activate'}
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -405,12 +463,58 @@ function TenantsTab() {
                 {deepDive.stats.last_order_at && (
                   <p className="text-neutral-500 text-xs">Last order: {new Date(deepDive.stats.last_order_at).toLocaleString()}</p>
                 )}
+
+                {/* Actions */}
+                <div className="border-t border-neutral-800 pt-4 space-y-2">
+                  <p className="text-neutral-500 text-xs font-medium uppercase tracking-wide mb-2">Actions</p>
+                  {ddTenant && (
+                    <>
+                      <ActionButton icon={Pencil} label="Edit Details" onClick={() => setEditingTenant(ddTenant)} />
+                      <ActionButton icon={Sprout} label="Seed Demo Data" loading={seedingId === selectedId} onClick={() => handleSeed(selectedId!)} />
+                      <ActionButton icon={KeyRound} label="Reset Password" onClick={() => setResetPwTenant(ddTenant)} />
+                      <ActionButton icon={Download} label="Export Data" loading={exportingId === selectedId} onClick={() => handleExport(selectedId!, deepDive.tenant.name)} />
+                      <ActionButton icon={Trash2} label="Delete Tenant" variant="danger" onClick={() => setDeletingTenant(ddTenant)} />
+                    </>
+                  )}
+                </div>
               </>
             )}
           </div>
         )}
       </div>
+
+      {/* Modals */}
+      {showCreate && (
+        <CreateTenantModal onClose={() => setShowCreate(false)} onSuccess={fetchTenants} />
+      )}
+      {editingTenant && (
+        <EditTenantModal tenant={editingTenant} onClose={() => setEditingTenant(null)} onSuccess={() => { fetchTenants(); if (selectedId) openDeepDive(selectedId); }} />
+      )}
+      {resetPwTenant && (
+        <ResetPasswordModal tenant={resetPwTenant} onClose={() => setResetPwTenant(null)} />
+      )}
+      {deletingTenant && (
+        <DeleteTenantModal tenant={deletingTenant} onClose={() => setDeletingTenant(null)} onSuccess={() => { fetchTenants(); setSelectedId(null); setDeepDive(null); }} />
+      )}
     </div>
+  );
+}
+
+function ActionButton({ icon: Icon, label, variant, loading, onClick }: {
+  icon: any; label: string; variant?: 'danger'; loading?: boolean; onClick: () => void;
+}) {
+  const colors = variant === 'danger'
+    ? 'text-red-400 hover:bg-red-900/30'
+    : 'text-neutral-300 hover:bg-neutral-800';
+  return (
+    <button
+      onClick={onClick}
+      disabled={loading}
+      className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-colors disabled:opacity-50 ${colors}`}
+    >
+      {loading ? <Loader2 size={14} className="animate-spin" /> : <Icon size={14} />}
+      {label}
+    </button>
   );
 }
 

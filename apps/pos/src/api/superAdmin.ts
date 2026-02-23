@@ -148,6 +148,63 @@ export function patchTenant(id: string, data: Record<string, any>) {
   });
 }
 
+// ==================== Tenant Management ====================
+
+export interface CreateTenantPayload {
+  id: string;
+  name: string;
+  owner_email: string;
+  owner_password: string;
+  subdomain?: string;
+  plan?: string;
+  branding_json?: { primaryColor?: string };
+}
+
+export interface CreateTenantResponse extends TenantRecord {
+  pin: string;
+}
+
+export function createTenant(data: CreateTenantPayload) {
+  return adminRequest<CreateTenantResponse>('/tenants', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+export function seedTenant(id: string) {
+  return adminRequest<{ message: string }>(`/tenants/${id}/seed`, {
+    method: 'POST',
+  });
+}
+
+export function resetTenantPassword(id: string, new_password: string) {
+  return adminRequest<{ message: string }>(`/tenants/${id}/reset-password`, {
+    method: 'POST',
+    body: JSON.stringify({ new_password }),
+  });
+}
+
+export async function exportTenantData(id: string): Promise<Record<string, any>> {
+  const res = await fetch(`${API_BASE}/tenants/${id}/export`, {
+    headers: {
+      'x-admin-secret': getSecret(),
+    },
+  });
+  if (!res.ok) {
+    let msg = `API Error: ${res.status}`;
+    try { const data = await res.json(); msg = data.error || msg; } catch {}
+    throw new Error(msg);
+  }
+  return res.json();
+}
+
+export function deleteTenant(id: string, confirm: string) {
+  return adminRequest<{ message: string }>(`/tenants/${id}`, {
+    method: 'DELETE',
+    body: JSON.stringify({ confirm }),
+  });
+}
+
 /**
  * Verify admin secret by making a lightweight request.
  * Returns true if valid, false otherwise.

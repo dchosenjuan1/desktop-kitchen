@@ -1,7 +1,11 @@
 import { Router } from 'express';
+import bcrypt from 'bcrypt';
 import { createTenant, getTenant, listTenants, updateTenant } from '../tenants.js';
 import { run, adminSql } from '../db/index.js';
+import { sendPinEmail } from '../helpers/email.js';
 import os from 'os';
+
+const BCRYPT_ROUNDS = 12;
 
 const router = Router();
 
@@ -245,10 +249,14 @@ router.get('/tenants/:id/deep-dive', async (req, res) => {
 // POST /admin/tenants — create new tenant
 router.post('/tenants', async (req, res) => {
   try {
-    const { id, name, owner_email, owner_password_hash, subdomain, plan, branding_json } = req.body;
+    const { id, name, owner_email, owner_password, subdomain, plan, branding_json } = req.body;
 
-    if (!id || !name || !owner_email || !owner_password_hash) {
-      return res.status(400).json({ error: 'Required: id, name, owner_email, owner_password_hash' });
+    if (!id || !name || !owner_email || !owner_password) {
+      return res.status(400).json({ error: 'Required: id, name, owner_email, owner_password' });
+    }
+
+    if (owner_password.length < 8) {
+      return res.status(400).json({ error: 'Password must be at least 8 characters' });
     }
 
     // Validate slug format
@@ -261,6 +269,9 @@ router.post('/tenants', async (req, res) => {
       return res.status(409).json({ error: `Tenant '${id}' already exists` });
     }
 
+    // Hash password
+    const owner_password_hash = await bcrypt.hash(owner_password, BCRYPT_ROUNDS);
+
     const tenant = await createTenant({
       id,
       name,
@@ -271,7 +282,21 @@ router.post('/tenants', async (req, res) => {
       branding_json: branding_json ? JSON.stringify(branding_json) : null,
     });
 
-    res.status(201).json(tenant);
+    // Generate random 4-digit PIN for the admin employee
+    const pin = String(Math.floor(1000 + Math.random() * 9000));
+
+    await adminSql`
+      INSERT INTO employees (tenant_id, name, pin, role, active)
+      VALUES (${id}, ${owner_email}, ${pin}, 'admin', true)
+    `;
+
+    // Fire-and-forget email with PIN
+    sendPinEmail(owner_email, pin, name).catch(() => {});
+
+    // Strip sensitive field from response
+    const { owner_password_hash: _, ...safeTenant } = tenant;
+
+    res.status(201).json({ ...safeTenant, pin });
   } catch (error) {
     console.error('Error creating tenant:', error);
     res.status(500).json({ error: 'Failed to create tenant' });
@@ -342,8 +367,8 @@ router.patch('/tenants/:id', async (req, res) => {
     const tenant = await getTenant(req.params.id);
     if (!tenant) return res.status(404).json({ error: 'Tenant not found' });
 
-    const allowed = ['name', 'plan', 'active', 'subscription_status', 'stripe_customer_id',
-      'stripe_subscription_id', 'branding_json'];
+    const allowed = ['name', 'subdomain', 'owner_email', 'plan', 'active', 'subscription_status',
+      'stripe_customer_id', 'stripe_subscription_id', 'branding_json'];
     const updates = {};
     for (const key of allowed) {
       if (req.body[key] !== undefined) {
@@ -362,6 +387,153 @@ router.patch('/tenants/:id', async (req, res) => {
   } catch (error) {
     console.error('Error updating tenant:', error);
     res.status(500).json({ error: 'Failed to update tenant' });
+  }
+});
+
+// POST /admin/tenants/:id/reset-password — reset tenant owner password
+router.post('/tenants/:id/reset-password', async (req, res) => {
+  try {
+    const tenant = await getTenant(req.params.id);
+    if (!tenant) return res.status(404).json({ error: 'Tenant not found' });
+
+    const { new_password } = req.body;
+    if (!new_password || new_password.length < 8) {
+      return res.status(400).json({ error: 'Password must be at least 8 characters' });
+    }
+
+    const owner_password_hash = await bcrypt.hash(new_password, BCRYPT_ROUNDS);
+    await updateTenant(req.params.id, { owner_password_hash });
+
+    res.json({ message: 'Password reset successfully' });
+  } catch (error) {
+    console.error('Error resetting password:', error);
+    res.status(500).json({ error: 'Failed to reset password' });
+  }
+});
+
+// GET /admin/tenants/:id/export — export all tenant data as JSON
+router.get('/tenants/:id/export', async (req, res) => {
+  try {
+    const tenant = await getTenant(req.params.id);
+    if (!tenant) return res.status(404).json({ error: 'Tenant not found' });
+
+    const tid = tenant.id;
+    const tables = [
+      'employees', 'menu_categories', 'menu_items', 'menu_item_modifier_groups',
+      'menu_item_ingredients', 'modifier_groups', 'modifiers', 'combo_definitions',
+      'combo_slots', 'orders', 'order_items', 'order_item_modifiers', 'order_payments',
+      'order_payment_items', 'inventory_items', 'inventory_counts', 'vendors',
+      'vendor_items', 'purchase_orders', 'purchase_order_items', 'printers',
+      'category_printer_routes', 'delivery_platforms', 'delivery_orders',
+      'delivery_markup_rules', 'delivery_recapture', 'virtual_brands',
+      'virtual_brand_items', 'loyalty_customers', 'stamp_cards', 'stamp_events',
+      'referral_events', 'loyalty_messages', 'loyalty_config',
+      'ai_config', 'ai_suggestion_cache', 'ai_suggestion_events',
+      'ai_hourly_snapshots', 'ai_item_pairs', 'ai_inventory_velocity',
+      'ai_restock_log', 'ai_category_roles', 'shrinkage_alerts', 'refunds',
+      'crypto_payments', 'role_permissions', 'financial_targets', 'financial_actuals',
+      'order_templates',
+    ];
+
+    const queries = tables.map(async (table) => {
+      try {
+        const rows = await adminSql.unsafe(
+          `SELECT * FROM ${table} WHERE tenant_id = $1`,
+          [tid]
+        );
+        return [table, Array.from(rows)];
+      } catch {
+        return [table, []];
+      }
+    });
+
+    const results = await Promise.all(queries);
+    const data = Object.fromEntries(results);
+
+    // Add tenant metadata (strip password hash)
+    const { owner_password_hash, ...safeTenant } = tenant;
+    data._tenant = safeTenant;
+
+    res.setHeader('Content-Disposition', `attachment; filename="${tid}-export-${new Date().toISOString().slice(0, 10)}.json"`);
+    res.json(data);
+  } catch (error) {
+    console.error('Error exporting tenant:', error);
+    res.status(500).json({ error: 'Failed to export tenant data' });
+  }
+});
+
+// DELETE /admin/tenants/:id — permanently delete a tenant and all data
+router.delete('/tenants/:id', async (req, res) => {
+  try {
+    const tenant = await getTenant(req.params.id);
+    if (!tenant) return res.status(404).json({ error: 'Tenant not found' });
+
+    const { confirm } = req.body;
+    if (confirm !== req.params.id) {
+      return res.status(400).json({ error: 'Must confirm deletion by passing { confirm: tenantId }' });
+    }
+
+    const tid = tenant.id;
+
+    // Delete in FK-safe order using a transaction
+    await adminSql.begin(async (sql) => {
+      // Layer 1 — deepest leaves
+      const layer1 = [
+        'order_payment_items', 'order_item_modifiers', 'stamp_events', 'referral_events',
+        'loyalty_messages', 'delivery_recapture', 'delivery_markup_rules',
+        'virtual_brand_items', 'category_printer_routes', 'menu_item_modifier_groups',
+        'menu_item_ingredients', 'purchase_order_items', 'vendor_items',
+        'ai_suggestion_events', 'ai_item_pairs', 'ai_inventory_velocity', 'ai_restock_log',
+        'ai_category_roles', 'inventory_counts', 'shrinkage_alerts', 'refunds', 'crypto_payments',
+      ];
+      for (const t of layer1) {
+        await sql.unsafe(`DELETE FROM ${t} WHERE tenant_id = $1`, [tid]);
+      }
+
+      // Layer 2
+      const layer2 = [
+        'stamp_cards', 'order_items', 'order_payments', 'delivery_orders',
+        'combo_slots', 'modifiers', 'purchase_orders',
+      ];
+      for (const t of layer2) {
+        await sql.unsafe(`DELETE FROM ${t} WHERE tenant_id = $1`, [tid]);
+      }
+
+      // Layer 3
+      const layer3 = [
+        'orders', 'menu_items', 'virtual_brands', 'combo_definitions',
+        'modifier_groups', 'delivery_platforms', 'printers',
+      ];
+      for (const t of layer3) {
+        await sql.unsafe(`DELETE FROM ${t} WHERE tenant_id = $1`, [tid]);
+      }
+
+      // Layer 4
+      const layer4 = [
+        'menu_categories', 'inventory_items', 'vendors', 'employees', 'loyalty_customers',
+      ];
+      for (const t of layer4) {
+        await sql.unsafe(`DELETE FROM ${t} WHERE tenant_id = $1`, [tid]);
+      }
+
+      // Config tables (no FK deps)
+      const config = [
+        'ai_config', 'ai_suggestion_cache', 'ai_hourly_snapshots',
+        'financial_targets', 'financial_actuals', 'loyalty_config',
+        'role_permissions', 'order_templates',
+      ];
+      for (const t of config) {
+        await sql.unsafe(`DELETE FROM ${t} WHERE tenant_id = $1`, [tid]);
+      }
+
+      // Finally delete the tenant record
+      await sql`DELETE FROM tenants WHERE id = ${tid}`;
+    });
+
+    res.json({ message: `Tenant '${tid}' and all associated data deleted permanently` });
+  } catch (error) {
+    console.error('Error deleting tenant:', error);
+    res.status(500).json({ error: 'Failed to delete tenant' });
   }
 });
 
