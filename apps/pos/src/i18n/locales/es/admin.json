@@ -37,7 +37,9 @@
     "branding": "Marca",
     "brandingDesc": "Personalizar logo, colores y nombre del restaurante",
     "menuBoard": "Menu Board",
-    "menuBoardDesc": "Gestionar marcas, colores y productos del menú digital"
+    "menuBoardDesc": "Gestionar marcas, colores y productos del menú digital",
+    "invoicing": "Facturación",
+    "invoicingDesc": "Emitir y administrar facturas CFDI 4.0"
   },
   "lowStock": {
     "title": "Alertas de Bajo Stock",
@@ -95,7 +97,8 @@
       "view_dashboard": "Ver Dashboard",
       "manage_permissions": "Gestionar Permisos",
       "manage_purchase_orders": "Gestionar Órdenes de Compra",
-      "manage_branding": "Gestionar Marca"
+      "manage_branding": "Gestionar Marca",
+      "manage_invoicing": "Gestionar Facturación"
     }
   },
   "branding": {

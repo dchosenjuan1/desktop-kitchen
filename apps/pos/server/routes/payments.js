@@ -10,6 +10,7 @@ import {
 } from '../nowpayments.js';
 import { requireAuth } from '../middleware/auth.js';
 import { deductInventoryForOrder, restoreInventoryForItems } from '../helpers/inventory.js';
+import { generateInvoiceToken } from '../helpers/facturapi.js';
 
 const router = Router();
 
@@ -89,10 +90,21 @@ router.post('/confirm', requireAuth('pos_access'), async (req, res) => {
       // Deduct inventory after successful payment
       await deductInventoryForOrder(order_id);
 
+      // Auto-generate invoice token for self-service CFDI
+      let invoice_token = null;
+      try {
+        const tenantId = req.tenant?.id || 'default';
+        invoice_token = await generateInvoiceToken(tenantId, order_id, 72);
+        await run('UPDATE orders SET invoice_token = $1 WHERE id = $2', [invoice_token, order_id]);
+      } catch (tokenErr) {
+        console.error('Non-fatal: failed to generate invoice token:', tokenErr.message);
+      }
+
       return res.json({
         success: true,
         message: 'Payment confirmed',
         payment_status: 'paid',
+        invoice_token,
       });
     } else if (paymentIntent.status === 'processing') {
       return res.json({
@@ -150,6 +162,16 @@ router.post('/cash', requireAuth('pos_access'), async (req, res) => {
     // Deduct inventory
     await deductInventoryForOrder(order_id);
 
+    // Auto-generate invoice token for self-service CFDI
+    let invoice_token = null;
+    try {
+      const tenantId = req.tenant?.id || 'default';
+      invoice_token = await generateInvoiceToken(tenantId, order_id, 72);
+      await run('UPDATE orders SET invoice_token = $1 WHERE id = $2', [invoice_token, order_id]);
+    } catch (tokenErr) {
+      console.error('Non-fatal: failed to generate invoice token:', tokenErr.message);
+    }
+
     res.json({
       success: true,
       message: 'Cash payment processed',
@@ -159,6 +181,7 @@ router.post('/cash', requireAuth('pos_access'), async (req, res) => {
       amount_received,
       change_due: Math.round(changeDue * 100) / 100,
       payment_method: 'cash',
+      invoice_token,
     });
   } catch (error) {
     console.error('Error processing cash payment:', error);
