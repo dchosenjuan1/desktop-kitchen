@@ -1,11 +1,11 @@
 // Format price in MXN (Mexican Pesos)
 export function formatMXN(amount: number): string {
-  return `$${amount.toFixed(2)} MXN`;
+  return `$${Number(amount).toFixed(2)} MXN`;
 }
 
 // Short format (for compact UI)
 export function formatPrice(amount: number): string {
-  return `$${amount.toFixed(2)}`;
+  return `$${Number(amount).toFixed(2)}`;
 }
 
 // Tax rate: 16% IVA (Mexico)
