@@ -6,9 +6,9 @@ import { checkLimit } from '../planLimits.js';
 const router = Router();
 
 // GET /api/modifiers/items-with-modifiers - batch check which items have modifier groups
-router.get('/items-with-modifiers', (req, res) => {
+router.get('/items-with-modifiers', async (req, res) => {
   try {
-    const rows = all(`
+    const rows = await all(`
       SELECT DISTINCT menu_item_id
       FROM menu_item_modifier_groups
     `);
@@ -20,23 +20,24 @@ router.get('/items-with-modifiers', (req, res) => {
 });
 
 // GET /api/modifiers/groups - list all modifier groups with their modifiers
-router.get('/groups', (req, res) => {
+router.get('/groups', async (req, res) => {
   try {
-    const groups = all(`
+    const groups = await all(`
       SELECT id, name, selection_type, required, min_selections, max_selections, sort_order, active
       FROM modifier_groups
       ORDER BY sort_order ASC
     `);
 
-    const result = groups.map(group => {
-      const modifiers = all(`
+    const result = [];
+    for (const group of groups) {
+      const modifiers = await all(`
         SELECT id, group_id, name, price_adjustment, sort_order, active
         FROM modifiers
         WHERE group_id = ?
         ORDER BY sort_order ASC
       `, [group.id]);
-      return { ...group, modifiers };
-    });
+      result.push({ ...group, modifiers });
+    }
 
     res.json(result);
   } catch (error) {
@@ -46,27 +47,28 @@ router.get('/groups', (req, res) => {
 });
 
 // GET /api/modifiers/groups/item/:menuItemId - groups assigned to a menu item
-router.get('/groups/item/:menuItemId', (req, res) => {
+router.get('/groups/item/:menuItemId', async (req, res) => {
   try {
     const { menuItemId } = req.params;
 
-    const groups = all(`
+    const groups = await all(`
       SELECT mg.id, mg.name, mg.selection_type, mg.required, mg.min_selections, mg.max_selections, mg.sort_order, mg.active
       FROM modifier_groups mg
       JOIN menu_item_modifier_groups mimg ON mg.id = mimg.modifier_group_id
-      WHERE mimg.menu_item_id = ? AND mg.active = 1
+      WHERE mimg.menu_item_id = ? AND mg.active = true
       ORDER BY mimg.sort_order ASC
     `, [menuItemId]);
 
-    const result = groups.map(group => {
-      const modifiers = all(`
+    const result = [];
+    for (const group of groups) {
+      const modifiers = await all(`
         SELECT id, group_id, name, price_adjustment, sort_order, active
         FROM modifiers
-        WHERE group_id = ? AND active = 1
+        WHERE group_id = ? AND active = true
         ORDER BY sort_order ASC
       `, [group.id]);
-      return { ...group, modifiers };
-    });
+      result.push({ ...group, modifiers });
+    }
 
     res.json(result);
   } catch (error) {
@@ -76,23 +78,23 @@ router.get('/groups/item/:menuItemId', (req, res) => {
 });
 
 // POST /api/modifiers/groups - create modifier group
-router.post('/groups', requireAuth('manage_modifiers'), (req, res) => {
+router.post('/groups', requireAuth('manage_modifiers'), async (req, res) => {
   try {
     const { name, selection_type = 'single', required = false, min_selections = 0, max_selections = 1, sort_order = 0 } = req.body;
     if (!name) return res.status(400).json({ error: 'Missing name' });
 
     // Plan limit check
     const plan = req.tenant?.plan || 'trial';
-    const { cnt } = get('SELECT COUNT(*) as cnt FROM modifier_groups WHERE active = 1') || { cnt: 0 };
+    const { cnt } = await get('SELECT COUNT(*) as cnt FROM modifier_groups WHERE active = true') || { cnt: 0 };
     const check = checkLimit(plan, 'modifierGroups', cnt);
     if (!check.allowed) {
       return res.status(403).json({ error: `Modifier group limit reached (${check.limit})`, upgrade: true, limit: check.limit, current: check.current });
     }
 
-    const result = run(`
+    const result = await run(`
       INSERT INTO modifier_groups (name, selection_type, required, min_selections, max_selections, sort_order, active)
-      VALUES (?, ?, ?, ?, ?, ?, 1)
-    `, [name, selection_type, required ? 1 : 0, min_selections, max_selections, sort_order]);
+      VALUES (?, ?, ?, ?, ?, ?, true)
+    `, [name, selection_type, required ? true : false, min_selections, max_selections, sort_order]);
 
     res.status(201).json({ id: result.lastInsertRowid, name, selection_type });
   } catch (error) {
@@ -102,27 +104,27 @@ router.post('/groups', requireAuth('manage_modifiers'), (req, res) => {
 });
 
 // PUT /api/modifiers/groups/:id - update modifier group
-router.put('/groups/:id', requireAuth('manage_modifiers'), (req, res) => {
+router.put('/groups/:id', requireAuth('manage_modifiers'), async (req, res) => {
   try {
     const { id } = req.params;
     const { name, selection_type, required, min_selections, max_selections, sort_order, active } = req.body;
 
-    const existing = get('SELECT id FROM modifier_groups WHERE id = ?', [id]);
+    const existing = await get('SELECT id FROM modifier_groups WHERE id = ?', [id]);
     if (!existing) return res.status(404).json({ error: 'Modifier group not found' });
 
     const updates = [];
     const params = [];
     if (name !== undefined) { updates.push('name = ?'); params.push(name); }
     if (selection_type !== undefined) { updates.push('selection_type = ?'); params.push(selection_type); }
-    if (required !== undefined) { updates.push('required = ?'); params.push(required ? 1 : 0); }
+    if (required !== undefined) { updates.push('required = ?'); params.push(required ? true : false); }
     if (min_selections !== undefined) { updates.push('min_selections = ?'); params.push(min_selections); }
     if (max_selections !== undefined) { updates.push('max_selections = ?'); params.push(max_selections); }
     if (sort_order !== undefined) { updates.push('sort_order = ?'); params.push(sort_order); }
-    if (active !== undefined) { updates.push('active = ?'); params.push(active ? 1 : 0); }
+    if (active !== undefined) { updates.push('active = ?'); params.push(active ? true : false); }
 
     if (updates.length > 0) {
       params.push(id);
-      run(`UPDATE modifier_groups SET ${updates.join(', ')} WHERE id = ?`, params);
+      await run(`UPDATE modifier_groups SET ${updates.join(', ')} WHERE id = ?`, params);
     }
 
     res.json({ id, message: 'Updated' });
@@ -133,14 +135,14 @@ router.put('/groups/:id', requireAuth('manage_modifiers'), (req, res) => {
 });
 
 // POST /api/modifiers - create modifier
-router.post('/', requireAuth('manage_modifiers'), (req, res) => {
+router.post('/', requireAuth('manage_modifiers'), async (req, res) => {
   try {
     const { group_id, name, price_adjustment = 0, sort_order = 0 } = req.body;
     if (!group_id || !name) return res.status(400).json({ error: 'Missing group_id or name' });
 
-    const result = run(`
+    const result = await run(`
       INSERT INTO modifiers (group_id, name, price_adjustment, sort_order, active)
-      VALUES (?, ?, ?, ?, 1)
+      VALUES (?, ?, ?, ?, true)
     `, [group_id, name, price_adjustment, sort_order]);
 
     res.status(201).json({ id: result.lastInsertRowid, group_id, name, price_adjustment });
@@ -151,12 +153,12 @@ router.post('/', requireAuth('manage_modifiers'), (req, res) => {
 });
 
 // PUT /api/modifiers/:id - update modifier
-router.put('/:id', requireAuth('manage_modifiers'), (req, res) => {
+router.put('/:id', requireAuth('manage_modifiers'), async (req, res) => {
   try {
     const { id } = req.params;
     const { name, price_adjustment, sort_order, active } = req.body;
 
-    const existing = get('SELECT id FROM modifiers WHERE id = ?', [id]);
+    const existing = await get('SELECT id FROM modifiers WHERE id = ?', [id]);
     if (!existing) return res.status(404).json({ error: 'Modifier not found' });
 
     const updates = [];
@@ -164,11 +166,11 @@ router.put('/:id', requireAuth('manage_modifiers'), (req, res) => {
     if (name !== undefined) { updates.push('name = ?'); params.push(name); }
     if (price_adjustment !== undefined) { updates.push('price_adjustment = ?'); params.push(price_adjustment); }
     if (sort_order !== undefined) { updates.push('sort_order = ?'); params.push(sort_order); }
-    if (active !== undefined) { updates.push('active = ?'); params.push(active ? 1 : 0); }
+    if (active !== undefined) { updates.push('active = ?'); params.push(active ? true : false); }
 
     if (updates.length > 0) {
       params.push(id);
-      run(`UPDATE modifiers SET ${updates.join(', ')} WHERE id = ?`, params);
+      await run(`UPDATE modifiers SET ${updates.join(', ')} WHERE id = ?`, params);
     }
 
     res.json({ id, message: 'Updated' });
@@ -179,14 +181,15 @@ router.put('/:id', requireAuth('manage_modifiers'), (req, res) => {
 });
 
 // POST /api/modifiers/assign - assign modifier group to menu item
-router.post('/assign', requireAuth('manage_modifiers'), (req, res) => {
+router.post('/assign', requireAuth('manage_modifiers'), async (req, res) => {
   try {
     const { menu_item_id, modifier_group_id, sort_order = 0 } = req.body;
     if (!menu_item_id || !modifier_group_id) return res.status(400).json({ error: 'Missing required fields' });
 
-    run(`
-      INSERT OR REPLACE INTO menu_item_modifier_groups (menu_item_id, modifier_group_id, sort_order)
+    await run(`
+      INSERT INTO menu_item_modifier_groups (menu_item_id, modifier_group_id, sort_order)
       VALUES (?, ?, ?)
+      ON CONFLICT (menu_item_id, modifier_group_id) DO UPDATE SET sort_order = EXCLUDED.sort_order
     `, [menu_item_id, modifier_group_id, sort_order]);
 
     res.json({ message: 'Assigned' });
@@ -197,12 +200,12 @@ router.post('/assign', requireAuth('manage_modifiers'), (req, res) => {
 });
 
 // POST /api/modifiers/unassign - remove modifier group from menu item
-router.post('/unassign', requireAuth('manage_modifiers'), (req, res) => {
+router.post('/unassign', requireAuth('manage_modifiers'), async (req, res) => {
   try {
     const { menu_item_id, modifier_group_id } = req.body;
     if (!menu_item_id || !modifier_group_id) return res.status(400).json({ error: 'Missing required fields' });
 
-    run(`
+    await run(`
       DELETE FROM menu_item_modifier_groups
       WHERE menu_item_id = ? AND modifier_group_id = ?
     `, [menu_item_id, modifier_group_id]);

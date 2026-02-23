@@ -22,10 +22,10 @@ router.post('/create-intent', requireAuth('pos_access'), async (req, res) => {
       return res.status(400).json({ error: 'Missing order_id' });
     }
 
-    const order = get(`
+    const order = await get(`
       SELECT id, order_number, subtotal, tax, total, payment_status
       FROM orders
-      WHERE id = ?
+      WHERE id = $1
     `, [order_id]);
 
     if (!order) {
@@ -45,10 +45,10 @@ router.post('/create-intent', requireAuth('pos_access'), async (req, res) => {
     });
 
     // Update order with payment intent ID
-    run(`
+    await run(`
       UPDATE orders
-      SET payment_intent_id = ?, tip = ?
-      WHERE id = ?
+      SET payment_intent_id = $1, tip = $2
+      WHERE id = $3
     `, [paymentIntent.id, tipAmount, order_id]);
 
     res.json({
@@ -71,7 +71,7 @@ router.post('/confirm', requireAuth('pos_access'), async (req, res) => {
       return res.status(400).json({ error: 'Missing required fields' });
     }
 
-    const order = get('SELECT id, payment_status FROM orders WHERE id = ?', [order_id]);
+    const order = await get('SELECT id, payment_status FROM orders WHERE id = $1', [order_id]);
     if (!order) {
       return res.status(404).json({ error: 'Order not found' });
     }
@@ -80,14 +80,14 @@ router.post('/confirm', requireAuth('pos_access'), async (req, res) => {
     const paymentIntent = await getPaymentIntent(payment_intent_id);
 
     if (paymentIntent.status === 'succeeded') {
-      run(`
+      await run(`
         UPDATE orders
         SET payment_status = 'paid', status = 'preparing', payment_method = 'card'
-        WHERE id = ?
+        WHERE id = $1
       `, [order_id]);
 
       // Deduct inventory after successful payment
-      deductInventoryForOrder(order_id);
+      await deductInventoryForOrder(order_id);
 
       return res.json({
         success: true,
@@ -114,7 +114,7 @@ router.post('/confirm', requireAuth('pos_access'), async (req, res) => {
 });
 
 // POST /api/payments/cash - process cash payment
-router.post('/cash', requireAuth('pos_access'), (req, res) => {
+router.post('/cash', requireAuth('pos_access'), async (req, res) => {
   try {
     const { order_id, tip = 0, amount_received = 0 } = req.body;
 
@@ -122,10 +122,10 @@ router.post('/cash', requireAuth('pos_access'), (req, res) => {
       return res.status(400).json({ error: 'Missing order_id' });
     }
 
-    const order = get(`
+    const order = await get(`
       SELECT id, order_number, subtotal, tax, tip, total, payment_status
       FROM orders
-      WHERE id = ?
+      WHERE id = $1
     `, [order_id]);
 
     if (!order) {
@@ -141,14 +141,14 @@ router.post('/cash', requireAuth('pos_access'), (req, res) => {
     const changeDue = amount_received > 0 ? Math.max(0, amount_received - finalTotal) : 0;
 
     // Mark order as paid with cash
-    run(`
+    await run(`
       UPDATE orders
-      SET payment_status = 'paid', status = 'preparing', payment_method = 'cash', tip = ?
-      WHERE id = ?
+      SET payment_status = 'paid', status = 'preparing', payment_method = 'cash', tip = $1
+      WHERE id = $2
     `, [tipAmount, order_id]);
 
     // Deduct inventory
-    deductInventoryForOrder(order_id);
+    await deductInventoryForOrder(order_id);
 
     res.json({
       success: true,
@@ -175,16 +175,16 @@ router.post('/split', requireAuth('pos_access'), async (req, res) => {
       return res.status(400).json({ error: 'Missing required fields' });
     }
 
-    const order = get('SELECT id, total, tip, payment_status FROM orders WHERE id = ?', [order_id]);
+    const order = await get('SELECT id, total, tip, payment_status FROM orders WHERE id = $1', [order_id]);
     if (!order) return res.status(404).json({ error: 'Order not found' });
     if (order.payment_status === 'paid') return res.status(400).json({ error: 'Order is already paid' });
 
     // Process each split
     for (const split of splits) {
       const tipAmount = split.tip || 0;
-      run(`
+      await run(`
         INSERT INTO order_payments (order_id, payment_method, amount, tip, status)
-        VALUES (?, ?, ?, ?, 'paid')
+        VALUES ($1, $2, $3, $4, 'paid')
       `, [order_id, split.payment_method, split.amount, tipAmount]);
     }
 
@@ -192,14 +192,14 @@ router.post('/split', requireAuth('pos_access'), async (req, res) => {
     const totalTip = splits.reduce((sum, s) => sum + (s.tip || 0), 0);
 
     // Mark the order as paid
-    run(`
+    await run(`
       UPDATE orders
-      SET payment_status = 'paid', status = 'preparing', payment_method = 'split', tip = ?
-      WHERE id = ?
+      SET payment_status = 'paid', status = 'preparing', payment_method = 'split', tip = $1
+      WHERE id = $2
     `, [totalTip, order_id]);
 
     // Deduct inventory
-    deductInventoryForOrder(order_id);
+    await deductInventoryForOrder(order_id);
 
     res.json({ success: true, message: 'Split payment processed', splits_count: splits.length });
   } catch (error) {
@@ -209,10 +209,10 @@ router.post('/split', requireAuth('pos_access'), async (req, res) => {
 });
 
 // GET /api/payments/split/:order_id - get split details
-router.get('/split/:order_id', (req, res) => {
+router.get('/split/:order_id', async (req, res) => {
   try {
     const { order_id } = req.params;
-    const payments = all('SELECT * FROM order_payments WHERE order_id = ?', [order_id]);
+    const payments = await all('SELECT * FROM order_payments WHERE order_id = $1', [order_id]);
     res.json(payments);
   } catch (error) {
     console.error('Error fetching split payments:', error);
@@ -229,10 +229,10 @@ router.post('/refund', requireAuth('process_refunds'), async (req, res) => {
       return res.status(400).json({ error: 'Missing order_id' });
     }
 
-    const order = get(`
+    const order = await get(`
       SELECT id, payment_intent_id, payment_status, payment_method, total, tip, refund_total
       FROM orders
-      WHERE id = ?
+      WHERE id = $1
     `, [order_id]);
 
     if (!order) {
@@ -258,8 +258,8 @@ router.post('/refund', requireAuth('process_refunds'), async (req, res) => {
       refundAmount = 0;
 
       for (const refundItem of items) {
-        const orderItem = get(
-          'SELECT id, unit_price, quantity FROM order_items WHERE id = ? AND order_id = ?',
+        const orderItem = await get(
+          'SELECT id, unit_price, quantity FROM order_items WHERE id = $1 AND order_id = $2',
           [refundItem.order_item_id, order_id]
         );
         if (!orderItem) {
@@ -313,24 +313,24 @@ router.post('/refund', requireAuth('process_refunds'), async (req, res) => {
 
     // Insert refund record
     const employeeId = req.employee?.id || null;
-    const result = run(`
+    const result = await run(`
       INSERT INTO refunds (order_id, stripe_refund_id, amount, reason, refund_type, refunded_by, items_json, inventory_restored)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    `, [order_id, stripeRefundId, refundAmount, reason || null, refundType, employeeId, itemsJson, refundItems.length > 0 ? 1 : 0]);
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+    `, [order_id, stripeRefundId, refundAmount, reason || null, refundType, employeeId, itemsJson, refundItems.length > 0]);
 
     // Update order refund_total
     const newRefundTotal = existingRefundTotal + refundAmount;
     const fullyRefunded = newRefundTotal >= (order.total + order.tip);
 
-    run(`
+    await run(`
       UPDATE orders
-      SET refund_total = ?, payment_status = ?
-      WHERE id = ?
+      SET refund_total = $1, payment_status = $2
+      WHERE id = $3
     `, [newRefundTotal, fullyRefunded ? 'refunded' : order.payment_status, order_id]);
 
     // Restore inventory for refunded items
     if (refundItems.length > 0) {
-      restoreInventoryForItems(refundItems);
+      await restoreInventoryForItems(refundItems);
     }
 
     res.json({
@@ -349,14 +349,14 @@ router.post('/refund', requireAuth('process_refunds'), async (req, res) => {
 });
 
 // GET /api/payments/refunds/:order_id - get refunds for an order
-router.get('/refunds/:order_id', (req, res) => {
+router.get('/refunds/:order_id', async (req, res) => {
   try {
     const { order_id } = req.params;
-    const refunds = all(`
+    const refunds = await all(`
       SELECT r.*, e.name as refunded_by_name
       FROM refunds r
       LEFT JOIN employees e ON r.refunded_by = e.id
-      WHERE r.order_id = ?
+      WHERE r.order_id = $1
       ORDER BY r.created_at DESC
     `, [order_id]);
     res.json(refunds);
@@ -367,7 +367,7 @@ router.get('/refunds/:order_id', (req, res) => {
 });
 
 // GET /api/payments/refunds - all refunds with date filtering
-router.get('/refunds', (req, res) => {
+router.get('/refunds', async (req, res) => {
   try {
     const { start_date, end_date } = req.query;
     let query = `
@@ -378,19 +378,20 @@ router.get('/refunds', (req, res) => {
       WHERE 1=1
     `;
     const params = [];
+    let paramIdx = 1;
 
     if (start_date) {
-      query += ' AND DATE(r.created_at) >= ?';
+      query += ` AND r.created_at::date >= $${paramIdx++}`;
       params.push(start_date);
     }
     if (end_date) {
-      query += ' AND DATE(r.created_at) <= ?';
+      query += ` AND r.created_at::date <= $${paramIdx++}`;
       params.push(end_date);
     }
 
     query += ' ORDER BY r.created_at DESC LIMIT 200';
 
-    const refunds = all(query, params);
+    const refunds = await all(query, params);
     res.json(refunds);
   } catch (error) {
     console.error('Error fetching all refunds:', error);
@@ -439,7 +440,7 @@ router.post('/crypto/create', requireAuth('pos_access'), async (req, res) => {
       return res.status(400).json({ error: 'Missing order_id or pay_currency' });
     }
 
-    const order = get('SELECT id, total, payment_status FROM orders WHERE id = ?', [order_id]);
+    const order = await get('SELECT id, total, payment_status FROM orders WHERE id = $1', [order_id]);
     if (!order) return res.status(404).json({ error: 'Order not found' });
     if (order.payment_status === 'paid') return res.status(400).json({ error: 'Order is already paid' });
 
@@ -454,9 +455,9 @@ router.post('/crypto/create', requireAuth('pos_access'), async (req, res) => {
     });
 
     // Insert into crypto_payments table
-    const result = run(`
+    const result = await run(`
       INSERT INTO crypto_payments (order_id, nowpayments_payment_id, pay_address, pay_amount, pay_currency, price_amount, status)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
+      VALUES ($1, $2, $3, $4, $5, $6, $7)
     `, [
       order_id,
       String(npPayment.payment_id),
@@ -468,9 +469,9 @@ router.post('/crypto/create', requireAuth('pos_access'), async (req, res) => {
     ]);
 
     // Update order with crypto payment reference and tip
-    run(`
-      UPDATE orders SET crypto_payment_id = ?, payment_status = 'processing', tip = ?
-      WHERE id = ?
+    await run(`
+      UPDATE orders SET crypto_payment_id = $1, payment_status = 'processing', tip = $2
+      WHERE id = $3
     `, [result.lastInsertRowid, tipAmount, order_id]);
 
     res.json({
@@ -492,8 +493,8 @@ router.get('/crypto/status/:payment_id', async (req, res) => {
   try {
     const { payment_id } = req.params;
 
-    const cryptoPayment = get(
-      'SELECT * FROM crypto_payments WHERE nowpayments_payment_id = ?',
+    const cryptoPayment = await get(
+      'SELECT * FROM crypto_payments WHERE nowpayments_payment_id = $1',
       [payment_id]
     );
     if (!cryptoPayment) {
@@ -506,10 +507,10 @@ router.get('/crypto/status/:payment_id', async (req, res) => {
 
     // Update local DB if status changed
     if (newStatus !== cryptoPayment.status) {
-      run(`
+      await run(`
         UPDATE crypto_payments
-        SET status = ?, actually_paid = ?, outcome_amount = ?, outcome_currency = ?, updated_at = datetime('now','localtime')
-        WHERE nowpayments_payment_id = ?
+        SET status = $1, actually_paid = $2, outcome_amount = $3, outcome_currency = $4, updated_at = NOW()
+        WHERE nowpayments_payment_id = $5
       `, [
         newStatus,
         npStatus.actually_paid || 0,
@@ -520,14 +521,14 @@ router.get('/crypto/status/:payment_id', async (req, res) => {
 
       // If confirmed/finished, mark order as paid
       if (newStatus === 'confirmed' || newStatus === 'finished') {
-        const order = get('SELECT id, payment_status FROM orders WHERE id = ?', [cryptoPayment.order_id]);
+        const order = await get('SELECT id, payment_status FROM orders WHERE id = $1', [cryptoPayment.order_id]);
         if (order && order.payment_status !== 'paid') {
-          run(`
+          await run(`
             UPDATE orders SET payment_status = 'paid', payment_method = 'crypto', status = 'preparing'
-            WHERE id = ?
+            WHERE id = $1
           `, [cryptoPayment.order_id]);
 
-          deductInventoryForOrder(cryptoPayment.order_id);
+          await deductInventoryForOrder(cryptoPayment.order_id);
         }
       }
     }
@@ -549,7 +550,7 @@ router.get('/crypto/status/:payment_id', async (req, res) => {
 });
 
 // POST /api/payments/crypto/ipn - NOWPayments IPN webhook callback
-router.post('/crypto/ipn', (req, res) => {
+router.post('/crypto/ipn', async (req, res) => {
   try {
     const signature = req.headers['x-nowpayments-sig'];
     if (!signature || !verifyIPNSignature(req.body, signature)) {
@@ -559,29 +560,29 @@ router.post('/crypto/ipn', (req, res) => {
     const { payment_id, payment_status, actually_paid, outcome_amount, outcome_currency } = req.body;
     if (!payment_id) return res.status(400).json({ error: 'Missing payment_id' });
 
-    const cryptoPayment = get(
-      'SELECT * FROM crypto_payments WHERE nowpayments_payment_id = ?',
+    const cryptoPayment = await get(
+      'SELECT * FROM crypto_payments WHERE nowpayments_payment_id = $1',
       [String(payment_id)]
     );
     if (!cryptoPayment) return res.status(404).json({ error: 'Crypto payment not found' });
 
     // Update crypto payment record
-    run(`
+    await run(`
       UPDATE crypto_payments
-      SET status = ?, actually_paid = ?, outcome_amount = ?, outcome_currency = ?, updated_at = datetime('now','localtime')
-      WHERE nowpayments_payment_id = ?
+      SET status = $1, actually_paid = $2, outcome_amount = $3, outcome_currency = $4, updated_at = NOW()
+      WHERE nowpayments_payment_id = $5
     `, [payment_status, actually_paid || 0, outcome_amount || null, outcome_currency || null, String(payment_id)]);
 
     // Mark order as paid on confirmation
     if (payment_status === 'confirmed' || payment_status === 'finished') {
-      const order = get('SELECT id, payment_status FROM orders WHERE id = ?', [cryptoPayment.order_id]);
+      const order = await get('SELECT id, payment_status FROM orders WHERE id = $1', [cryptoPayment.order_id]);
       if (order && order.payment_status !== 'paid') {
-        run(`
+        await run(`
           UPDATE orders SET payment_status = 'paid', payment_method = 'crypto', status = 'preparing'
-          WHERE id = ?
+          WHERE id = $1
         `, [cryptoPayment.order_id]);
 
-        deductInventoryForOrder(cryptoPayment.order_id);
+        await deductInventoryForOrder(cryptoPayment.order_id);
       }
     }
 
@@ -597,10 +598,10 @@ router.get('/:order_id', async (req, res) => {
   try {
     const { order_id } = req.params;
 
-    const order = get(`
+    const order = await get(`
       SELECT id, order_number, payment_intent_id, payment_status, payment_method, total, tip, refund_total
       FROM orders
-      WHERE id = ?
+      WHERE id = $1
     `, [order_id]);
 
     if (!order) {

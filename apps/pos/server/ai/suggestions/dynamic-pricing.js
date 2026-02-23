@@ -9,21 +9,21 @@ import { isRushHour, isSlowHour, getConfigBool } from '../config.js';
  * - Slow + <50% avg orders → suggest Happy Hour discounts
  * - All changes require manager approval
  */
-export function generatePricingSuggestions() {
-  if (!getConfigBool('dynamic_pricing_enabled')) return [];
+export async function generatePricingSuggestions() {
+  if (!(await getConfigBool('dynamic_pricing_enabled'))) return [];
 
   const suggestions = [];
   const currentHour = new Date().getHours();
   const dayOfWeek = new Date().getDay();
 
   // Get historical average for this hour/day
-  const historical = get(`
+  const historical = await get(`
     SELECT
       AVG(order_count) as avg_orders,
       AVG(revenue) as avg_revenue
     FROM ai_hourly_snapshots
-    WHERE day_of_week = ?
-      AND CAST(SUBSTR(snapshot_hour, 12, 2) AS INTEGER) = ?
+    WHERE day_of_week = $1
+      AND EXTRACT(HOUR FROM snapshot_hour)::int = $2
   `, [dayOfWeek, currentHour]);
 
   const avgOrders = historical?.avg_orders || 0;
@@ -34,21 +34,21 @@ export function generatePricingSuggestions() {
   hourStart.setMinutes(0, 0, 0);
   const startStr = hourStart.toISOString().replace('T', ' ').slice(0, 19);
 
-  const currentStats = get(`
+  const currentStats = await get(`
     SELECT COUNT(*) as order_count, COALESCE(SUM(total), 0) as revenue
     FROM orders
-    WHERE created_at >= ? AND status != 'cancelled'
+    WHERE created_at >= $1 AND status != 'cancelled'
   `, [startStr]);
 
   const currentOrders = currentStats?.order_count || 0;
 
   // Rush hour + high traffic → suggest markup
-  if (isRushHour(currentHour) && avgOrders > 0 && currentOrders > avgOrders * 1.5) {
-    const combos = all(`
+  if ((await isRushHour(currentHour)) && avgOrders > 0 && currentOrders > avgOrders * 1.5) {
+    const combos = await all(`
       SELECT mi.id, mi.name, mi.price
       FROM menu_items mi
       JOIN ai_category_roles acr ON mi.category_id = acr.category_id
-      WHERE acr.role = 'combo' AND mi.active = 1
+      WHERE acr.role = 'combo' AND mi.active = true
     `);
 
     for (const combo of combos) {
@@ -71,12 +71,12 @@ export function generatePricingSuggestions() {
   }
 
   // Slow period + low traffic → suggest discounts
-  if (isSlowHour(currentHour) && avgOrders > 0 && currentOrders < avgOrders * 0.5) {
-    const discountItems = all(`
+  if ((await isSlowHour(currentHour)) && avgOrders > 0 && currentOrders < avgOrders * 0.5) {
+    const discountItems = await all(`
       SELECT mi.id, mi.name, mi.price
       FROM menu_items mi
       JOIN ai_category_roles acr ON mi.category_id = acr.category_id
-      WHERE acr.role IN ('combo', 'main') AND mi.active = 1
+      WHERE acr.role IN ('combo', 'main') AND mi.active = true
       ORDER BY mi.price DESC
       LIMIT 5
     `);

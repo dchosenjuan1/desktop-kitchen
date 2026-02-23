@@ -6,9 +6,9 @@ import { logRestockEvent } from '../ai/data-pipeline.js';
 const router = Router();
 
 // GET /api/inventory - list all inventory items
-router.get('/', (req, res) => {
+router.get('/', async (req, res) => {
   try {
-    const items = all(`
+    const items = await all(`
       SELECT id, name, quantity, unit, low_stock_threshold, category, last_counted_at
       FROM inventory_items
       ORDER BY category ASC, name ASC
@@ -22,9 +22,9 @@ router.get('/', (req, res) => {
 });
 
 // GET /api/inventory/low-stock - items below threshold
-router.get('/low-stock', (req, res) => {
+router.get('/low-stock', async (req, res) => {
   try {
-    const items = all(`
+    const items = await all(`
       SELECT id, name, quantity, unit, low_stock_threshold, category
       FROM inventory_items
       WHERE quantity < low_stock_threshold
@@ -39,7 +39,7 @@ router.get('/low-stock', (req, res) => {
 });
 
 // GET /api/inventory/counts - count history
-router.get('/counts', (req, res) => {
+router.get('/counts', async (req, res) => {
   try {
     const { item_id, start_date, end_date } = req.query;
     let query = `
@@ -50,23 +50,24 @@ router.get('/counts', (req, res) => {
       WHERE 1=1
     `;
     const params = [];
+    let paramIdx = 1;
 
     if (item_id) {
-      query += ' AND ic.inventory_item_id = ?';
+      query += ` AND ic.inventory_item_id = $${paramIdx++}`;
       params.push(item_id);
     }
     if (start_date) {
-      query += ' AND DATE(ic.created_at) >= ?';
+      query += ` AND ic.created_at::date >= $${paramIdx++}`;
       params.push(start_date);
     }
     if (end_date) {
-      query += ' AND DATE(ic.created_at) <= ?';
+      query += ` AND ic.created_at::date <= $${paramIdx++}`;
       params.push(end_date);
     }
 
     query += ' ORDER BY ic.created_at DESC LIMIT 200';
 
-    const counts = all(query, params);
+    const counts = await all(query, params);
     res.json(counts);
   } catch (error) {
     console.error('Error fetching inventory counts:', error);
@@ -75,24 +76,24 @@ router.get('/counts', (req, res) => {
 });
 
 // GET /api/inventory/variance-report - aggregated variance
-router.get('/variance-report', (req, res) => {
+router.get('/variance-report', async (req, res) => {
   try {
-    const report = all(`
+    const report = await all(`
       SELECT
         ii.id as inventory_item_id,
         ii.name,
         ii.unit,
         ii.category,
         COUNT(ic.id) as count_sessions,
-        ROUND(AVG(ic.variance), 2) as avg_variance,
-        ROUND(AVG(ic.variance_percent), 2) as avg_variance_percent,
-        ROUND(SUM(ic.variance), 2) as total_variance,
+        ROUND(AVG(ic.variance)::numeric, 2) as avg_variance,
+        ROUND(AVG(ic.variance_percent)::numeric, 2) as avg_variance_percent,
+        ROUND(SUM(ic.variance)::numeric, 2) as total_variance,
         MAX(ic.created_at) as last_counted
       FROM inventory_items ii
       LEFT JOIN inventory_counts ic ON ii.id = ic.inventory_item_id
-      GROUP BY ii.id
-      HAVING count_sessions > 0
-      ORDER BY ABS(avg_variance_percent) DESC
+      GROUP BY ii.id, ii.name, ii.unit, ii.category
+      HAVING COUNT(ic.id) > 0
+      ORDER BY ABS(AVG(ic.variance_percent)) DESC
     `);
 
     res.json(report);
@@ -103,7 +104,7 @@ router.get('/variance-report', (req, res) => {
 });
 
 // GET /api/inventory/shrinkage-alerts - active alerts
-router.get('/shrinkage-alerts', (req, res) => {
+router.get('/shrinkage-alerts', async (req, res) => {
   try {
     const { acknowledged } = req.query;
     let query = `
@@ -114,14 +115,14 @@ router.get('/shrinkage-alerts', (req, res) => {
     const params = [];
 
     if (acknowledged === '0' || acknowledged === 'false') {
-      query += ' WHERE sa.acknowledged = 0';
+      query += ' WHERE sa.acknowledged = false';
     } else if (acknowledged === '1' || acknowledged === 'true') {
-      query += ' WHERE sa.acknowledged = 1';
+      query += ' WHERE sa.acknowledged = true';
     }
 
     query += ' ORDER BY sa.created_at DESC LIMIT 100';
 
-    const alerts = all(query, params);
+    const alerts = await all(query, params);
     res.json(alerts);
   } catch (error) {
     console.error('Error fetching shrinkage alerts:', error);
@@ -130,14 +131,14 @@ router.get('/shrinkage-alerts', (req, res) => {
 });
 
 // PUT /api/inventory/shrinkage-alerts/:id/acknowledge
-router.put('/shrinkage-alerts/:id/acknowledge', requireAuth('manage_inventory'), (req, res) => {
+router.put('/shrinkage-alerts/:id/acknowledge', requireAuth('manage_inventory'), async (req, res) => {
   try {
     const { id } = req.params;
-    const alert = get('SELECT id FROM shrinkage_alerts WHERE id = ?', [id]);
+    const alert = await get('SELECT id FROM shrinkage_alerts WHERE id = $1', [id]);
     if (!alert) return res.status(404).json({ error: 'Alert not found' });
 
     const employeeId = req.employee?.id || null;
-    run('UPDATE shrinkage_alerts SET acknowledged = 1, acknowledged_by = ? WHERE id = ?', [employeeId, id]);
+    await run('UPDATE shrinkage_alerts SET acknowledged = true, acknowledged_by = $1 WHERE id = $2', [employeeId, id]);
 
     res.json({ success: true });
   } catch (error) {
@@ -147,7 +148,7 @@ router.put('/shrinkage-alerts/:id/acknowledge', requireAuth('manage_inventory'),
 });
 
 // POST /api/inventory/:id/count - record physical count
-router.post('/:id/count', requireAuth('manage_inventory'), (req, res) => {
+router.post('/:id/count', requireAuth('manage_inventory'), async (req, res) => {
   try {
     const { id } = req.params;
     const { counted_quantity, notes } = req.body;
@@ -156,7 +157,7 @@ router.post('/:id/count', requireAuth('manage_inventory'), (req, res) => {
       return res.status(400).json({ error: 'Invalid counted quantity' });
     }
 
-    const item = get('SELECT id, name, quantity FROM inventory_items WHERE id = ?', [id]);
+    const item = await get('SELECT id, name, quantity FROM inventory_items WHERE id = $1', [id]);
     if (!item) return res.status(404).json({ error: 'Inventory item not found' });
 
     const systemQty = item.quantity;
@@ -165,22 +166,22 @@ router.post('/:id/count', requireAuth('manage_inventory'), (req, res) => {
     const employeeId = req.employee?.id || null;
 
     // Record the count
-    const result = run(`
+    const result = await run(`
       INSERT INTO inventory_counts (inventory_item_id, counted_quantity, system_quantity, variance, variance_percent, counted_by, notes)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
+      VALUES ($1, $2, $3, $4, $5, $6, $7)
     `, [id, counted_quantity, systemQty, variance, variancePercent, employeeId, notes || null]);
 
     // Update the system quantity to match the count
-    run('UPDATE inventory_items SET quantity = ?, last_counted_at = datetime("now","localtime") WHERE id = ?',
+    await run('UPDATE inventory_items SET quantity = $1, last_counted_at = NOW() WHERE id = $2',
       [counted_quantity, id]);
 
     // Create shrinkage alert if variance > 10%
     if (Math.abs(variancePercent) > 10) {
       const severity = Math.abs(variancePercent) > 25 ? 'high' : 'medium';
       const alertType = variance < 0 ? 'shrinkage' : 'surplus';
-      run(`
+      await run(`
         INSERT INTO shrinkage_alerts (inventory_item_id, alert_type, severity, message, variance_amount)
-        VALUES (?, ?, ?, ?, ?)
+        VALUES ($1, $2, $3, $4, $5)
       `, [
         id, alertType, severity,
         `${item.name}: ${alertType} of ${Math.abs(variance).toFixed(2)} units (${Math.abs(variancePercent)}% variance)`,
@@ -203,7 +204,7 @@ router.post('/:id/count', requireAuth('manage_inventory'), (req, res) => {
 });
 
 // PUT /api/inventory/:id - update quantity
-router.put('/:id', requireAuth('manage_inventory'), (req, res) => {
+router.put('/:id', requireAuth('manage_inventory'), async (req, res) => {
   try {
     const { id } = req.params;
     const { quantity } = req.body;
@@ -212,15 +213,15 @@ router.put('/:id', requireAuth('manage_inventory'), (req, res) => {
       return res.status(400).json({ error: 'Missing quantity' });
     }
 
-    const item = get('SELECT id FROM inventory_items WHERE id = ?', [id]);
+    const item = await get('SELECT id FROM inventory_items WHERE id = $1', [id]);
     if (!item) {
       return res.status(404).json({ error: 'Inventory item not found' });
     }
 
-    run(`
+    await run(`
       UPDATE inventory_items
-      SET quantity = ?
-      WHERE id = ?
+      SET quantity = $1
+      WHERE id = $2
     `, [quantity, id]);
 
     res.json({ id, quantity });
@@ -231,7 +232,7 @@ router.put('/:id', requireAuth('manage_inventory'), (req, res) => {
 });
 
 // POST /api/inventory/:id/restock - add to quantity
-router.post('/:id/restock', requireAuth('manage_inventory'), (req, res) => {
+router.post('/:id/restock', requireAuth('manage_inventory'), async (req, res) => {
   try {
     const { id } = req.params;
     const amount = req.body.quantity ?? req.body.amount;
@@ -240,17 +241,17 @@ router.post('/:id/restock', requireAuth('manage_inventory'), (req, res) => {
       return res.status(400).json({ error: 'Invalid restock amount' });
     }
 
-    const item = get('SELECT id, quantity FROM inventory_items WHERE id = ?', [id]);
+    const item = await get('SELECT id, quantity FROM inventory_items WHERE id = $1', [id]);
     if (!item) {
       return res.status(404).json({ error: 'Inventory item not found' });
     }
 
     const newQuantity = item.quantity + amount;
 
-    run(`
+    await run(`
       UPDATE inventory_items
-      SET quantity = ?
-      WHERE id = ?
+      SET quantity = $1
+      WHERE id = $2
     `, [newQuantity, id]);
 
     // Fire-and-forget: log restock for AI pattern analysis
@@ -264,7 +265,7 @@ router.post('/:id/restock', requireAuth('manage_inventory'), (req, res) => {
 });
 
 // POST /api/inventory/deduct - deduct ingredients for an order
-router.post('/deduct', (req, res) => {
+router.post('/deduct', async (req, res) => {
   try {
     const { order_id } = req.body;
 
@@ -273,10 +274,10 @@ router.post('/deduct', (req, res) => {
     }
 
     // Get all order items
-    const orderItems = all(`
+    const orderItems = await all(`
       SELECT menu_item_id, quantity
       FROM order_items
-      WHERE order_id = ?
+      WHERE order_id = $1
     `, [order_id]);
 
     if (orderItems.length === 0) {
@@ -285,27 +286,27 @@ router.post('/deduct', (req, res) => {
 
     // For each order item, deduct ingredients
     for (const orderItem of orderItems) {
-      const ingredients = all(`
+      const ingredients = await all(`
         SELECT inventory_item_id, quantity_used
         FROM menu_item_ingredients
-        WHERE menu_item_id = ?
+        WHERE menu_item_id = $1
       `, [orderItem.menu_item_id]);
 
       for (const ingredient of ingredients) {
         const totalNeeded = ingredient.quantity_used * orderItem.quantity;
 
-        const inventoryItem = get(`
+        const inventoryItem = await get(`
           SELECT id, quantity
           FROM inventory_items
-          WHERE id = ?
+          WHERE id = $1
         `, [ingredient.inventory_item_id]);
 
         if (inventoryItem) {
           const newQuantity = Math.max(0, inventoryItem.quantity - totalNeeded);
-          run(`
+          await run(`
             UPDATE inventory_items
-            SET quantity = ?
-            WHERE id = ?
+            SET quantity = $1
+            WHERE id = $2
           `, [newQuantity, ingredient.inventory_item_id]);
         }
       }

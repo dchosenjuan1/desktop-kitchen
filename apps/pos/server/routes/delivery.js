@@ -6,9 +6,9 @@ import { getPlanLimits } from '../planLimits.js';
 const router = Router();
 
 // GET /api/delivery/platforms - list delivery platforms
-router.get('/platforms', (req, res) => {
+router.get('/platforms', async (req, res) => {
   try {
-    const platforms = all('SELECT * FROM delivery_platforms ORDER BY display_name');
+    const platforms = await all('SELECT * FROM delivery_platforms ORDER BY display_name');
     res.json(platforms);
   } catch (error) {
     console.error('Error fetching delivery platforms:', error);
@@ -17,7 +17,7 @@ router.get('/platforms', (req, res) => {
 });
 
 // PUT /api/delivery/platforms/:id - update delivery platform
-router.put('/platforms/:id', requireAuth('manage_delivery'), (req, res) => {
+router.put('/platforms/:id', requireAuth('manage_delivery'), async (req, res) => {
   try {
     const plan = req.tenant?.plan || 'trial';
     if (!getPlanLimits(plan).delivery.functional) {
@@ -27,15 +27,15 @@ router.put('/platforms/:id', requireAuth('manage_delivery'), (req, res) => {
     const { id } = req.params;
     const { display_name, commission_percent, active, webhook_secret } = req.body;
 
-    const platform = get('SELECT * FROM delivery_platforms WHERE id = ?', [id]);
+    const platform = await get('SELECT * FROM delivery_platforms WHERE id = $1', [id]);
     if (!platform) return res.status(404).json({ error: 'Platform not found' });
 
-    run(
-      'UPDATE delivery_platforms SET display_name = ?, commission_percent = ?, active = ?, webhook_secret = ? WHERE id = ?',
+    await run(
+      'UPDATE delivery_platforms SET display_name = $1, commission_percent = $2, active = $3, webhook_secret = $4 WHERE id = $5',
       [
         display_name ?? platform.display_name,
         commission_percent ?? platform.commission_percent,
-        active !== undefined ? (active ? 1 : 0) : platform.active,
+        active !== undefined ? active : platform.active,
         webhook_secret ?? platform.webhook_secret,
         id,
       ]
@@ -49,25 +49,26 @@ router.put('/platforms/:id', requireAuth('manage_delivery'), (req, res) => {
 });
 
 // GET /api/delivery/orders - list delivery orders
-router.get('/orders', (req, res) => {
+router.get('/orders', async (req, res) => {
   try {
     const { status } = req.query;
     let query = `
-      SELECT do.*, dp.display_name as platform_name, o.order_number, o.status as order_status, o.total
-      FROM delivery_orders do
-      JOIN delivery_platforms dp ON do.platform_id = dp.id
-      JOIN orders o ON do.order_id = o.id
+      SELECT do2.*, dp.display_name as platform_name, o.order_number, o.status as order_status, o.total
+      FROM delivery_orders do2
+      JOIN delivery_platforms dp ON do2.platform_id = dp.id
+      JOIN orders o ON do2.order_id = o.id
     `;
     const params = [];
+    let paramIdx = 1;
 
     if (status) {
-      query += ' WHERE do.platform_status = ?';
+      query += ` WHERE do2.platform_status = $${paramIdx++}`;
       params.push(status);
     }
 
-    query += ' ORDER BY do.id DESC LIMIT 50';
+    query += ' ORDER BY do2.id DESC LIMIT 50';
 
-    const orders = all(query, params);
+    const orders = await all(query, params);
     res.json(orders);
   } catch (error) {
     console.error('Error fetching delivery orders:', error);
@@ -76,15 +77,15 @@ router.get('/orders', (req, res) => {
 });
 
 // PUT /api/delivery/orders/:id/status - update delivery order status
-router.put('/orders/:id/status', requireAuth('manage_delivery'), (req, res) => {
+router.put('/orders/:id/status', requireAuth('manage_delivery'), async (req, res) => {
   try {
     const { id } = req.params;
     const { status } = req.body;
 
-    const order = get('SELECT * FROM delivery_orders WHERE id = ?', [id]);
+    const order = await get('SELECT * FROM delivery_orders WHERE id = $1', [id]);
     if (!order) return res.status(404).json({ error: 'Delivery order not found' });
 
-    run('UPDATE delivery_orders SET platform_status = ? WHERE id = ?', [status, id]);
+    await run('UPDATE delivery_orders SET platform_status = $1 WHERE id = $2', [status, id]);
     res.json({ id, status, success: true });
   } catch (error) {
     console.error('Error updating delivery order status:', error);

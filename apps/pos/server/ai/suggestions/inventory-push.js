@@ -6,25 +6,25 @@ import { getConfigNumber } from '../config.js';
  * When an ingredient is running low (< 1.5x threshold), find menu items that use it,
  * then find alternatives in the same category that DON'T use it.
  */
-export function generateInventoryPushSuggestions() {
-  const multiplier = getConfigNumber('inventory_push_threshold_multiplier') || 1.5;
+export async function generateInventoryPushSuggestions() {
+  const multiplier = (await getConfigNumber('inventory_push_threshold_multiplier')) || 1.5;
 
   // Find low-stock ingredients (below multiplier * threshold)
-  const lowIngredients = all(`
+  const lowIngredients = await all(`
     SELECT id, name, quantity, unit, low_stock_threshold, category
     FROM inventory_items
-    WHERE quantity < (low_stock_threshold * ?)
+    WHERE quantity < (low_stock_threshold * $1)
   `, [multiplier]);
 
   if (lowIngredients.length === 0) {
     // Still compute sold-out items even when no low-stock ingredients
-    const soldOutRows = all(`
+    const soldOutRows = await all(`
       SELECT DISTINCT mii.menu_item_id
       FROM menu_item_ingredients mii
       JOIN inventory_items ii ON mii.inventory_item_id = ii.id
       WHERE ii.quantity <= 0
     `);
-    const lowStockRows = all(`
+    const lowStockRows = await all(`
       SELECT DISTINCT mii.menu_item_id
       FROM menu_item_ingredients mii
       JOIN inventory_items ii ON mii.inventory_item_id = ii.id
@@ -42,13 +42,13 @@ export function generateInventoryPushSuggestions() {
   const avoidItemIds = new Set();
 
   for (const ingredientId of lowIngredientIds) {
-    const itemsUsingIngredient = all(`
+    const itemsUsingIngredient = await all(`
       SELECT DISTINCT mi.id, mi.name, mi.price, mi.category_id, mc.name as category_name
       FROM menu_items mi
       JOIN menu_item_ingredients mii ON mi.id = mii.menu_item_id
       JOIN menu_categories mc ON mi.category_id = mc.id
-      WHERE mii.inventory_item_id = ?
-        AND mi.active = 1
+      WHERE mii.inventory_item_id = $1
+        AND mi.active = true
     `, [ingredientId]);
 
     for (const item of itemsUsingIngredient) {
@@ -74,16 +74,17 @@ export function generateInventoryPushSuggestions() {
   const categoryIds = [...new Set(avoidItems.map(i => i.category_id))];
 
   for (const categoryId of categoryIds) {
-    const alternatives = all(`
+    const placeholders = lowIngredientIds.map((_, i) => `$${i + 2}`).join(',');
+    const alternatives = await all(`
       SELECT mi.id, mi.name, mi.price, mi.category_id, mc.name as category_name
       FROM menu_items mi
       JOIN menu_categories mc ON mi.category_id = mc.id
-      WHERE mi.category_id = ?
-        AND mi.active = 1
+      WHERE mi.category_id = $1
+        AND mi.active = true
         AND mi.id NOT IN (
           SELECT DISTINCT mii.menu_item_id
           FROM menu_item_ingredients mii
-          WHERE mii.inventory_item_id IN (${lowIngredientIds.map(() => '?').join(',')})
+          WHERE mii.inventory_item_id IN (${placeholders})
         )
     `, [categoryId, ...lowIngredientIds]);
 
@@ -107,7 +108,7 @@ export function generateInventoryPushSuggestions() {
   const lowStockItemIds = [];
 
   // Sold out: menu items where ANY required ingredient has quantity <= 0
-  const soldOutRows = all(`
+  const soldOutRows = await all(`
     SELECT DISTINCT mii.menu_item_id
     FROM menu_item_ingredients mii
     JOIN inventory_items ii ON mii.inventory_item_id = ii.id
@@ -118,7 +119,7 @@ export function generateInventoryPushSuggestions() {
   }
 
   // Low stock: menu items where ANY ingredient is below threshold but above 0
-  const lowStockRows = all(`
+  const lowStockRows = await all(`
     SELECT DISTINCT mii.menu_item_id
     FROM menu_item_ingredients mii
     JOIN inventory_items ii ON mii.inventory_item_id = ii.id

@@ -5,18 +5,18 @@ import { all, get } from '../../db/index.js';
  * Uses day-of-week hourly patterns + velocity data + menu_item_ingredients
  * to predict next-day ingredient needs.
  */
-export function generatePrepForecast(targetDate) {
+export async function generatePrepForecast(targetDate) {
   const target = new Date(targetDate + 'T12:00:00');
   const dayOfWeek = target.getDay(); // 0=Sunday
 
   // Get average order count for this day of week from hourly snapshots
-  const dayStats = get(`
+  const dayStats = await get(`
     SELECT
       AVG(order_count) as avg_orders_per_hour,
       SUM(order_count) as total_orders,
       COUNT(*) as snapshot_count
     FROM ai_hourly_snapshots
-    WHERE day_of_week = ?
+    WHERE day_of_week = $1
   `, [dayOfWeek]);
 
   // Estimate total orders for the target day
@@ -25,7 +25,7 @@ export function generatePrepForecast(targetDate) {
   const estimatedOrders = Math.ceil(avgOrdersPerHour * 12);
 
   // Get all inventory items with their ingredient mappings
-  const ingredients = all(`
+  const ingredients = await all(`
     SELECT
       ii.id as inventory_item_id,
       ii.name as item_name,
@@ -38,21 +38,21 @@ export function generatePrepForecast(targetDate) {
     FROM inventory_items ii
     JOIN menu_item_ingredients mii ON ii.id = mii.inventory_item_id
     JOIN menu_items mi ON mii.menu_item_id = mi.id
-    WHERE mi.active = 1
+    WHERE mi.active = true
     ORDER BY ii.name
   `);
 
   // Get velocity data for each inventory item on this day of week
   const velocityByItem = {};
-  const velocityData = all(`
+  const velocityData = await all(`
     SELECT
       inventory_item_id,
       AVG(quantity_used) as avg_usage,
       MAX(quantity_used) as max_usage,
       COUNT(*) as data_points
     FROM ai_inventory_velocity
-    WHERE CAST(strftime('%w', date) AS INTEGER) = ?
-      AND date >= DATE('now', '-28 days', 'localtime')
+    WHERE EXTRACT(DOW FROM date)::int = $1
+      AND date >= NOW() - INTERVAL '28 days'
     GROUP BY inventory_item_id
   `, [dayOfWeek]);
 
@@ -77,17 +77,17 @@ export function generatePrepForecast(targetDate) {
     }
 
     // Get average sales for this menu item on this day of week
-    const menuItemSales = get(`
+    const menuItemSales = await get(`
       SELECT AVG(daily_qty) as avg_qty FROM (
-        SELECT DATE(o.created_at) as sale_date, SUM(oi.quantity) as daily_qty
+        SELECT o.created_at::date as sale_date, SUM(oi.quantity) as daily_qty
         FROM order_items oi
         JOIN orders o ON oi.order_id = o.id
-        WHERE oi.menu_item_id = ?
-          AND CAST(strftime('%w', o.created_at) AS INTEGER) = ?
-          AND o.created_at >= datetime('now', '-28 days', 'localtime')
+        WHERE oi.menu_item_id = $1
+          AND EXTRACT(DOW FROM o.created_at)::int = $2
+          AND o.created_at >= NOW() - INTERVAL '28 days'
           AND o.status != 'cancelled'
-        GROUP BY DATE(o.created_at)
-      )
+        GROUP BY o.created_at::date
+      ) sub
     `, [ing.menu_item_id, dayOfWeek]);
 
     const avgMenuItemQty = menuItemSales?.avg_qty || 0;

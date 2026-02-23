@@ -19,22 +19,22 @@ const DEFAULT_CONFIG = {
   inventory_push_threshold_multiplier: '1.5',
 };
 
-export function getConfig(key) {
-  const row = get('SELECT value FROM ai_config WHERE key = ?', [key]);
+export async function getConfig(key) {
+  const row = await get('SELECT value FROM ai_config WHERE key = ?', [key]);
   return row ? row.value : DEFAULT_CONFIG[key] || null;
 }
 
-export function getConfigNumber(key) {
-  const val = getConfig(key);
+export async function getConfigNumber(key) {
+  const val = await getConfig(key);
   return val !== null ? parseFloat(val) : null;
 }
 
-export function getConfigBool(key) {
-  return getConfig(key) === '1';
+export async function getConfigBool(key) {
+  return (await getConfig(key)) === '1';
 }
 
-export function getAllConfig() {
-  const rows = all('SELECT key, value, description, updated_at FROM ai_config ORDER BY key');
+export async function getAllConfig() {
+  const rows = await all('SELECT key, value, description, updated_at FROM ai_config ORDER BY key');
   const config = {};
   for (const row of rows) {
     config[row.key] = {
@@ -52,56 +52,56 @@ export function getAllConfig() {
   return config;
 }
 
-export function setConfig(key, value, description) {
-  const existing = get('SELECT key FROM ai_config WHERE key = ?', [key]);
+export async function setConfig(key, value, description) {
+  const existing = await get('SELECT key FROM ai_config WHERE key = ?', [key]);
   if (existing) {
-    run(
-      `UPDATE ai_config SET value = ?, description = COALESCE(?, description), updated_at = datetime('now','localtime') WHERE key = ?`,
+    await run(
+      `UPDATE ai_config SET value = ?, description = COALESCE(?, description), updated_at = NOW() WHERE key = ?`,
       [String(value), description || null, key]
     );
   } else {
-    run(
+    await run(
       `INSERT INTO ai_config (key, value, description) VALUES (?, ?, ?)`,
       [key, String(value), description || null]
     );
   }
 }
 
-export function setMultipleConfig(entries) {
+export async function setMultipleConfig(entries) {
   for (const { key, value, description } of entries) {
-    setConfig(key, value, description);
+    await setConfig(key, value, description);
   }
 }
 
-export function seedDefaults() {
+export async function seedDefaults() {
   for (const [key, value] of Object.entries(DEFAULT_CONFIG)) {
-    const existing = get('SELECT key FROM ai_config WHERE key = ?', [key]);
+    const existing = await get('SELECT key FROM ai_config WHERE key = ?', [key]);
     if (!existing) {
-      run('INSERT INTO ai_config (key, value) VALUES (?, ?)', [key, value]);
+      await run('INSERT INTO ai_config (key, value) VALUES (?, ?)', [key, value]);
     }
   }
 }
 
-export function getRushHours() {
-  const raw = getConfig('rush_hours') || '11-14,18-21';
+export async function getRushHours() {
+  const raw = (await getConfig('rush_hours')) || '11-14,18-21';
   return raw.split(',').map(range => {
     const [start, end] = range.split('-').map(Number);
     return { start, end };
   });
 }
 
-export function getSlowHours() {
-  const raw = getConfig('slow_hours') || '15-17';
+export async function getSlowHours() {
+  const raw = (await getConfig('slow_hours')) || '15-17';
   return raw.split(',').map(range => {
     const [start, end] = range.split('-').map(Number);
     return { start, end };
   });
 }
 
-export function isRushHour(hour) {
-  return getRushHours().some(r => hour >= r.start && hour < r.end);
+export async function isRushHour(hour) {
+  return (await getRushHours()).some(r => hour >= r.start && hour < r.end);
 }
 
-export function isSlowHour(hour) {
-  return getSlowHours().some(r => hour >= r.start && hour < r.end);
+export async function isSlowHour(hour) {
+  return (await getSlowHours()).some(r => hour >= r.start && hour < r.end);
 }

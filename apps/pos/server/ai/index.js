@@ -17,15 +17,15 @@ let initialized = false;
  * - Register scheduled jobs
  * - Start the scheduler
  */
-export function initAI() {
+export async function initAI() {
   if (initialized) return;
 
   console.log('[AI] Initializing AI intelligence layer...');
 
   // Seed default config if not present
-  seedDefaults();
+  await seedDefaults();
 
-  // Register scheduled jobs
+  // Register scheduled jobs (all are now async — scheduler handles await)
   registerJob('refreshSuggestionCache', refreshAllHeuristics, 5 * 60 * 1000);       // Every 5 min
   registerJob('captureHourlySnapshot', captureHourlySnapshot, 60 * 60 * 1000);       // Every hour
   registerJob('updateItemPairs', updateItemPairs, 60 * 60 * 1000);                   // Every hour

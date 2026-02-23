@@ -6,9 +6,9 @@ import { getPlanLimits } from '../planLimits.js';
 const router = Router();
 
 // GET /api/printers - list all printers
-router.get('/', (req, res) => {
+router.get('/', async (req, res) => {
   try {
-    const printers = all('SELECT * FROM printers ORDER BY name');
+    const printers = await all('SELECT * FROM printers ORDER BY name');
     res.json(printers);
   } catch (error) {
     console.error('Error fetching printers:', error);
@@ -17,7 +17,7 @@ router.get('/', (req, res) => {
 });
 
 // POST /api/printers - create printer
-router.post('/', requireAuth('manage_printers'), (req, res) => {
+router.post('/', requireAuth('manage_printers'), async (req, res) => {
   try {
     const plan = req.tenant?.plan || 'trial';
     if (!getPlanLimits(plan).printers.functional) {
@@ -27,8 +27,8 @@ router.post('/', requireAuth('manage_printers'), (req, res) => {
     const { name, printer_type, address } = req.body;
     if (!name) return res.status(400).json({ error: 'Name is required' });
 
-    const result = run(
-      'INSERT INTO printers (name, printer_type, address, active) VALUES (?, ?, ?, 1)',
+    const result = await run(
+      'INSERT INTO printers (name, printer_type, address, active) VALUES (?, ?, ?, true)',
       [name, printer_type || 'receipt', address || '']
     );
 
@@ -40,21 +40,21 @@ router.post('/', requireAuth('manage_printers'), (req, res) => {
 });
 
 // PUT /api/printers/:id - update printer
-router.put('/:id', requireAuth('manage_printers'), (req, res) => {
+router.put('/:id', requireAuth('manage_printers'), async (req, res) => {
   try {
     const { id } = req.params;
     const { name, printer_type, address, active } = req.body;
 
-    const printer = get('SELECT * FROM printers WHERE id = ?', [id]);
+    const printer = await get('SELECT * FROM printers WHERE id = ?', [id]);
     if (!printer) return res.status(404).json({ error: 'Printer not found' });
 
-    run(
+    await run(
       'UPDATE printers SET name = ?, printer_type = ?, address = ?, active = ? WHERE id = ?',
       [
         name ?? printer.name,
         printer_type ?? printer.printer_type,
         address ?? printer.address,
-        active !== undefined ? (active ? 1 : 0) : printer.active,
+        active !== undefined ? (active ? true : false) : printer.active,
         id,
       ]
     );
@@ -66,10 +66,10 @@ router.put('/:id', requireAuth('manage_printers'), (req, res) => {
   }
 });
 
-// GET /api/printers/routes - get category → printer routing
-router.get('/routes', (req, res) => {
+// GET /api/printers/routes - get category -> printer routing
+router.get('/routes', async (req, res) => {
   try {
-    const routes = all(`
+    const routes = await all(`
       SELECT cpr.category_id, cpr.printer_id, mc.name as category_name, p.name as printer_name
       FROM category_printer_routes cpr
       JOIN menu_categories mc ON cpr.category_id = mc.id
@@ -82,17 +82,17 @@ router.get('/routes', (req, res) => {
   }
 });
 
-// PUT /api/printers/routes - set category → printer route
-router.put('/routes', requireAuth('manage_printers'), (req, res) => {
+// PUT /api/printers/routes - set category -> printer route
+router.put('/routes', requireAuth('manage_printers'), async (req, res) => {
   try {
     const { category_id, printer_id } = req.body;
     if (!category_id) return res.status(400).json({ error: 'category_id is required' });
 
-    const existing = get('SELECT * FROM category_printer_routes WHERE category_id = ?', [category_id]);
+    const existing = await get('SELECT * FROM category_printer_routes WHERE category_id = ?', [category_id]);
     if (existing) {
-      run('UPDATE category_printer_routes SET printer_id = ? WHERE category_id = ?', [printer_id, category_id]);
+      await run('UPDATE category_printer_routes SET printer_id = ? WHERE category_id = ?', [printer_id, category_id]);
     } else {
-      run('INSERT INTO category_printer_routes (category_id, printer_id) VALUES (?, ?)', [category_id, printer_id]);
+      await run('INSERT INTO category_printer_routes (category_id, printer_id) VALUES (?, ?)', [category_id, printer_id]);
     }
 
     res.json({ success: true });
@@ -103,15 +103,15 @@ router.put('/routes', requireAuth('manage_printers'), (req, res) => {
 });
 
 // POST /api/printers/print-ticket - generate ticket data grouped by printer
-router.post('/print-ticket', (req, res) => {
+router.post('/print-ticket', async (req, res) => {
   try {
     const { order_id } = req.body;
     if (!order_id) return res.status(400).json({ error: 'order_id is required' });
 
-    const order = get('SELECT * FROM orders WHERE id = ?', [order_id]);
+    const order = await get('SELECT * FROM orders WHERE id = ?', [order_id]);
     if (!order) return res.status(404).json({ error: 'Order not found' });
 
-    const items = all(`
+    const items = await all(`
       SELECT oi.*, mi.category_id
       FROM order_items oi
       JOIN menu_items mi ON oi.menu_item_id = mi.id
@@ -121,7 +121,7 @@ router.post('/print-ticket', (req, res) => {
     // Group items by printer
     const printerGroups = {};
     for (const item of items) {
-      const route = get(
+      const route = await get(
         'SELECT printer_id FROM category_printer_routes WHERE category_id = ?',
         [item.category_id]
       );

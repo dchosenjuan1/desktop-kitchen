@@ -3,11 +3,11 @@ import { all, get } from '../../db/index.js';
 /**
  * Predict stockouts and suggest reorder quantities using velocity data.
  */
-export function generateInventoryForecast() {
+export async function generateInventoryForecast() {
   const forecasts = [];
 
   // Get all inventory items
-  const items = all(`
+  const items = await all(`
     SELECT id, name, quantity, unit, low_stock_threshold, category
     FROM inventory_items
     ORDER BY name
@@ -15,14 +15,14 @@ export function generateInventoryForecast() {
 
   for (const item of items) {
     // Get avg daily consumption over last 7 days
-    const velocity = get(`
+    const velocity = await get(`
       SELECT
         AVG(quantity_used) as avg_daily_usage,
         MAX(quantity_used) as max_daily_usage,
         COUNT(*) as data_days
       FROM ai_inventory_velocity
-      WHERE inventory_item_id = ?
-        AND date >= DATE('now', '-7 days', 'localtime')
+      WHERE inventory_item_id = $1
+        AND date >= NOW() - INTERVAL '7 days'
     `, [item.id]);
 
     const avgDaily = velocity?.avg_daily_usage || 0;
@@ -67,10 +67,10 @@ export function generateInventoryForecast() {
     else if (daysUntilLow <= 2) riskLevel = 'medium';
 
     // Get last restock info
-    const lastRestock = get(`
+    const lastRestock = await get(`
       SELECT quantity_added, created_at
       FROM ai_restock_log
-      WHERE inventory_item_id = ?
+      WHERE inventory_item_id = $1
       ORDER BY created_at DESC
       LIMIT 1
     `, [item.id]);

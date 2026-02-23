@@ -9,15 +9,15 @@ const router = Router();
  *
  * Returns all menu-board brands with their categories, items, combos, and AI badges.
  */
-router.get('/data', (req, res) => {
+router.get('/data', async (req, res) => {
   try {
     // Fetch menu-board brands
-    const brands = all(`
+    const brands = await all(`
       SELECT id, name, slug, description, logo_url,
              primary_color, secondary_color, font_family, dark_bg
       FROM virtual_brands
       WHERE display_type IN ('menu_board', 'both')
-        AND active = 1
+        AND active = true
       ORDER BY id
     `);
 
@@ -29,7 +29,7 @@ router.get('/data', (req, res) => {
     const brandIds = brands.map(b => b.id);
     const placeholders = brandIds.map(() => '?').join(',');
 
-    const rows = all(`
+    const rows = await all(`
       SELECT
         vbi.virtual_brand_id,
         mi.id as item_id,
@@ -44,14 +44,14 @@ router.get('/data', (req, res) => {
       JOIN menu_items mi ON mi.id = vbi.menu_item_id
       JOIN menu_categories mc ON mc.id = mi.category_id
       WHERE vbi.virtual_brand_id IN (${placeholders})
-        AND vbi.active = 1
-        AND mi.active = 1
-        AND mc.active = 1
+        AND vbi.active = true
+        AND mi.active = true
+        AND mc.active = true
       ORDER BY mc.sort_order, mi.id
     `, brandIds);
 
     // Fetch combo definitions with their slots
-    const combos = all(`
+    const combos = await all(`
       SELECT
         cd.id,
         cd.name,
@@ -65,7 +65,7 @@ router.get('/data', (req, res) => {
       FROM combo_definitions cd
       JOIN combo_slots cs ON cs.combo_id = cd.id
       LEFT JOIN menu_items mi ON mi.id = cs.specific_item_id
-      WHERE cd.active = 1
+      WHERE cd.active = true
       ORDER BY cd.id, cs.sort_order
     `);
 
@@ -90,35 +90,36 @@ router.get('/data', (req, res) => {
     }
 
     // Calculate savings for each combo by summing cheapest items per slot
-    const categoryMinPrices = all(`
+    const categoryMinPrices = await all(`
       SELECT category_id, MIN(price) as min_price
       FROM menu_items
-      WHERE active = 1
+      WHERE active = true
       GROUP BY category_id
     `);
     const minPriceMap = new Map(categoryMinPrices.map(r => [r.category_id, r.min_price]));
 
-    const comboList = [...comboMap.values()].map(combo => {
+    const comboList = [];
+    for (const combo of comboMap.values()) {
       let alaCarteMin = 0;
       for (const slot of combo.slots) {
         if (slot.specificItemId) {
-          const item = all('SELECT price FROM menu_items WHERE id = ?', [slot.specificItemId]);
+          const item = await all('SELECT price FROM menu_items WHERE id = ?', [slot.specificItemId]);
           alaCarteMin += item[0]?.price || 0;
         } else if (slot.categoryId) {
           alaCarteMin += minPriceMap.get(slot.categoryId) || 0;
         }
       }
-      return {
+      comboList.push({
         ...combo,
         savings: Math.max(0, alaCarteMin - combo.comboPrice),
-      };
-    });
+      });
+    }
 
     // Collect all item IDs for badge computation
     const allItemIds = [...new Set(rows.map(r => r.item_id))];
-    const badgeMap = computePromotionBadges(allItemIds);
+    const badgeMap = await computePromotionBadges(allItemIds);
 
-    // Group items by brand → category
+    // Group items by brand -> category
     const brandMap = new Map();
     for (const brand of brands) {
       brandMap.set(brand.id, {

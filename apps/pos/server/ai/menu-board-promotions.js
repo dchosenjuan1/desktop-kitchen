@@ -13,7 +13,7 @@ const BADGE_LABELS = {
  * Returns a Map<itemId, Badge[]> where each badge has { type, label, priority }.
  * Max 2 badges per item. Bestseller takes priority over popular-now.
  */
-export function computePromotionBadges(itemIds) {
+export async function computePromotionBadges(itemIds) {
   if (!itemIds || itemIds.length === 0) return new Map();
 
   const badges = new Map(); // itemId -> Badge[]
@@ -35,11 +35,11 @@ export function computePromotionBadges(itemIds) {
 
   // 1) Bestseller — top 5 by 30-day order volume
   try {
-    const bestsellers = all(`
+    const bestsellers = await all(`
       SELECT oi.menu_item_id, SUM(oi.quantity) as total_qty
       FROM order_items oi
       JOIN orders o ON o.id = oi.order_id
-      WHERE o.created_at >= datetime('now', '-30 days')
+      WHERE o.created_at >= NOW() - INTERVAL '30 days'
         AND o.status NOT IN ('cancelled')
         AND oi.menu_item_id IS NOT NULL
       GROUP BY oi.menu_item_id
@@ -56,12 +56,12 @@ export function computePromotionBadges(itemIds) {
     const now = new Date();
     const hour = now.getHours();
     const dow = now.getDay(); // 0=Sunday
-    const popularNow = all(`
+    const popularNow = await all(`
       SELECT oi.menu_item_id, SUM(oi.quantity) as total_qty
       FROM order_items oi
       JOIN orders o ON o.id = oi.order_id
-      WHERE CAST(strftime('%H', o.created_at) AS INTEGER) = ?
-        AND CAST(strftime('%w', o.created_at) AS INTEGER) = ?
+      WHERE EXTRACT(HOUR FROM o.created_at)::int = ?
+        AND EXTRACT(DOW FROM o.created_at)::int = ?
         AND o.status NOT IN ('cancelled')
         AND oi.menu_item_id IS NOT NULL
       GROUP BY oi.menu_item_id
@@ -76,7 +76,7 @@ export function computePromotionBadges(itemIds) {
   // 3) Chef's Pick — highest margin % items (price - ingredient cost) / price
   try {
     const placeholders = itemIds.map(() => '?').join(',');
-    const chefPicks = all(`
+    const chefPicks = await all(`
       SELECT
         mi.id as menu_item_id,
         mi.price,
@@ -89,9 +89,9 @@ export function computePromotionBadges(itemIds) {
       LEFT JOIN menu_item_ingredients mii ON mi.id = mii.menu_item_id
       LEFT JOIN inventory_items ii ON mii.inventory_item_id = ii.id
       WHERE mi.id IN (${placeholders})
-        AND mi.active = 1
-      GROUP BY mi.id
-      HAVING ingredient_cost > 0
+        AND mi.active = true
+      GROUP BY mi.id, mi.price
+      HAVING COALESCE(SUM(mii.quantity_used * ii.cost_price), 0) > 0
       ORDER BY margin_pct DESC
       LIMIT 4
     `, itemIds);
@@ -102,7 +102,7 @@ export function computePromotionBadges(itemIds) {
 
   // 4) Try It! — items with excess inventory (ingredients well above threshold)
   try {
-    const excessIngredients = all(`
+    const excessIngredients = await all(`
       SELECT id, name, quantity, low_stock_threshold
       FROM inventory_items
       WHERE low_stock_threshold > 0
@@ -113,13 +113,13 @@ export function computePromotionBadges(itemIds) {
       const excessIds = excessIngredients.map(i => i.id);
       const excessPlaceholders = excessIds.map(() => '?').join(',');
       const itemPlaceholders = itemIds.map(() => '?').join(',');
-      const tryItems = all(`
+      const tryItems = await all(`
         SELECT DISTINCT mii.menu_item_id
         FROM menu_item_ingredients mii
         JOIN menu_items mi ON mi.id = mii.menu_item_id
         WHERE mii.inventory_item_id IN (${excessPlaceholders})
           AND mi.id IN (${itemPlaceholders})
-          AND mi.active = 1
+          AND mi.active = true
         LIMIT 3
       `, [...excessIds, ...itemIds]);
       for (const row of tryItems) {

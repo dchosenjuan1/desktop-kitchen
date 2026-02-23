@@ -13,7 +13,7 @@ const JWT_SECRET = process.env.JWT_SECRET || 'dev-jwt-secret-change-me';
  *   router.get('/', requireAuth(), handler)            // just requires login
  */
 export function requireAuth(permission) {
-  return (req, res, next) => {
+  return async (req, res, next) => {
     const authHeader = req.headers.authorization;
 
     if (!authHeader?.startsWith('Bearer ')) {
@@ -40,7 +40,7 @@ export function requireAuth(permission) {
       return res.status(403).json({ error: 'Token does not match this tenant' });
     }
 
-    const employee = get(
+    const employee = await get(
       'SELECT id, name, role, active FROM employees WHERE id = ?',
       [decoded.employeeId]
     );
@@ -49,7 +49,7 @@ export function requireAuth(permission) {
       return res.status(401).json({ error: 'Employee not found' });
     }
 
-    if (employee.active === 0) {
+    if (!employee.active) {
       return res.status(401).json({ error: 'Employee account is inactive' });
     }
 
@@ -60,12 +60,12 @@ export function requireAuth(permission) {
       return next();
     }
 
-    const perm = get(
+    const perm = await get(
       'SELECT granted FROM role_permissions WHERE role = ? AND permission = ?',
       [employee.role, permission]
     );
 
-    if (!perm || perm.granted !== 1) {
+    if (!perm || !perm.granted) {
       return res.status(403).json({
         error: `Permission denied: ${permission} is not granted for role ${employee.role}`,
       });

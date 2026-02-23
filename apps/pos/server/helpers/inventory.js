@@ -4,15 +4,15 @@ import { all, get, run } from '../db/index.js';
  * Deduct inventory for all items in an order.
  * Queries order_items -> menu_item_ingredients -> updates inventory_items.
  */
-export function deductInventoryForOrder(orderId) {
-  const orderItems = all(`
+export async function deductInventoryForOrder(orderId) {
+  const orderItems = await all(`
     SELECT menu_item_id, quantity
     FROM order_items
     WHERE order_id = ?
   `, [orderId]);
 
   for (const orderItem of orderItems) {
-    const ingredients = all(`
+    const ingredients = await all(`
       SELECT inventory_item_id, quantity_used
       FROM menu_item_ingredients
       WHERE menu_item_id = ?
@@ -20,7 +20,7 @@ export function deductInventoryForOrder(orderId) {
 
     for (const ingredient of ingredients) {
       const totalNeeded = ingredient.quantity_used * orderItem.quantity;
-      const inventoryItem = get(`
+      const inventoryItem = await get(`
         SELECT id, quantity
         FROM inventory_items
         WHERE id = ?
@@ -28,7 +28,7 @@ export function deductInventoryForOrder(orderId) {
 
       if (inventoryItem) {
         const newQuantity = Math.max(0, inventoryItem.quantity - totalNeeded);
-        run(`
+        await run(`
           UPDATE inventory_items
           SET quantity = ?
           WHERE id = ?
@@ -42,9 +42,9 @@ export function deductInventoryForOrder(orderId) {
  * Restore inventory for specific refunded items.
  * @param {Array<{order_item_id: number, quantity: number}>} items
  */
-export function restoreInventoryForItems(items) {
+export async function restoreInventoryForItems(items) {
   for (const refundItem of items) {
-    const orderItem = get(`
+    const orderItem = await get(`
       SELECT menu_item_id, quantity
       FROM order_items
       WHERE id = ?
@@ -52,7 +52,7 @@ export function restoreInventoryForItems(items) {
 
     if (!orderItem) continue;
 
-    const ingredients = all(`
+    const ingredients = await all(`
       SELECT inventory_item_id, quantity_used
       FROM menu_item_ingredients
       WHERE menu_item_id = ?
@@ -60,7 +60,7 @@ export function restoreInventoryForItems(items) {
 
     for (const ingredient of ingredients) {
       const totalToRestore = ingredient.quantity_used * refundItem.quantity;
-      run(`
+      await run(`
         UPDATE inventory_items
         SET quantity = quantity + ?
         WHERE id = ?

@@ -7,16 +7,16 @@ const router = Router();
 
 const TAX_RATE = 0.16; // 16% IVA (Mexico) — prices already include tax
 
-function generateOrderNumber() {
+async function generateOrderNumber() {
   const now = new Date();
   const dateStr = now.toISOString().split('T')[0]; // YYYY-MM-DD
 
   // Get today's order count
-  const lastOrder = get(`
+  const lastOrder = await get(`
     SELECT MAX(order_number) as max_order
     FROM orders
-    WHERE created_at LIKE ?
-  `, [dateStr + '%']);
+    WHERE created_at::date = $1::date
+  `, [dateStr]);
 
   const lastNum = lastOrder?.max_order || 0;
   const dayNum = lastNum % 1000;
@@ -25,7 +25,7 @@ function generateOrderNumber() {
 }
 
 // GET /api/orders - list orders (optional ?status, ?date filters)
-router.get('/', (req, res) => {
+router.get('/', async (req, res) => {
   try {
     const { status, date } = req.query;
     let query = `
@@ -36,20 +36,21 @@ router.get('/', (req, res) => {
       WHERE 1=1
     `;
     const params = [];
+    let paramIdx = 1;
 
     if (status) {
-      query += ' AND o.status = ?';
+      query += ` AND o.status = $${paramIdx++}`;
       params.push(status);
     }
 
     if (date) {
-      query += ' AND DATE(o.created_at) = ?';
+      query += ` AND o.created_at::date = $${paramIdx++}`;
       params.push(date);
     }
 
     query += ' ORDER BY o.created_at DESC LIMIT 100';
 
-    const orders = all(query, params);
+    const orders = await all(query, params);
     res.json(orders);
   } catch (error) {
     console.error('Error fetching orders:', error);
@@ -58,37 +59,38 @@ router.get('/', (req, res) => {
 });
 
 // GET /api/orders/:id - single order with items
-router.get('/:id', (req, res) => {
+router.get('/:id', async (req, res) => {
   try {
     const { id } = req.params;
 
-    const order = get(`
+    const order = await get(`
       SELECT o.id, o.order_number, o.employee_id, o.status, o.subtotal, o.tax, o.tip, o.total,
              o.payment_intent_id, o.payment_status, o.payment_method, o.source, o.created_at, o.completed_at, e.name as employee_name
       FROM orders o
       JOIN employees e ON o.employee_id = e.id
-      WHERE o.id = ?
+      WHERE o.id = $1
     `, [id]);
 
     if (!order) {
       return res.status(404).json({ error: 'Order not found' });
     }
 
-    const items = all(`
+    const items = await all(`
       SELECT id, order_id, menu_item_id, item_name, quantity, unit_price, notes, combo_instance_id
       FROM order_items
-      WHERE order_id = ?
+      WHERE order_id = $1
     `, [id]);
 
     // Attach modifiers to each item
-    const itemsWithModifiers = items.map(item => {
-      const modifiers = all(`
+    const itemsWithModifiers = [];
+    for (const item of items) {
+      const modifiers = await all(`
         SELECT id, modifier_id, modifier_name, price_adjustment
         FROM order_item_modifiers
-        WHERE order_item_id = ?
+        WHERE order_item_id = $1
       `, [item.id]);
-      return { ...item, modifiers };
-    });
+      itemsWithModifiers.push({ ...item, modifiers });
+    }
 
     res.json({ ...order, items: itemsWithModifiers });
   } catch (error) {
@@ -98,7 +100,7 @@ router.get('/:id', (req, res) => {
 });
 
 // POST /api/orders - create order
-router.post('/', requireAuth('pos_access'), (req, res) => {
+router.post('/', requireAuth('pos_access'), async (req, res) => {
   try {
     const { employee_id, items, offline_temp_id } = req.body;
 
@@ -108,15 +110,15 @@ router.post('/', requireAuth('pos_access'), (req, res) => {
 
     // Idempotent dedup: if offline_temp_id already exists, return existing order
     if (offline_temp_id) {
-      const existing = get(`
+      const existing = await get(`
         SELECT o.id, o.order_number, o.employee_id, o.status, o.subtotal, o.tax, o.tip, o.total,
                o.payment_status, o.payment_method, o.source, o.created_at
-        FROM orders o WHERE o.offline_temp_id = ?
+        FROM orders o WHERE o.offline_temp_id = $1
       `, [offline_temp_id]);
       if (existing) {
-        const existingItems = all(`
+        const existingItems = await all(`
           SELECT id, order_id, menu_item_id, item_name, quantity, unit_price, notes, combo_instance_id
-          FROM order_items WHERE order_id = ?
+          FROM order_items WHERE order_id = $1
         `, [existing.id]);
         return res.status(200).json({ ...existing, items: existingItems });
       }
@@ -130,7 +132,7 @@ router.post('/', requireAuth('pos_access'), (req, res) => {
     }
 
     // Verify employee exists
-    const employee = get('SELECT id FROM employees WHERE id = ?', [employee_id]);
+    const employee = await get('SELECT id FROM employees WHERE id = $1', [employee_id]);
     if (!employee) {
       return res.status(404).json({ error: 'Employee not found' });
     }
@@ -140,7 +142,7 @@ router.post('/', requireAuth('pos_access'), (req, res) => {
     const orderItems = [];
 
     for (const item of items) {
-      const menuItem = get('SELECT id, name, price FROM menu_items WHERE id = ?', [item.menu_item_id]);
+      const menuItem = await get('SELECT id, name, price FROM menu_items WHERE id = $1', [item.menu_item_id]);
       if (!menuItem) {
         return res.status(404).json({ error: `Menu item ${item.menu_item_id} not found` });
       }
@@ -150,7 +152,7 @@ router.post('/', requireAuth('pos_access'), (req, res) => {
       const resolvedModifiers = [];
       if (item.modifiers && item.modifiers.length > 0) {
         for (const modId of item.modifiers) {
-          const mod = get('SELECT id, name, price_adjustment FROM modifiers WHERE id = ?', [modId]);
+          const mod = await get('SELECT id, name, price_adjustment FROM modifiers WHERE id = $1', [modId]);
           if (mod) {
             modifierTotal += mod.price_adjustment;
             resolvedModifiers.push(mod);
@@ -164,8 +166,8 @@ router.post('/', requireAuth('pos_access'), (req, res) => {
       const virtualBrandId = item.virtual_brand_id || null;
 
       if (virtualBrandId) {
-        const brandItem = get(
-          'SELECT custom_name, custom_price FROM virtual_brand_items WHERE virtual_brand_id = ? AND menu_item_id = ?',
+        const brandItem = await get(
+          'SELECT custom_name, custom_price FROM virtual_brand_items WHERE virtual_brand_id = $1 AND menu_item_id = $2',
           [virtualBrandId, item.menu_item_id]
         );
         if (brandItem) {
@@ -194,21 +196,21 @@ router.post('/', requireAuth('pos_access'), (req, res) => {
     const total = itemsTotal; // what the customer pays (IVA included)
     const tax = Math.round((total - total / (1 + TAX_RATE)) * 100) / 100;
     const subtotal = Math.round((total - tax) * 100) / 100;
-    const orderNumber = generateOrderNumber();
+    const orderNumber = await generateOrderNumber();
 
     // Create order
-    const result = run(`
+    const result = await run(`
       INSERT INTO orders (order_number, employee_id, status, subtotal, tax, total, payment_status, offline_temp_id)
-      VALUES (?, ?, 'pending', ?, ?, ?, 'unpaid', ?)
+      VALUES ($1, $2, 'pending', $3, $4, $5, 'unpaid', $6)
     `, [orderNumber, employee_id, subtotal, tax, total, offline_temp_id || null]);
 
     const orderId = result.lastInsertRowid;
 
     // Insert order items and their modifiers
     for (const item of orderItems) {
-      const itemResult = run(`
+      const itemResult = await run(`
         INSERT INTO order_items (order_id, menu_item_id, item_name, quantity, unit_price, notes, combo_instance_id, virtual_brand_id)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
       `, [orderId, item.menu_item_id, item.item_name, item.quantity, item.unit_price, item.notes, item.combo_instance_id, item.virtual_brand_id || null]);
 
       const orderItemId = itemResult.lastInsertRowid;
@@ -216,9 +218,9 @@ router.post('/', requireAuth('pos_access'), (req, res) => {
       // Insert selected modifiers
       if (item.modifiers && item.modifiers.length > 0) {
         for (const mod of item.modifiers) {
-          run(`
+          await run(`
             INSERT INTO order_item_modifiers (order_item_id, modifier_id, modifier_name, price_adjustment)
-            VALUES (?, ?, ?, ?)
+            VALUES ($1, $2, $3, $4)
           `, [orderItemId, mod.id, mod.name, mod.price_adjustment]);
         }
       }
@@ -246,7 +248,7 @@ router.post('/', requireAuth('pos_access'), (req, res) => {
 });
 
 // PUT /api/orders/:id/status - update status
-router.put('/:id/status', (req, res) => {
+router.put('/:id/status', async (req, res) => {
   try {
     const { id } = req.params;
     const { status } = req.body;
@@ -256,7 +258,7 @@ router.put('/:id/status', (req, res) => {
       return res.status(400).json({ error: 'Invalid status' });
     }
 
-    const order = get('SELECT id, status FROM orders WHERE id = ?', [id]);
+    const order = await get('SELECT id, status FROM orders WHERE id = $1', [id]);
     if (!order) {
       return res.status(404).json({ error: 'Order not found' });
     }
@@ -280,10 +282,10 @@ router.put('/:id/status', (req, res) => {
 
     const completedAt = status === 'completed' ? new Date().toISOString() : null;
 
-    run(`
+    await run(`
       UPDATE orders
-      SET status = ?, completed_at = ?
-      WHERE id = ?
+      SET status = $1, completed_at = $2
+      WHERE id = $3
     `, [status, completedAt, id]);
 
     res.json({ id, status });
@@ -294,9 +296,9 @@ router.put('/:id/status', (req, res) => {
 });
 
 // GET /api/orders/kitchen/active - get pending+preparing orders for kitchen display
-router.get('/kitchen/active', (req, res) => {
+router.get('/kitchen/active', async (req, res) => {
   try {
-    const orders = all(`
+    const orders = await all(`
       SELECT o.id, o.order_number, o.status, o.payment_method, o.source, o.created_at, e.name as employee_name
       FROM orders o
       JOIN employees e ON o.employee_id = e.id
@@ -305,26 +307,28 @@ router.get('/kitchen/active', (req, res) => {
     `);
 
     // Get detailed items for each order (with modifiers and combo info)
-    const ordersWithItems = orders.map(order => {
-      const items = all(`
+    const ordersWithItems = [];
+    for (const order of orders) {
+      const items = await all(`
         SELECT oi.id, oi.item_name, oi.quantity, oi.notes, oi.combo_instance_id,
                oi.virtual_brand_id, vb.name as brand_name, vb.primary_color as brand_color
         FROM order_items oi
         LEFT JOIN virtual_brands vb ON oi.virtual_brand_id = vb.id
-        WHERE oi.order_id = ?
+        WHERE oi.order_id = $1
       `, [order.id]);
 
-      const itemsWithModifiers = items.map(item => {
-        const modifiers = all(`
+      const itemsWithModifiers = [];
+      for (const item of items) {
+        const modifiers = await all(`
           SELECT modifier_name, price_adjustment
           FROM order_item_modifiers
-          WHERE order_item_id = ?
+          WHERE order_item_id = $1
         `, [item.id]);
-        return { ...item, modifiers };
-      });
+        itemsWithModifiers.push({ ...item, modifiers });
+      }
 
-      return { ...order, items: itemsWithModifiers };
-    });
+      ordersWithItems.push({ ...order, items: itemsWithModifiers });
+    }
 
     res.json(ordersWithItems);
   } catch (error) {

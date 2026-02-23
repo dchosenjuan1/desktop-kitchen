@@ -11,14 +11,14 @@ const router = Router();
  * GET /api/delivery/analytics — delivery P&L breakdown
  * Query: ?start=YYYY-MM-DD&end=YYYY-MM-DD
  */
-router.get('/analytics', requireAuth('view_reports'), (req, res) => {
+router.get('/analytics', requireAuth('view_reports'), async (req, res) => {
   try {
     const { start, end } = req.query;
     const startDate = start || new Date(Date.now() - 30 * 86400000).toISOString().slice(0, 10);
     const endDate = end || new Date().toISOString().slice(0, 10);
 
     // Revenue and commission per platform
-    const platformStats = all(`
+    const platformStats = await all(`
       SELECT
         dp.id as platform_id,
         dp.name,
@@ -33,46 +33,46 @@ router.get('/analytics', requireAuth('view_reports'), (req, res) => {
       FROM delivery_platforms dp
       LEFT JOIN delivery_orders do2 ON do2.platform_id = dp.id
       LEFT JOIN orders o ON o.id = do2.order_id
-        AND date(o.created_at) >= ? AND date(o.created_at) <= ?
-      GROUP BY dp.id
+        AND o.created_at::date >= $1 AND o.created_at::date <= $2
+      GROUP BY dp.id, dp.name, dp.display_name, dp.commission_percent
       ORDER BY gross_revenue DESC
     `, [startDate, endDate]);
 
     // POS vs delivery comparison
-    const posStats = get(`
+    const posStats = await get(`
       SELECT
         COUNT(*) as order_count,
         COALESCE(SUM(total), 0) as revenue,
         COALESCE(AVG(total), 0) as avg_order
       FROM orders
       WHERE source = 'pos'
-        AND date(created_at) >= ? AND date(created_at) <= ?
+        AND created_at::date >= $1 AND created_at::date <= $2
         AND status NOT IN ('cancelled')
     `, [startDate, endDate]);
 
-    const deliveryStats = get(`
+    const deliveryStats = await get(`
       SELECT
         COUNT(*) as order_count,
         COALESCE(SUM(total), 0) as revenue,
         COALESCE(AVG(total), 0) as avg_order
       FROM orders
       WHERE source != 'pos'
-        AND date(created_at) >= ? AND date(created_at) <= ?
+        AND created_at::date >= $1 AND created_at::date <= $2
         AND status NOT IN ('cancelled')
     `, [startDate, endDate]);
 
     // Daily trend
-    const dailyTrend = all(`
+    const dailyTrend = await all(`
       SELECT
-        date(o.created_at) as day,
+        o.created_at::date as day,
         o.source,
         COUNT(*) as orders,
         COALESCE(SUM(o.total), 0) as revenue
       FROM orders o
-      WHERE date(o.created_at) >= ? AND date(o.created_at) <= ?
+      WHERE o.created_at::date >= $1 AND o.created_at::date <= $2
         AND o.status NOT IN ('cancelled')
-      GROUP BY day, o.source
-      ORDER BY day
+      GROUP BY o.created_at::date, o.source
+      ORDER BY o.created_at::date
     `, [startDate, endDate]);
 
     res.json({
@@ -93,9 +93,9 @@ router.get('/analytics', requireAuth('view_reports'), (req, res) => {
 /**
  * GET /api/delivery/markup-rules — list all markup rules
  */
-router.get('/markup-rules', requireAuth('manage_delivery'), (req, res) => {
+router.get('/markup-rules', requireAuth('manage_delivery'), async (req, res) => {
   try {
-    const rules = all(`
+    const rules = await all(`
       SELECT dmr.*,
         dp.display_name as platform_name,
         mi.name as item_name,
@@ -117,7 +117,7 @@ router.get('/markup-rules', requireAuth('manage_delivery'), (req, res) => {
  * POST /api/delivery/markup-rules — create a markup rule
  * Body: { platform_id, menu_item_id?, category_id?, markup_type, markup_value }
  */
-router.post('/markup-rules', requireAuth('manage_delivery'), (req, res) => {
+router.post('/markup-rules', requireAuth('manage_delivery'), async (req, res) => {
   try {
     const { platform_id, menu_item_id, category_id, markup_type, markup_value } = req.body;
 
@@ -128,15 +128,15 @@ router.post('/markup-rules', requireAuth('manage_delivery'), (req, res) => {
       return res.status(400).json({ error: 'Either menu_item_id or category_id required' });
     }
 
-    const result = run(
+    const result = await run(
       `INSERT INTO delivery_markup_rules (platform_id, menu_item_id, category_id, markup_type, markup_value)
-       VALUES (?, ?, ?, ?, ?)`,
+       VALUES ($1, $2, $3, $4, $5)`,
       [platform_id, menu_item_id || null, category_id || null, markup_type || 'percent', markup_value]
     );
 
     res.status(201).json({ id: result.lastInsertRowid });
   } catch (error) {
-    if (error.message?.includes('UNIQUE')) {
+    if (error.message?.includes('UNIQUE') || error.message?.includes('unique') || error.code === '23505') {
       return res.status(409).json({ error: 'Markup rule already exists for this platform/item combination' });
     }
     console.error('Markup rule create error:', error);
@@ -147,17 +147,17 @@ router.post('/markup-rules', requireAuth('manage_delivery'), (req, res) => {
 /**
  * PUT /api/delivery/markup-rules/:id — update a markup rule
  */
-router.put('/markup-rules/:id', requireAuth('manage_delivery'), (req, res) => {
+router.put('/markup-rules/:id', requireAuth('manage_delivery'), async (req, res) => {
   try {
     const { id } = req.params;
     const { markup_type, markup_value, active } = req.body;
 
-    const rule = get('SELECT * FROM delivery_markup_rules WHERE id = ?', [id]);
+    const rule = await get('SELECT * FROM delivery_markup_rules WHERE id = $1', [id]);
     if (!rule) return res.status(404).json({ error: 'Rule not found' });
 
-    run(
-      `UPDATE delivery_markup_rules SET markup_type = ?, markup_value = ?, active = ? WHERE id = ?`,
-      [markup_type ?? rule.markup_type, markup_value ?? rule.markup_value, active !== undefined ? (active ? 1 : 0) : rule.active, id]
+    await run(
+      `UPDATE delivery_markup_rules SET markup_type = $1, markup_value = $2, active = $3 WHERE id = $4`,
+      [markup_type ?? rule.markup_type, markup_value ?? rule.markup_value, active !== undefined ? active : rule.active, id]
     );
 
     res.json({ success: true });
@@ -170,9 +170,9 @@ router.put('/markup-rules/:id', requireAuth('manage_delivery'), (req, res) => {
 /**
  * DELETE /api/delivery/markup-rules/:id
  */
-router.delete('/markup-rules/:id', requireAuth('manage_delivery'), (req, res) => {
+router.delete('/markup-rules/:id', requireAuth('manage_delivery'), async (req, res) => {
   try {
-    run('DELETE FROM delivery_markup_rules WHERE id = ?', [req.params.id]);
+    await run('DELETE FROM delivery_markup_rules WHERE id = $1', [req.params.id]);
     res.json({ success: true });
   } catch (error) {
     console.error('Markup rule delete error:', error);
@@ -183,11 +183,11 @@ router.delete('/markup-rules/:id', requireAuth('manage_delivery'), (req, res) =>
 /**
  * GET /api/delivery/markup-preview/:platformId — preview menu with markups applied
  */
-router.get('/markup-preview/:platformId', requireAuth('manage_delivery'), (req, res) => {
+router.get('/markup-preview/:platformId', requireAuth('manage_delivery'), async (req, res) => {
   try {
     const { platformId } = req.params;
 
-    const items = all(`
+    const items = await all(`
       SELECT
         mi.id, mi.name, mi.price as base_price,
         mc.name as category_name,
@@ -200,10 +200,10 @@ router.get('/markup-preview/:platformId', requireAuth('manage_delivery'), (req, 
         END as delivery_price
       FROM menu_items mi
       JOIN menu_categories mc ON mc.id = mi.category_id
-      CROSS JOIN delivery_platforms dp ON dp.id = ?
-      LEFT JOIN delivery_markup_rules dmr_item ON dmr_item.platform_id = dp.id AND dmr_item.menu_item_id = mi.id AND dmr_item.active = 1
-      LEFT JOIN delivery_markup_rules dmr_cat ON dmr_cat.platform_id = dp.id AND dmr_cat.category_id = mi.category_id AND dmr_cat.active = 1
-      WHERE mi.active = 1
+      CROSS JOIN delivery_platforms dp ON dp.id = $1
+      LEFT JOIN delivery_markup_rules dmr_item ON dmr_item.platform_id = dp.id AND dmr_item.menu_item_id = mi.id AND dmr_item.active = true
+      LEFT JOIN delivery_markup_rules dmr_cat ON dmr_cat.platform_id = dp.id AND dmr_cat.category_id = mi.category_id AND dmr_cat.active = true
+      WHERE mi.active = true
       ORDER BY mc.sort_order, mi.name
     `, [platformId]);
 
@@ -219,12 +219,12 @@ router.get('/markup-preview/:platformId', requireAuth('manage_delivery'), (req, 
 /**
  * GET /api/delivery/virtual-brands — list virtual brands
  */
-router.get('/virtual-brands', requireAuth('manage_delivery'), (req, res) => {
+router.get('/virtual-brands', requireAuth('manage_delivery'), async (req, res) => {
   try {
-    const brands = all(`
+    const brands = await all(`
       SELECT vb.*,
         dp.display_name as platform_name,
-        (SELECT COUNT(*) FROM virtual_brand_items WHERE virtual_brand_id = vb.id AND active = 1) as item_count
+        (SELECT COUNT(*) FROM virtual_brand_items WHERE virtual_brand_id = vb.id AND active = true) as item_count
       FROM virtual_brands vb
       JOIN delivery_platforms dp ON dp.id = vb.platform_id
       ORDER BY vb.name
@@ -240,17 +240,17 @@ router.get('/virtual-brands', requireAuth('manage_delivery'), (req, res) => {
  * POST /api/delivery/virtual-brands — create virtual brand
  * Body: { name, platform_id, description?, logo_url? }
  */
-router.post('/virtual-brands', requireAuth('manage_delivery'), (req, res) => {
+router.post('/virtual-brands', requireAuth('manage_delivery'), async (req, res) => {
   try {
     const { name, platform_id, description, logo_url, display_type, primary_color, secondary_color, font_family, dark_bg, slug, show_in_pos } = req.body;
     if (!name || !platform_id) {
       return res.status(400).json({ error: 'name and platform_id required' });
     }
 
-    const result = run(
+    const result = await run(
       `INSERT INTO virtual_brands (name, platform_id, description, logo_url, display_type, primary_color, secondary_color, font_family, dark_bg, slug, show_in_pos)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [name, platform_id, description || null, logo_url || null, display_type || 'delivery', primary_color || null, secondary_color || null, font_family || null, dark_bg || null, slug || null, show_in_pos !== undefined ? (show_in_pos ? 1 : 0) : 1]
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
+      [name, platform_id, description || null, logo_url || null, display_type || 'delivery', primary_color || null, secondary_color || null, font_family || null, dark_bg || null, slug || null, show_in_pos !== undefined ? show_in_pos : true]
     );
 
     res.status(201).json({ id: result.lastInsertRowid });
@@ -263,28 +263,28 @@ router.post('/virtual-brands', requireAuth('manage_delivery'), (req, res) => {
 /**
  * PUT /api/delivery/virtual-brands/:id
  */
-router.put('/virtual-brands/:id', requireAuth('manage_delivery'), (req, res) => {
+router.put('/virtual-brands/:id', requireAuth('manage_delivery'), async (req, res) => {
   try {
     const { id } = req.params;
     const { name, description, logo_url, active, display_type, primary_color, secondary_color, font_family, dark_bg, slug, show_in_pos } = req.body;
 
-    const brand = get('SELECT * FROM virtual_brands WHERE id = ?', [id]);
+    const brand = await get('SELECT * FROM virtual_brands WHERE id = $1', [id]);
     if (!brand) return res.status(404).json({ error: 'Virtual brand not found' });
 
-    run(
-      `UPDATE virtual_brands SET name = ?, description = ?, logo_url = ?, active = ?, display_type = ?, primary_color = ?, secondary_color = ?, font_family = ?, dark_bg = ?, slug = ?, show_in_pos = ? WHERE id = ?`,
+    await run(
+      `UPDATE virtual_brands SET name = $1, description = $2, logo_url = $3, active = $4, display_type = $5, primary_color = $6, secondary_color = $7, font_family = $8, dark_bg = $9, slug = $10, show_in_pos = $11 WHERE id = $12`,
       [
         name ?? brand.name,
         description ?? brand.description,
         logo_url ?? brand.logo_url,
-        active !== undefined ? (active ? 1 : 0) : brand.active,
+        active !== undefined ? active : brand.active,
         display_type ?? brand.display_type,
         primary_color ?? brand.primary_color,
         secondary_color ?? brand.secondary_color,
         font_family ?? brand.font_family,
         dark_bg ?? brand.dark_bg,
         slug ?? brand.slug,
-        show_in_pos !== undefined ? (show_in_pos ? 1 : 0) : brand.show_in_pos,
+        show_in_pos !== undefined ? show_in_pos : brand.show_in_pos,
         id
       ]
     );
@@ -299,10 +299,10 @@ router.put('/virtual-brands/:id', requireAuth('manage_delivery'), (req, res) => 
 /**
  * DELETE /api/delivery/virtual-brands/:brandId/items/:itemId — remove item from virtual brand
  */
-router.delete('/virtual-brands/:brandId/items/:itemId', requireAuth('manage_delivery'), (req, res) => {
+router.delete('/virtual-brands/:brandId/items/:itemId', requireAuth('manage_delivery'), async (req, res) => {
   try {
     const { brandId, itemId } = req.params;
-    run('DELETE FROM virtual_brand_items WHERE virtual_brand_id = ? AND menu_item_id = ?', [brandId, itemId]);
+    await run('DELETE FROM virtual_brand_items WHERE virtual_brand_id = $1 AND menu_item_id = $2', [brandId, itemId]);
     res.json({ success: true });
   } catch (error) {
     console.error('Virtual brand item delete error:', error);
@@ -314,7 +314,7 @@ router.delete('/virtual-brands/:brandId/items/:itemId', requireAuth('manage_deli
  * POST /api/delivery/virtual-brands/:id/items — assign items to virtual brand
  * Body: { items: [{ menu_item_id, custom_name?, custom_price? }] }
  */
-router.post('/virtual-brands/:id/items', requireAuth('manage_delivery'), (req, res) => {
+router.post('/virtual-brands/:id/items', requireAuth('manage_delivery'), async (req, res) => {
   try {
     const { id } = req.params;
     const { items } = req.body;
@@ -323,13 +323,14 @@ router.post('/virtual-brands/:id/items', requireAuth('manage_delivery'), (req, r
       return res.status(400).json({ error: 'items array required' });
     }
 
-    const brand = get('SELECT * FROM virtual_brands WHERE id = ?', [id]);
+    const brand = await get('SELECT * FROM virtual_brands WHERE id = $1', [id]);
     if (!brand) return res.status(404).json({ error: 'Virtual brand not found' });
 
     for (const item of items) {
-      run(
-        `INSERT OR REPLACE INTO virtual_brand_items (virtual_brand_id, menu_item_id, custom_name, custom_price, active)
-         VALUES (?, ?, ?, ?, 1)`,
+      await run(
+        `INSERT INTO virtual_brand_items (virtual_brand_id, menu_item_id, custom_name, custom_price, active)
+         VALUES ($1, $2, $3, $4, true)
+         ON CONFLICT (virtual_brand_id, menu_item_id) DO UPDATE SET custom_name = EXCLUDED.custom_name, custom_price = EXCLUDED.custom_price, active = true`,
         [id, item.menu_item_id, item.custom_name || null, item.custom_price || null]
       );
     }
@@ -344,14 +345,14 @@ router.post('/virtual-brands/:id/items', requireAuth('manage_delivery'), (req, r
 /**
  * GET /api/delivery/virtual-brands/:id/items — get items for a virtual brand
  */
-router.get('/virtual-brands/:id/items', requireAuth('manage_delivery'), (req, res) => {
+router.get('/virtual-brands/:id/items', requireAuth('manage_delivery'), async (req, res) => {
   try {
-    const items = all(`
+    const items = await all(`
       SELECT vbi.*, mi.name as original_name, mi.price as original_price, mc.name as category_name
       FROM virtual_brand_items vbi
       JOIN menu_items mi ON mi.id = vbi.menu_item_id
       JOIN menu_categories mc ON mc.id = mi.category_id
-      WHERE vbi.virtual_brand_id = ?
+      WHERE vbi.virtual_brand_id = $1
       ORDER BY mc.sort_order, mi.name
     `, [req.params.id]);
 
@@ -368,12 +369,12 @@ router.get('/virtual-brands/:id/items', requireAuth('manage_delivery'), (req, re
  * GET /api/delivery/recapture/candidates — delivery-only customers to win back
  * Returns customers who ordered via delivery but never via POS
  */
-router.get('/recapture/candidates', requireAuth('manage_delivery'), (req, res) => {
+router.get('/recapture/candidates', requireAuth('manage_delivery'), async (req, res) => {
   try {
     const { days } = req.query;
     const lookbackDays = days || 60;
 
-    const candidates = all(`
+    const candidates = await all(`
       SELECT
         do2.customer_name,
         do2.id as delivery_order_id,
@@ -388,8 +389,8 @@ router.get('/recapture/candidates', requireAuth('manage_delivery'), (req, res) =
       LEFT JOIN delivery_recapture dr ON dr.last_delivery_order_id = do2.id
       WHERE do2.customer_name IS NOT NULL
         AND do2.customer_name != ''
-        AND date(o.created_at) >= date('now', '-' || ? || ' days')
-      GROUP BY do2.customer_name
+        AND o.created_at::date >= (NOW() - INTERVAL '1 day' * $1)::date
+      GROUP BY do2.customer_name, do2.id, dp.display_name, o.total, o.created_at, dr.sms_sent_at, dr.converted
       HAVING MAX(o.created_at) = o.created_at
       ORDER BY o.created_at DESC
       LIMIT 50
@@ -421,9 +422,9 @@ router.post('/recapture/send', requireAuth('manage_delivery'), async (req, res) 
     const sid = await sendSMS(phone, body);
 
     // Track recapture attempt
-    run(
+    await run(
       `INSERT INTO delivery_recapture (customer_phone, customer_name, platform, last_delivery_order_id, sms_sent_at)
-       VALUES (?, ?, ?, ?, datetime('now','localtime'))`,
+       VALUES ($1, $2, $3, $4, NOW())`,
       [phone, customer_name, platform, delivery_order_id || null]
     );
 
@@ -437,9 +438,9 @@ router.post('/recapture/send', requireAuth('manage_delivery'), async (req, res) 
 /**
  * POST /api/delivery/recapture/:id/convert — mark recapture as converted
  */
-router.post('/recapture/:id/convert', requireAuth('manage_delivery'), (req, res) => {
+router.post('/recapture/:id/convert', requireAuth('manage_delivery'), async (req, res) => {
   try {
-    run('UPDATE delivery_recapture SET converted = 1 WHERE id = ?', [req.params.id]);
+    await run('UPDATE delivery_recapture SET converted = true WHERE id = $1', [req.params.id]);
     res.json({ success: true });
   } catch (error) {
     console.error('Recapture convert error:', error);

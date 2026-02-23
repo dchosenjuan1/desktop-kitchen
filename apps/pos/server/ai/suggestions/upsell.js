@@ -13,16 +13,16 @@ import { isRushHour, isSlowHour, getConfigBool } from '../config.js';
  * - Rush hours → boost combo suggestions
  * - Slow period → suggest Family Pack
  */
-export function generateCartUpsellSuggestions(cartItemIds, currentHour = new Date().getHours()) {
-  if (!getConfigBool('upsell_enabled')) return [];
+export async function generateCartUpsellSuggestions(cartItemIds, currentHour = new Date().getHours()) {
+  if (!(await getConfigBool('upsell_enabled'))) return [];
 
   const suggestions = [];
 
   if (!cartItemIds || cartItemIds.length === 0) return suggestions;
 
   // Get cart items with their categories
-  const placeholders = cartItemIds.map(() => '?').join(',');
-  const cartItems = all(`
+  const placeholders = cartItemIds.map((_, i) => `$${i + 1}`).join(',');
+  const cartItems = await all(`
     SELECT mi.id, mi.name, mi.price, mi.category_id, mc.name as category_name,
            COALESCE(acr.role, 'unknown') as role
     FROM menu_items mi
@@ -44,11 +44,11 @@ export function generateCartUpsellSuggestions(cartItemIds, currentHour = new Dat
 
   // Rule: Cart has main but no drink → suggest cheapest drink
   if (hasMains && !hasDrink) {
-    const cheapestDrink = get(`
+    const cheapestDrink = await get(`
       SELECT mi.id, mi.name, mi.price
       FROM menu_items mi
       JOIN ai_category_roles acr ON mi.category_id = acr.category_id
-      WHERE acr.role = 'drink' AND mi.active = 1
+      WHERE acr.role = 'drink' AND mi.active = true
       ORDER BY mi.price ASC
       LIMIT 1
     `);
@@ -70,11 +70,11 @@ export function generateCartUpsellSuggestions(cartItemIds, currentHour = new Dat
 
   // Rule: Cart has main but no side → suggest Chips & Guac or Rice & Beans
   if (hasMains && !hasSide && !hasCombo) {
-    const sides = all(`
+    const sides = await all(`
       SELECT mi.id, mi.name, mi.price
       FROM menu_items mi
       JOIN ai_category_roles acr ON mi.category_id = acr.category_id
-      WHERE acr.role = 'side' AND mi.active = 1
+      WHERE acr.role = 'side' AND mi.active = true
         AND mi.name IN ('Chips & Guac', 'Rice & Beans')
       ORDER BY mi.price ASC
       LIMIT 1
@@ -97,12 +97,12 @@ export function generateCartUpsellSuggestions(cartItemIds, currentHour = new Dat
   }
 
   // Rule: Cart items cost more than a Combo → suggest combo upgrade
-  if (hasMains && !hasCombo && getConfigBool('combo_upgrade_enabled')) {
-    const combos = all(`
+  if (hasMains && !hasCombo && (await getConfigBool('combo_upgrade_enabled'))) {
+    const combos = await all(`
       SELECT mi.id, mi.name, mi.price
       FROM menu_items mi
       JOIN ai_category_roles acr ON mi.category_id = acr.category_id
-      WHERE acr.role = 'combo' AND mi.active = 1
+      WHERE acr.role = 'combo' AND mi.active = true
       ORDER BY mi.price ASC
     `);
 
@@ -112,7 +112,7 @@ export function generateCartUpsellSuggestions(cartItemIds, currentHour = new Dat
         let priority = 80;
 
         // Boost during rush hours
-        if (isRushHour(currentHour)) {
+        if (await isRushHour(currentHour)) {
           priority = 85;
         }
 
@@ -138,10 +138,10 @@ export function generateCartUpsellSuggestions(cartItemIds, currentHour = new Dat
     i.category_name === 'Tacos' && !i.name.includes('(3)')
   );
   if (tacoItems.length >= 1 && tacoItems.length <= 2) {
-    const tacoPack = get(`
+    const tacoPack = await get(`
       SELECT mi.id, mi.name, mi.price
       FROM menu_items mi
-      WHERE mi.name LIKE '%Street Tacos%' AND mi.active = 1
+      WHERE mi.name LIKE '%Street Tacos%' AND mi.active = true
       LIMIT 1
     `);
 
@@ -167,10 +167,10 @@ export function generateCartUpsellSuggestions(cartItemIds, currentHour = new Dat
   if (cartTotal > 400) {
     const hasDessert = cartItems.some(i => i.name === 'Churros');
     if (!hasDessert) {
-      const churros = get(`
+      const churros = await get(`
         SELECT mi.id, mi.name, mi.price
         FROM menu_items mi
-        WHERE mi.name = 'Churros' AND mi.active = 1
+        WHERE mi.name = 'Churros' AND mi.active = true
         LIMIT 1
       `);
 
@@ -191,13 +191,13 @@ export function generateCartUpsellSuggestions(cartItemIds, currentHour = new Dat
   }
 
   // Time-based: Slow period → suggest Family Pack
-  if (isSlowHour(currentHour)) {
+  if (await isSlowHour(currentHour)) {
     const hasLargeOrder = cartItems.length >= 3;
     if (hasLargeOrder && !hasCombo) {
-      const familyPack = get(`
+      const familyPack = await get(`
         SELECT mi.id, mi.name, mi.price
         FROM menu_items mi
-        WHERE mi.name LIKE '%Family Pack%' AND mi.active = 1
+        WHERE mi.name LIKE '%Family Pack%' AND mi.active = true
         LIMIT 1
       `);
 

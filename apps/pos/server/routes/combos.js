@@ -5,17 +5,18 @@ import { checkLimit } from '../planLimits.js';
 const router = Router();
 
 // GET /api/combos - list all combos with slots
-router.get('/', (req, res) => {
+router.get('/', async (req, res) => {
   try {
-    const combos = all(`
+    const combos = await all(`
       SELECT id, name, description, combo_price, active
       FROM combo_definitions
-      WHERE active = 1
+      WHERE active = true
       ORDER BY name ASC
     `);
 
-    const result = combos.map(combo => {
-      const slots = all(`
+    const result = [];
+    for (const combo of combos) {
+      const slots = await all(`
         SELECT cs.id, cs.combo_id, cs.slot_label, cs.category_id, cs.specific_item_id, cs.sort_order,
                mc.name as category_name, mi.name as item_name
         FROM combo_slots cs
@@ -24,8 +25,8 @@ router.get('/', (req, res) => {
         WHERE cs.combo_id = ?
         ORDER BY cs.sort_order ASC
       `, [combo.id]);
-      return { ...combo, slots };
-    });
+      result.push({ ...combo, slots });
+    }
 
     res.json(result);
   } catch (error) {
@@ -35,13 +36,13 @@ router.get('/', (req, res) => {
 });
 
 // GET /api/combos/:id - single combo with slots
-router.get('/:id', (req, res) => {
+router.get('/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const combo = get('SELECT * FROM combo_definitions WHERE id = ?', [id]);
+    const combo = await get('SELECT * FROM combo_definitions WHERE id = ?', [id]);
     if (!combo) return res.status(404).json({ error: 'Combo not found' });
 
-    const slots = all(`
+    const slots = await all(`
       SELECT cs.*, mc.name as category_name, mi.name as item_name
       FROM combo_slots cs
       LEFT JOIN menu_categories mc ON cs.category_id = mc.id
@@ -58,28 +59,28 @@ router.get('/:id', (req, res) => {
 });
 
 // POST /api/combos - create combo
-router.post('/', (req, res) => {
+router.post('/', async (req, res) => {
   try {
     const { name, description, combo_price, slots = [] } = req.body;
     if (!name || combo_price === undefined) return res.status(400).json({ error: 'Missing name or combo_price' });
 
     // Plan limit check
     const plan = req.tenant?.plan || 'trial';
-    const { cnt } = get('SELECT COUNT(*) as cnt FROM combo_definitions WHERE active = 1') || { cnt: 0 };
+    const { cnt } = await get('SELECT COUNT(*) as cnt FROM combo_definitions WHERE active = true') || { cnt: 0 };
     const check = checkLimit(plan, 'combos', cnt);
     if (!check.allowed) {
       return res.status(403).json({ error: `Combo limit reached (${check.limit})`, upgrade: true, limit: check.limit, current: check.current });
     }
 
-    const result = run(`
+    const result = await run(`
       INSERT INTO combo_definitions (name, description, combo_price, active)
-      VALUES (?, ?, ?, 1)
+      VALUES (?, ?, ?, true)
     `, [name, description || '', combo_price]);
 
     const comboId = result.lastInsertRowid;
 
     for (const slot of slots) {
-      run(`
+      await run(`
         INSERT INTO combo_slots (combo_id, slot_label, category_id, specific_item_id, sort_order)
         VALUES (?, ?, ?, ?, ?)
       `, [comboId, slot.slot_label, slot.category_id || null, slot.specific_item_id || null, slot.sort_order || 0]);
@@ -93,12 +94,12 @@ router.post('/', (req, res) => {
 });
 
 // PUT /api/combos/:id - update combo
-router.put('/:id', (req, res) => {
+router.put('/:id', async (req, res) => {
   try {
     const { id } = req.params;
     const { name, description, combo_price, active } = req.body;
 
-    const existing = get('SELECT id FROM combo_definitions WHERE id = ?', [id]);
+    const existing = await get('SELECT id FROM combo_definitions WHERE id = ?', [id]);
     if (!existing) return res.status(404).json({ error: 'Combo not found' });
 
     const updates = [];
@@ -106,11 +107,11 @@ router.put('/:id', (req, res) => {
     if (name !== undefined) { updates.push('name = ?'); params.push(name); }
     if (description !== undefined) { updates.push('description = ?'); params.push(description); }
     if (combo_price !== undefined) { updates.push('combo_price = ?'); params.push(combo_price); }
-    if (active !== undefined) { updates.push('active = ?'); params.push(active ? 1 : 0); }
+    if (active !== undefined) { updates.push('active = ?'); params.push(active ? true : false); }
 
     if (updates.length > 0) {
       params.push(id);
-      run(`UPDATE combo_definitions SET ${updates.join(', ')} WHERE id = ?`, params);
+      await run(`UPDATE combo_definitions SET ${updates.join(', ')} WHERE id = ?`, params);
     }
 
     res.json({ id, message: 'Updated' });

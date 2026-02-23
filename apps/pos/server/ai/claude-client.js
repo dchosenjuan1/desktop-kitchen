@@ -13,8 +13,8 @@ const CACHE_TTL = 30 * 60 * 1000; // 30 minutes
 /**
  * Check if Grok API is available
  */
-function isAvailable() {
-  if (!getConfigBool('grok_api_enabled')) {
+async function isAvailable() {
+  if (!(await getConfigBool('grok_api_enabled'))) {
     return false;
   }
 
@@ -29,14 +29,14 @@ function isAvailable() {
 /**
  * Check rate limit
  */
-function checkRateLimit() {
+async function checkRateLimit() {
   const now = Date.now();
   if (now > hourResetTime) {
     callsThisHour = 0;
     hourResetTime = now + 3600000;
   }
 
-  const maxCalls = getConfigNumber('grok_max_calls_per_hour') || 10;
+  const maxCalls = (await getConfigNumber('grok_max_calls_per_hour')) || 10;
   if (callsThisHour >= maxCalls) {
     return false;
   }
@@ -61,11 +61,11 @@ function hashPrompt(prompt) {
  * Send a message to Grok with caching, rate limiting, and retry
  */
 export async function sendMessage(prompt, { systemPrompt, maxTokens = 1024, useCache = true } = {}) {
-  if (!isAvailable()) {
+  if (!(await isAvailable())) {
     return { success: false, error: 'Grok API not available', fallback: true };
   }
 
-  if (!checkRateLimit()) {
+  if (!(await checkRateLimit())) {
     return { success: false, error: 'Rate limit exceeded', fallback: true };
   }
 
@@ -78,7 +78,7 @@ export async function sendMessage(prompt, { systemPrompt, maxTokens = 1024, useC
     }
   }
 
-  const model = getConfig('grok_model') || 'grok-3-mini';
+  const model = (await getConfig('grok_model')) || 'grok-3-mini';
 
   const messages = [];
   if (systemPrompt) {
@@ -206,13 +206,13 @@ Return JSON object with: summary (string), urgent_actions (array), weekly_plan (
 /**
  * Get current stats
  */
-export function getGrokStats() {
+export async function getGrokStats() {
   return {
-    enabled: getConfigBool('grok_api_enabled'),
+    enabled: await getConfigBool('grok_api_enabled'),
     apiKeySet: !!process.env.XAI_API_KEY,
     callsThisHour,
-    maxCallsPerHour: getConfigNumber('grok_max_calls_per_hour') || 10,
+    maxCallsPerHour: (await getConfigNumber('grok_max_calls_per_hour')) || 10,
     cacheSize: promptCache.size,
-    model: getConfig('grok_model') || 'grok-3-mini',
+    model: (await getConfig('grok_model')) || 'grok-3-mini',
   };
 }

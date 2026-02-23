@@ -1,212 +1,198 @@
-import { initDb, run, exec, saveDbSync } from './db/index.js';
+import 'dotenv/config';
+import { adminSql, initDb } from './db/index.js';
+
+/**
+ * Seed script for Postgres. Uses adminSql with set_config for tenant context.
+ * Usage: node server/seed.js [tenantId]
+ */
+const tenantId = process.argv[2] || 'default';
 
 (async () => {
   try {
     await initDb();
 
-    // Disable FK checks during cleanup so we can delete in any order
-    exec(`PRAGMA foreign_keys = OFF`);
+    console.log(`Seeding for tenant: ${tenantId}`);
 
-    // Clear existing data and reset auto-increment sequences
-    exec(`
-      DELETE FROM menu_item_ingredients;
-      DELETE FROM order_items;
-      DELETE FROM orders;
-      DELETE FROM menu_items;
-      DELETE FROM menu_categories;
-      DELETE FROM inventory_items;
-      DELETE FROM employees;
-    `);
+    // Set tenant context for RLS
+    await adminSql`SELECT set_config('app.tenant_id', ${tenantId}, false)`;
 
-    // Clear AI tables (may not exist on first run)
-    try {
-      exec(`
-        DELETE FROM ai_suggestion_cache;
-        DELETE FROM ai_category_roles;
-        DELETE FROM ai_config;
-        DELETE FROM ai_suggestion_events;
-        DELETE FROM ai_hourly_snapshots;
-        DELETE FROM ai_item_pairs;
-        DELETE FROM ai_inventory_velocity;
-        DELETE FROM ai_restock_log;
-      `);
-    } catch (e) {
-      // AI tables may not exist yet, that's fine
+    // Disable FK checks during cleanup
+    await adminSql`SET session_replication_role = 'replica'`;
+
+    // Clear existing data for this tenant
+    const tenantTables = [
+      'stamp_events', 'referral_events', 'loyalty_messages', 'stamp_cards', 'loyalty_customers',
+      'virtual_brand_items', 'virtual_brands',
+      'delivery_orders', 'delivery_platforms', 'delivery_markup_rules', 'delivery_recapture',
+      'combo_slots', 'combo_definitions',
+      'order_item_modifiers', 'menu_item_modifier_groups', 'modifiers', 'modifier_groups',
+      'order_payment_items', 'order_payments',
+      'category_printer_routes', 'printers',
+      'ai_suggestion_cache', 'ai_category_roles', 'ai_config', 'ai_suggestion_events',
+      'ai_hourly_snapshots', 'ai_item_pairs', 'ai_inventory_velocity', 'ai_restock_log',
+      'menu_item_ingredients', 'order_items', 'orders', 'menu_items', 'menu_categories',
+      'inventory_items', 'inventory_counts', 'shrinkage_alerts',
+      'refunds', 'crypto_payments',
+      'vendor_items', 'purchase_order_items', 'purchase_orders', 'vendors',
+      'financial_actuals', 'financial_targets',
+      'role_permissions', 'loyalty_config', 'order_templates',
+      'employees',
+    ];
+
+    for (const table of tenantTables) {
+      await adminSql.unsafe(`DELETE FROM ${table} WHERE tenant_id = $1`, [tenantId]);
     }
 
-    // Clear Phase 3+ tables
-    try {
-      exec(`
-        DELETE FROM order_item_modifiers;
-        DELETE FROM menu_item_modifier_groups;
-        DELETE FROM modifiers;
-        DELETE FROM modifier_groups;
-        DELETE FROM combo_slots;
-        DELETE FROM combo_definitions;
-        DELETE FROM order_payment_items;
-        DELETE FROM order_payments;
-        DELETE FROM category_printer_routes;
-        DELETE FROM printers;
-        DELETE FROM delivery_orders;
-        DELETE FROM delivery_platforms;
-      `);
-    } catch (e) {
-      // Tables may not exist yet
-    }
+    // Re-enable FK checks
+    await adminSql`SET session_replication_role = 'origin'`;
 
-    try {
-      exec(`DELETE FROM sqlite_sequence;`);
-    } catch (e) {
-      // ignore
-    }
+    // Helper for inserts with tenant context
+    const ins = async (sql, params = []) => {
+      const result = await adminSql.unsafe(
+        sql.replace(/\?\?TENANT\?\?/, `'${tenantId}'`),
+        params
+      );
+      return result;
+    };
 
-    // Re-enable FK checks for inserts
-    exec(`PRAGMA foreign_keys = ON`);
+    // We'll use adminSql tagged templates for safety
+    const s = adminSql;
 
     // Seed employees
-    run('INSERT INTO employees (name, pin, role, active) VALUES (?, ?, ?, 1)', ['Manager', '1234', 'admin']);
-    run('INSERT INTO employees (name, pin, role, active) VALUES (?, ?, ?, 1)', ['Maria', '5678', 'cashier']);
-    run('INSERT INTO employees (name, pin, role, active) VALUES (?, ?, ?, 1)', ['Carlos', '9012', 'cashier']);
+    await s`INSERT INTO employees (tenant_id, name, pin, role, active) VALUES (${tenantId}, 'Manager', '1234', 'admin', true)`;
+    await s`INSERT INTO employees (tenant_id, name, pin, role, active) VALUES (${tenantId}, 'Maria', '5678', 'cashier', true)`;
+    await s`INSERT INTO employees (tenant_id, name, pin, role, active) VALUES (${tenantId}, 'Carlos', '9012', 'cashier', true)`;
+    console.log('Seeded 3 employees');
 
-    console.log('✓ Seeded 3 employees');
+    // Seed menu categories
+    await s`INSERT INTO menu_categories (tenant_id, name, sort_order, active, printer_target) VALUES (${tenantId}, 'Appetizers', 1, true, 'kitchen')`;
+    await s`INSERT INTO menu_categories (tenant_id, name, sort_order, active, printer_target) VALUES (${tenantId}, 'Mains', 2, true, 'kitchen')`;
+    await s`INSERT INTO menu_categories (tenant_id, name, sort_order, active, printer_target) VALUES (${tenantId}, 'Sandwiches', 3, true, 'kitchen')`;
+    await s`INSERT INTO menu_categories (tenant_id, name, sort_order, active, printer_target) VALUES (${tenantId}, 'Salads', 4, true, 'kitchen')`;
+    await s`INSERT INTO menu_categories (tenant_id, name, sort_order, active, printer_target) VALUES (${tenantId}, 'Sides', 5, true, 'kitchen')`;
+    await s`INSERT INTO menu_categories (tenant_id, name, sort_order, active, printer_target) VALUES (${tenantId}, 'Drinks', 6, true, 'bar')`;
+    await s`INSERT INTO menu_categories (tenant_id, name, sort_order, active, printer_target) VALUES (${tenantId}, 'Desserts', 7, true, 'kitchen')`;
+    console.log('Seeded 7 menu categories');
 
-    // Seed menu categories (with printer_target)
-    run('INSERT INTO menu_categories (name, sort_order, active, printer_target) VALUES (?, ?, 1, ?)', ['Appetizers', 1, 'kitchen']);
-    run('INSERT INTO menu_categories (name, sort_order, active, printer_target) VALUES (?, ?, 1, ?)', ['Mains', 2, 'kitchen']);
-    run('INSERT INTO menu_categories (name, sort_order, active, printer_target) VALUES (?, ?, 1, ?)', ['Sandwiches', 3, 'kitchen']);
-    run('INSERT INTO menu_categories (name, sort_order, active, printer_target) VALUES (?, ?, 1, ?)', ['Salads', 4, 'kitchen']);
-    run('INSERT INTO menu_categories (name, sort_order, active, printer_target) VALUES (?, ?, 1, ?)', ['Sides', 5, 'kitchen']);
-    run('INSERT INTO menu_categories (name, sort_order, active, printer_target) VALUES (?, ?, 1, ?)', ['Drinks', 6, 'bar']);
-    run('INSERT INTO menu_categories (name, sort_order, active, printer_target) VALUES (?, ?, 1, ?)', ['Desserts', 7, 'kitchen']);
-
-    console.log('✓ Seeded 7 menu categories');
+    // Get category IDs
+    const cats = await s`SELECT id, name FROM menu_categories WHERE tenant_id = ${tenantId} ORDER BY sort_order`;
+    const catId = Object.fromEntries(cats.map(c => [c.name, c.id]));
 
     // Seed menu items (prices in MXN)
-    const ins = 'INSERT INTO menu_items (category_id, name, price, description, image_url, active) VALUES (?, ?, ?, ?, ?, 1)';
+    const menuItems = [
+      // Appetizers
+      [catId['Appetizers'], 'Nachos Supreme', 140, 'Crispy chips with cheese, jalapeños, and sour cream'],
+      [catId['Appetizers'], 'Chicken Wings (6)', 160, 'Crispy wings with your choice of sauce'],
+      [catId['Appetizers'], 'Mozzarella Sticks', 120, 'Golden fried with marinara dipping sauce'],
+      [catId['Appetizers'], 'Chips & Guacamole', 95, 'Warm chips with fresh guacamole'],
+      // Mains
+      [catId['Mains'], 'Classic Burger', 190, 'Beef patty, lettuce, tomato, onion, and our special sauce'],
+      [catId['Mains'], 'Grilled Chicken Plate', 210, 'Grilled chicken breast with rice and vegetables'],
+      [catId['Mains'], 'Fish & Chips', 220, 'Beer-battered fish with fries and tartar sauce'],
+      [catId['Mains'], 'Pasta Bolognese', 185, 'Spaghetti with hearty meat sauce and parmesan'],
+      [catId['Mains'], 'Steak Plate', 320, '250g ribeye with mashed potatoes and grilled vegetables'],
+      [catId['Mains'], 'BBQ Ribs', 290, 'Slow-cooked ribs with BBQ sauce, coleslaw, and fries'],
+      // Sandwiches
+      [catId['Sandwiches'], 'Club Sandwich', 170, 'Triple-decker with turkey, bacon, lettuce, and tomato'],
+      [catId['Sandwiches'], 'Grilled Cheese', 120, 'Melted cheddar and mozzarella on sourdough'],
+      [catId['Sandwiches'], 'Chicken Wrap', 155, 'Grilled chicken, lettuce, and ranch in a flour tortilla'],
+      [catId['Sandwiches'], 'BLT', 140, 'Crispy bacon, lettuce, tomato on toasted bread'],
+      // Salads
+      [catId['Salads'], 'Caesar Salad', 145, 'Romaine, croutons, parmesan, and Caesar dressing'],
+      [catId['Salads'], 'Garden Salad', 110, 'Mixed greens, tomato, cucumber, and vinaigrette'],
+      [catId['Salads'], 'Grilled Chicken Salad', 175, 'Mixed greens topped with grilled chicken and avocado'],
+      // Sides
+      [catId['Sides'], 'French Fries', 70, 'Crispy golden fries'],
+      [catId['Sides'], 'Onion Rings', 85, 'Beer-battered onion rings'],
+      [catId['Sides'], 'Rice & Beans', 60, 'Seasoned rice and refried beans'],
+      [catId['Sides'], 'Coleslaw', 50, 'Creamy house-made coleslaw'],
+      // Drinks
+      [catId['Drinks'], 'Fresh Lemonade', 55, 'House-squeezed lemonade'],
+      [catId['Drinks'], 'Iced Tea', 45, 'Fresh brewed, sweetened or unsweetened'],
+      [catId['Drinks'], 'Soda', 40, 'Coca-Cola products'],
+      [catId['Drinks'], 'Water', 30, 'Bottled water'],
+      [catId['Drinks'], 'Coffee', 50, 'Freshly brewed coffee'],
+      // Desserts
+      [catId['Desserts'], 'Chocolate Cake', 90, 'Rich chocolate layer cake'],
+      [catId['Desserts'], 'Churros', 70, 'Fried pastry with cinnamon sugar and chocolate sauce'],
+      [catId['Desserts'], 'Ice Cream (2 scoops)', 65, 'Vanilla, chocolate, or strawberry'],
+    ];
 
-    // Appetizers (category_id = 1)
-    run(ins, [1, 'Nachos Supreme', 140, 'Crispy chips with cheese, jalapeños, and sour cream', 'https://images.unsplash.com/photo-1513456852971-30c0b8199d4d?w=600&h=400&fit=crop&auto=format']);
-    run(ins, [1, 'Chicken Wings (6)', 160, 'Crispy wings with your choice of sauce', 'https://images.unsplash.com/photo-1567620832903-9fc6debc209f?w=600&h=400&fit=crop&auto=format']);
-    run(ins, [1, 'Mozzarella Sticks', 120, 'Golden fried with marinara dipping sauce', 'https://images.unsplash.com/photo-1531749668029-2db88e4276c7?w=600&h=400&fit=crop&auto=format']);
-    run(ins, [1, 'Chips & Guacamole', 95, 'Warm chips with fresh guacamole', 'https://images.unsplash.com/photo-1600891964092-4316c288032e?w=600&h=400&fit=crop&auto=format']);
+    for (const [categoryId, name, price, desc] of menuItems) {
+      await s`INSERT INTO menu_items (tenant_id, category_id, name, price, description, active) VALUES (${tenantId}, ${categoryId}, ${name}, ${price}, ${desc}, true)`;
+    }
+    console.log(`Seeded ${menuItems.length} menu items`);
 
-    // Mains (category_id = 2)
-    run(ins, [2, 'Classic Burger', 190, 'Beef patty, lettuce, tomato, onion, and our special sauce', 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=600&h=400&fit=crop&auto=format']);
-    run(ins, [2, 'Grilled Chicken Plate', 210, 'Grilled chicken breast with rice and vegetables', 'https://images.unsplash.com/photo-1532550907401-a500c9a57435?w=600&h=400&fit=crop&auto=format']);
-    run(ins, [2, 'Fish & Chips', 220, 'Beer-battered fish with fries and tartar sauce', 'https://images.unsplash.com/photo-1579208030886-b1f5b7d31a02?w=600&h=400&fit=crop&auto=format']);
-    run(ins, [2, 'Pasta Bolognese', 185, 'Spaghetti with hearty meat sauce and parmesan', 'https://images.unsplash.com/photo-1621996346565-e3dbc646d9a9?w=600&h=400&fit=crop&auto=format']);
-    run(ins, [2, 'Steak Plate', 320, '250g ribeye with mashed potatoes and grilled vegetables', 'https://images.unsplash.com/photo-1600891964092-4316c288032e?w=600&h=400&fit=crop&auto=format']);
-    run(ins, [2, 'BBQ Ribs', 290, 'Slow-cooked ribs with BBQ sauce, coleslaw, and fries', 'https://images.unsplash.com/photo-1544025162-d76694265947?w=600&h=400&fit=crop&auto=format']);
+    // Get menu item IDs by name
+    const items = await s`SELECT id, name FROM menu_items WHERE tenant_id = ${tenantId} ORDER BY id`;
+    const itemId = Object.fromEntries(items.map(i => [i.name, i.id]));
 
-    // Sandwiches (category_id = 3)
-    run(ins, [3, 'Club Sandwich', 170, 'Triple-decker with turkey, bacon, lettuce, and tomato', 'https://images.unsplash.com/photo-1528735602780-2552fd46c7af?w=600&h=400&fit=crop&auto=format']);
-    run(ins, [3, 'Grilled Cheese', 120, 'Melted cheddar and mozzarella on sourdough', 'https://images.unsplash.com/photo-1528736235302-52922df5c122?w=600&h=400&fit=crop&auto=format']);
-    run(ins, [3, 'Chicken Wrap', 155, 'Grilled chicken, lettuce, and ranch in a flour tortilla', 'https://images.unsplash.com/photo-1626700051175-6818013e1d4f?w=600&h=400&fit=crop&auto=format']);
-    run(ins, [3, 'BLT', 140, 'Crispy bacon, lettuce, tomato on toasted bread', 'https://images.unsplash.com/photo-1553909489-cd47e0907980?w=600&h=400&fit=crop&auto=format']);
+    // Seed inventory items
+    const invItems = [
+      ['ground beef', 50, 'lbs', 10, 'Meats', 160],
+      ['chicken breast', 60, 'lbs', 15, 'Meats', 90],
+      ['fish fillets', 30, 'lbs', 5, 'Meats', 160],
+      ['pork ribs', 25, 'lbs', 5, 'Meats', 180],
+      ['ribeye steak', 20, 'lbs', 5, 'Meats', 350],
+      ['bacon', 30, 'lbs', 5, 'Meats', 120],
+      ['turkey', 20, 'lbs', 5, 'Meats', 100],
+      ['cheese', 100, 'lbs', 20, 'Dairy', 80],
+      ['lettuce', 50, 'lbs', 10, 'Produce', 30],
+      ['tomato', 50, 'lbs', 10, 'Produce', 35],
+      ['onions', 100, 'lbs', 20, 'Produce', 15],
+      ['potatoes', 200, 'lbs', 30, 'Produce', 20],
+      ['bread/buns', 300, 'count', 50, 'Dry Goods', 8],
+      ['tortillas', 300, 'count', 50, 'Dry Goods', 3],
+      ['pasta', 100, 'lbs', 15, 'Dry Goods', 25],
+      ['rice', 150, 'lbs', 25, 'Dry Goods', 20],
+      ['beans', 100, 'lbs', 20, 'Dry Goods', 25],
+      ['guacamole', 40, 'lbs', 10, 'Produce', 120],
+      ['chips', 300, 'count', 50, 'Supplies', 5],
+      ['cooking oil', 50, 'liters', 10, 'Supplies', 30],
+    ];
 
-    // Salads (category_id = 4)
-    run(ins, [4, 'Caesar Salad', 145, 'Romaine, croutons, parmesan, and Caesar dressing', 'https://images.unsplash.com/photo-1550304943-4f24f54ddde9?w=600&h=400&fit=crop&auto=format']);
-    run(ins, [4, 'Garden Salad', 110, 'Mixed greens, tomato, cucumber, and vinaigrette', 'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=600&h=400&fit=crop&auto=format']);
-    run(ins, [4, 'Grilled Chicken Salad', 175, 'Mixed greens topped with grilled chicken and avocado', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=600&h=400&fit=crop&auto=format']);
+    for (const [name, qty, unit, threshold, cat, cost] of invItems) {
+      await s`INSERT INTO inventory_items (tenant_id, name, quantity, unit, low_stock_threshold, category, cost_price) VALUES (${tenantId}, ${name}, ${qty}, ${unit}, ${threshold}, ${cat}, ${cost})`;
+    }
+    console.log(`Seeded ${invItems.length} inventory items`);
 
-    // Sides (category_id = 5)
-    run(ins, [5, 'French Fries', 70, 'Crispy golden fries', 'https://images.unsplash.com/photo-1573080496219-bb080dd4f877?w=600&h=400&fit=crop&auto=format']);
-    run(ins, [5, 'Onion Rings', 85, 'Beer-battered onion rings', 'https://images.unsplash.com/photo-1639024471283-03518883512d?w=600&h=400&fit=crop&auto=format']);
-    run(ins, [5, 'Rice & Beans', 60, 'Seasoned rice and refried beans', 'https://images.unsplash.com/photo-1536304993881-070a87b367b7?w=600&h=400&fit=crop&auto=format']);
-    run(ins, [5, 'Coleslaw', 50, 'Creamy house-made coleslaw', 'https://images.unsplash.com/photo-1625938145744-e380515399bf?w=600&h=400&fit=crop&auto=format']);
+    // Get inventory IDs by name
+    const invRows = await s`SELECT id, name FROM inventory_items WHERE tenant_id = ${tenantId} ORDER BY id`;
+    const invId = Object.fromEntries(invRows.map(i => [i.name, i.id]));
 
-    // Drinks (category_id = 6)
-    run(ins, [6, 'Fresh Lemonade', 55, 'House-squeezed lemonade', 'https://images.unsplash.com/photo-1621263764928-df1444c5e859?w=600&h=400&fit=crop&auto=format']);
-    run(ins, [6, 'Iced Tea', 45, 'Fresh brewed, sweetened or unsweetened', 'https://images.unsplash.com/photo-1556679343-c7306c1976bc?w=600&h=400&fit=crop&auto=format']);
-    run(ins, [6, 'Soda', 40, 'Coca-Cola products', 'https://images.unsplash.com/photo-1581098365948-6a5a912b7a49?w=600&h=400&fit=crop&auto=format']);
-    run(ins, [6, 'Water', 30, 'Bottled water', 'https://images.unsplash.com/photo-1548839140-29a749e1cf4d?w=600&h=400&fit=crop&auto=format']);
-    run(ins, [6, 'Coffee', 50, 'Freshly brewed coffee', 'https://images.unsplash.com/photo-1509042239860-f550ce710b93?w=600&h=400&fit=crop&auto=format']);
+    // Seed menu_item_ingredients
+    const ingredients = [
+      ['Classic Burger', 'ground beef', 0.25], ['Classic Burger', 'bread/buns', 1],
+      ['Classic Burger', 'cheese', 0.1], ['Classic Burger', 'lettuce', 0.05], ['Classic Burger', 'tomato', 0.05],
+      ['Grilled Chicken Plate', 'chicken breast', 0.3], ['Grilled Chicken Plate', 'rice', 0.25],
+      ['Fish & Chips', 'fish fillets', 0.25], ['Fish & Chips', 'potatoes', 0.3], ['Fish & Chips', 'cooking oil', 0.1],
+      ['Pasta Bolognese', 'ground beef', 0.2], ['Pasta Bolognese', 'pasta', 0.25],
+      ['Club Sandwich', 'turkey', 0.15], ['Club Sandwich', 'bacon', 0.1], ['Club Sandwich', 'bread/buns', 2],
+      ['French Fries', 'potatoes', 0.3], ['French Fries', 'cooking oil', 0.05],
+      ['Nachos Supreme', 'chips', 1], ['Nachos Supreme', 'cheese', 0.3],
+      ['Chips & Guacamole', 'chips', 1], ['Chips & Guacamole', 'guacamole', 0.25],
+    ];
 
-    // Desserts (category_id = 7)
-    run(ins, [7, 'Chocolate Cake', 90, 'Rich chocolate layer cake', 'https://images.unsplash.com/photo-1578985545062-69928b1d9587?w=600&h=400&fit=crop&auto=format']);
-    run(ins, [7, 'Churros', 70, 'Fried pastry with cinnamon sugar and chocolate sauce', 'https://images.unsplash.com/photo-1624353365286-3f8d62daad51?w=600&h=400&fit=crop&auto=format']);
-    run(ins, [7, 'Ice Cream (2 scoops)', 65, 'Vanilla, chocolate, or strawberry', 'https://images.unsplash.com/photo-1497034825429-c343d7c6a68f?w=600&h=400&fit=crop&auto=format']);
-
-    console.log('✓ Seeded 30 menu items');
-
-    // Seed inventory items (with cost_price in MXN)
-    run('INSERT INTO inventory_items (name, quantity, unit, low_stock_threshold, category, cost_price) VALUES (?, ?, ?, ?, ?, ?)', ['ground beef', 50, 'lbs', 10, 'Meats', 160]);
-    run('INSERT INTO inventory_items (name, quantity, unit, low_stock_threshold, category, cost_price) VALUES (?, ?, ?, ?, ?, ?)', ['chicken breast', 60, 'lbs', 15, 'Meats', 90]);
-    run('INSERT INTO inventory_items (name, quantity, unit, low_stock_threshold, category, cost_price) VALUES (?, ?, ?, ?, ?, ?)', ['fish fillets', 30, 'lbs', 5, 'Meats', 160]);
-    run('INSERT INTO inventory_items (name, quantity, unit, low_stock_threshold, category, cost_price) VALUES (?, ?, ?, ?, ?, ?)', ['pork ribs', 25, 'lbs', 5, 'Meats', 180]);
-    run('INSERT INTO inventory_items (name, quantity, unit, low_stock_threshold, category, cost_price) VALUES (?, ?, ?, ?, ?, ?)', ['ribeye steak', 20, 'lbs', 5, 'Meats', 350]);
-    run('INSERT INTO inventory_items (name, quantity, unit, low_stock_threshold, category, cost_price) VALUES (?, ?, ?, ?, ?, ?)', ['bacon', 30, 'lbs', 5, 'Meats', 120]);
-    run('INSERT INTO inventory_items (name, quantity, unit, low_stock_threshold, category, cost_price) VALUES (?, ?, ?, ?, ?, ?)', ['turkey', 20, 'lbs', 5, 'Meats', 100]);
-    run('INSERT INTO inventory_items (name, quantity, unit, low_stock_threshold, category, cost_price) VALUES (?, ?, ?, ?, ?, ?)', ['cheese', 100, 'lbs', 20, 'Dairy', 80]);
-    run('INSERT INTO inventory_items (name, quantity, unit, low_stock_threshold, category, cost_price) VALUES (?, ?, ?, ?, ?, ?)', ['lettuce', 50, 'lbs', 10, 'Produce', 30]);
-    run('INSERT INTO inventory_items (name, quantity, unit, low_stock_threshold, category, cost_price) VALUES (?, ?, ?, ?, ?, ?)', ['tomato', 50, 'lbs', 10, 'Produce', 35]);
-    run('INSERT INTO inventory_items (name, quantity, unit, low_stock_threshold, category, cost_price) VALUES (?, ?, ?, ?, ?, ?)', ['onions', 100, 'lbs', 20, 'Produce', 15]);
-    run('INSERT INTO inventory_items (name, quantity, unit, low_stock_threshold, category, cost_price) VALUES (?, ?, ?, ?, ?, ?)', ['potatoes', 200, 'lbs', 30, 'Produce', 20]);
-    run('INSERT INTO inventory_items (name, quantity, unit, low_stock_threshold, category, cost_price) VALUES (?, ?, ?, ?, ?, ?)', ['bread/buns', 300, 'count', 50, 'Dry Goods', 8]);
-    run('INSERT INTO inventory_items (name, quantity, unit, low_stock_threshold, category, cost_price) VALUES (?, ?, ?, ?, ?, ?)', ['tortillas', 300, 'count', 50, 'Dry Goods', 3]);
-    run('INSERT INTO inventory_items (name, quantity, unit, low_stock_threshold, category, cost_price) VALUES (?, ?, ?, ?, ?, ?)', ['pasta', 100, 'lbs', 15, 'Dry Goods', 25]);
-    run('INSERT INTO inventory_items (name, quantity, unit, low_stock_threshold, category, cost_price) VALUES (?, ?, ?, ?, ?, ?)', ['rice', 150, 'lbs', 25, 'Dry Goods', 20]);
-    run('INSERT INTO inventory_items (name, quantity, unit, low_stock_threshold, category, cost_price) VALUES (?, ?, ?, ?, ?, ?)', ['beans', 100, 'lbs', 20, 'Dry Goods', 25]);
-    run('INSERT INTO inventory_items (name, quantity, unit, low_stock_threshold, category, cost_price) VALUES (?, ?, ?, ?, ?, ?)', ['guacamole', 40, 'lbs', 10, 'Produce', 120]);
-    run('INSERT INTO inventory_items (name, quantity, unit, low_stock_threshold, category, cost_price) VALUES (?, ?, ?, ?, ?, ?)', ['chips', 300, 'count', 50, 'Supplies', 5]);
-    run('INSERT INTO inventory_items (name, quantity, unit, low_stock_threshold, category, cost_price) VALUES (?, ?, ?, ?, ?, ?)', ['cooking oil', 50, 'liters', 10, 'Supplies', 30]);
-
-    console.log('✓ Seeded 20 inventory items');
-
-    // Seed menu_item_ingredients (selected items)
-    // Classic Burger (id=5): ground beef, bun, cheese, lettuce, tomato
-    run('INSERT INTO menu_item_ingredients (menu_item_id, inventory_item_id, quantity_used) VALUES (?, ?, ?)', [5, 1, 0.25]);
-    run('INSERT INTO menu_item_ingredients (menu_item_id, inventory_item_id, quantity_used) VALUES (?, ?, ?)', [5, 13, 1]);
-    run('INSERT INTO menu_item_ingredients (menu_item_id, inventory_item_id, quantity_used) VALUES (?, ?, ?)', [5, 8, 0.1]);
-    run('INSERT INTO menu_item_ingredients (menu_item_id, inventory_item_id, quantity_used) VALUES (?, ?, ?)', [5, 9, 0.05]);
-    run('INSERT INTO menu_item_ingredients (menu_item_id, inventory_item_id, quantity_used) VALUES (?, ?, ?)', [5, 10, 0.05]);
-
-    // Grilled Chicken Plate (id=6)
-    run('INSERT INTO menu_item_ingredients (menu_item_id, inventory_item_id, quantity_used) VALUES (?, ?, ?)', [6, 2, 0.3]);
-    run('INSERT INTO menu_item_ingredients (menu_item_id, inventory_item_id, quantity_used) VALUES (?, ?, ?)', [6, 16, 0.25]);
-
-    // Fish & Chips (id=7)
-    run('INSERT INTO menu_item_ingredients (menu_item_id, inventory_item_id, quantity_used) VALUES (?, ?, ?)', [7, 3, 0.25]);
-    run('INSERT INTO menu_item_ingredients (menu_item_id, inventory_item_id, quantity_used) VALUES (?, ?, ?)', [7, 12, 0.3]);
-    run('INSERT INTO menu_item_ingredients (menu_item_id, inventory_item_id, quantity_used) VALUES (?, ?, ?)', [7, 20, 0.1]);
-
-    // Pasta Bolognese (id=8)
-    run('INSERT INTO menu_item_ingredients (menu_item_id, inventory_item_id, quantity_used) VALUES (?, ?, ?)', [8, 1, 0.2]);
-    run('INSERT INTO menu_item_ingredients (menu_item_id, inventory_item_id, quantity_used) VALUES (?, ?, ?)', [8, 15, 0.25]);
-
-    // Club Sandwich (id=11)
-    run('INSERT INTO menu_item_ingredients (menu_item_id, inventory_item_id, quantity_used) VALUES (?, ?, ?)', [11, 7, 0.15]);
-    run('INSERT INTO menu_item_ingredients (menu_item_id, inventory_item_id, quantity_used) VALUES (?, ?, ?)', [11, 6, 0.1]);
-    run('INSERT INTO menu_item_ingredients (menu_item_id, inventory_item_id, quantity_used) VALUES (?, ?, ?)', [11, 13, 2]);
-
-    // French Fries (id=18)
-    run('INSERT INTO menu_item_ingredients (menu_item_id, inventory_item_id, quantity_used) VALUES (?, ?, ?)', [18, 12, 0.3]);
-    run('INSERT INTO menu_item_ingredients (menu_item_id, inventory_item_id, quantity_used) VALUES (?, ?, ?)', [18, 20, 0.05]);
-
-    // Nachos Supreme (id=1)
-    run('INSERT INTO menu_item_ingredients (menu_item_id, inventory_item_id, quantity_used) VALUES (?, ?, ?)', [1, 19, 1]);
-    run('INSERT INTO menu_item_ingredients (menu_item_id, inventory_item_id, quantity_used) VALUES (?, ?, ?)', [1, 8, 0.3]);
-
-    // Chips & Guac (id=4)
-    run('INSERT INTO menu_item_ingredients (menu_item_id, inventory_item_id, quantity_used) VALUES (?, ?, ?)', [4, 19, 1]);
-    run('INSERT INTO menu_item_ingredients (menu_item_id, inventory_item_id, quantity_used) VALUES (?, ?, ?)', [4, 18, 0.25]);
-
-    console.log('✓ Seeded menu item ingredients');
+    for (const [menuName, invName, qty] of ingredients) {
+      if (itemId[menuName] && invId[invName]) {
+        await s`INSERT INTO menu_item_ingredients (tenant_id, menu_item_id, inventory_item_id, quantity_used) VALUES (${tenantId}, ${itemId[menuName]}, ${invId[invName]}, ${qty})`;
+      }
+    }
+    console.log('Seeded menu item ingredients');
 
     // Seed AI category roles
-    exec(`DELETE FROM ai_category_roles`);
-    run('INSERT INTO ai_category_roles (category_id, role) VALUES (?, ?)', [1, 'side']);        // Appetizers
-    run('INSERT INTO ai_category_roles (category_id, role) VALUES (?, ?)', [2, 'main']);        // Mains
-    run('INSERT INTO ai_category_roles (category_id, role) VALUES (?, ?)', [3, 'main']);        // Sandwiches
-    run('INSERT INTO ai_category_roles (category_id, role) VALUES (?, ?)', [4, 'side']);        // Salads
-    run('INSERT INTO ai_category_roles (category_id, role) VALUES (?, ?)', [5, 'side']);        // Sides
-    run('INSERT INTO ai_category_roles (category_id, role) VALUES (?, ?)', [6, 'drink']);       // Drinks
-    run('INSERT INTO ai_category_roles (category_id, role) VALUES (?, ?)', [7, 'side']);        // Desserts
+    const catRoles = [
+      ['Appetizers', 'side'], ['Mains', 'main'], ['Sandwiches', 'main'],
+      ['Salads', 'side'], ['Sides', 'side'], ['Drinks', 'drink'], ['Desserts', 'side'],
+    ];
+    for (const [catName, role] of catRoles) {
+      if (catId[catName]) {
+        await s`INSERT INTO ai_category_roles (tenant_id, category_id, role) VALUES (${tenantId}, ${catId[catName]}, ${role})`;
+      }
+    }
+    console.log('Seeded AI category roles');
 
-    console.log('✓ Seeded 7 AI category roles');
-
-    // Seed AI config defaults
-    exec(`DELETE FROM ai_config`);
+    // Seed AI config
     const configEntries = [
       ['restaurant_name', 'Demo Restaurant', 'Restaurant display name'],
       ['currency', 'MXN', 'Currency code'],
@@ -218,202 +204,127 @@ import { initDb, run, exec, saveDbSync } from './db/index.js';
       ['upsell_enabled', '1', 'Enable upsell suggestions'],
       ['inventory_push_enabled', '1', 'Enable inventory-aware item pushing'],
       ['combo_upgrade_enabled', '1', 'Enable combo upgrade suggestions'],
-      ['dynamic_pricing_enabled', '0', 'Enable dynamic pricing (requires manager approval)'],
+      ['dynamic_pricing_enabled', '0', 'Enable dynamic pricing'],
       ['grok_api_enabled', '0', 'Enable Grok API for enhanced analysis'],
       ['grok_max_calls_per_hour', '10', 'Max Grok API calls per hour'],
       ['grok_model', 'grok-3-mini', 'Grok model to use'],
       ['suggestion_cache_ttl_minutes', '5', 'Cache TTL for suggestion data'],
-      ['inventory_push_threshold_multiplier', '1.5', 'Multiplier for low stock threshold triggering push'],
+      ['inventory_push_threshold_multiplier', '1.5', 'Multiplier for low stock threshold'],
     ];
-
-    for (const [key, value, description] of configEntries) {
-      run('INSERT INTO ai_config (key, value, description) VALUES (?, ?, ?)', [key, value, description]);
+    for (const [key, value, desc] of configEntries) {
+      await s`INSERT INTO ai_config (tenant_id, key, value, description) VALUES (${tenantId}, ${key}, ${value}, ${desc})`;
     }
-
-    console.log('✓ Seeded 16 AI config entries');
+    console.log('Seeded AI config');
 
     // Seed modifier groups
-    run('INSERT INTO modifier_groups (name, selection_type, required, min_selections, max_selections, sort_order, active) VALUES (?, ?, ?, ?, ?, ?, 1)', ['Protein', 'single', 1, 1, 1, 1]);
-    run('INSERT INTO modifier_groups (name, selection_type, required, min_selections, max_selections, sort_order, active) VALUES (?, ?, ?, ?, ?, ?, 1)', ['Sauce', 'multi', 0, 0, 3, 2]);
-    run('INSERT INTO modifier_groups (name, selection_type, required, min_selections, max_selections, sort_order, active) VALUES (?, ?, ?, ?, ?, ?, 1)', ['Add-Ons', 'multi', 0, 0, 5, 3]);
-    run('INSERT INTO modifier_groups (name, selection_type, required, min_selections, max_selections, sort_order, active) VALUES (?, ?, ?, ?, ?, ?, 1)', ['Size', 'single', 0, 0, 1, 4]);
-    run('INSERT INTO modifier_groups (name, selection_type, required, min_selections, max_selections, sort_order, active) VALUES (?, ?, ?, ?, ?, ?, 1)', ['Bread', 'single', 0, 0, 1, 5]);
-
-    // Protein modifiers (group_id=1)
-    run('INSERT INTO modifiers (group_id, name, price_adjustment, sort_order, active) VALUES (?, ?, ?, ?, 1)', [1, 'Beef', 0, 1]);
-    run('INSERT INTO modifiers (group_id, name, price_adjustment, sort_order, active) VALUES (?, ?, ?, ?, 1)', [1, 'Chicken', 0, 2]);
-    run('INSERT INTO modifiers (group_id, name, price_adjustment, sort_order, active) VALUES (?, ?, ?, ?, 1)', [1, 'Fish', 15, 3]);
-    run('INSERT INTO modifiers (group_id, name, price_adjustment, sort_order, active) VALUES (?, ?, ?, ?, 1)', [1, 'Veggie', 0, 4]);
-
-    // Sauce modifiers (group_id=2)
-    run('INSERT INTO modifiers (group_id, name, price_adjustment, sort_order, active) VALUES (?, ?, ?, ?, 1)', [2, 'BBQ Sauce', 0, 1]);
-    run('INSERT INTO modifiers (group_id, name, price_adjustment, sort_order, active) VALUES (?, ?, ?, ?, 1)', [2, 'Ranch', 0, 2]);
-    run('INSERT INTO modifiers (group_id, name, price_adjustment, sort_order, active) VALUES (?, ?, ?, ?, 1)', [2, 'Hot Sauce', 0, 3]);
-    run('INSERT INTO modifiers (group_id, name, price_adjustment, sort_order, active) VALUES (?, ?, ?, ?, 1)', [2, 'Aioli', 10, 4]);
-
-    // Add-Ons (group_id=3)
-    run('INSERT INTO modifiers (group_id, name, price_adjustment, sort_order, active) VALUES (?, ?, ?, ?, 1)', [3, 'Extra Cheese', 15, 1]);
-    run('INSERT INTO modifiers (group_id, name, price_adjustment, sort_order, active) VALUES (?, ?, ?, ?, 1)', [3, 'Bacon', 25, 2]);
-    run('INSERT INTO modifiers (group_id, name, price_adjustment, sort_order, active) VALUES (?, ?, ?, ?, 1)', [3, 'Avocado', 30, 3]);
-    run('INSERT INTO modifiers (group_id, name, price_adjustment, sort_order, active) VALUES (?, ?, ?, ?, 1)', [3, 'Jalapeños', 0, 4]);
-    run('INSERT INTO modifiers (group_id, name, price_adjustment, sort_order, active) VALUES (?, ?, ?, ?, 1)', [3, 'Fried Egg', 20, 5]);
-
-    // Size (group_id=4)
-    run('INSERT INTO modifiers (group_id, name, price_adjustment, sort_order, active) VALUES (?, ?, ?, ?, 1)', [4, 'Regular', 0, 1]);
-    run('INSERT INTO modifiers (group_id, name, price_adjustment, sort_order, active) VALUES (?, ?, ?, ?, 1)', [4, 'Large (+$30)', 30, 2]);
-
-    // Bread (group_id=5)
-    run('INSERT INTO modifiers (group_id, name, price_adjustment, sort_order, active) VALUES (?, ?, ?, ?, 1)', [5, 'White Bread', 0, 1]);
-    run('INSERT INTO modifiers (group_id, name, price_adjustment, sort_order, active) VALUES (?, ?, ?, ?, 1)', [5, 'Sourdough', 0, 2]);
-    run('INSERT INTO modifiers (group_id, name, price_adjustment, sort_order, active) VALUES (?, ?, ?, ?, 1)', [5, 'Whole Wheat', 0, 3]);
-
-    // Assign modifier groups to mains and sandwiches
-    // Mains get: Sauce, Add-Ons, Size
-    for (let itemId = 5; itemId <= 10; itemId++) {
-      run('INSERT INTO menu_item_modifier_groups (menu_item_id, modifier_group_id, sort_order) VALUES (?, ?, ?)', [itemId, 2, 2]); // Sauce
-      run('INSERT INTO menu_item_modifier_groups (menu_item_id, modifier_group_id, sort_order) VALUES (?, ?, ?)', [itemId, 3, 3]); // Add-Ons
-    }
-    // Sandwiches get: Sauce, Add-Ons, Bread
-    for (let itemId = 11; itemId <= 14; itemId++) {
-      run('INSERT INTO menu_item_modifier_groups (menu_item_id, modifier_group_id, sort_order) VALUES (?, ?, ?)', [itemId, 2, 2]); // Sauce
-      run('INSERT INTO menu_item_modifier_groups (menu_item_id, modifier_group_id, sort_order) VALUES (?, ?, ?)', [itemId, 3, 3]); // Add-Ons
-      run('INSERT INTO menu_item_modifier_groups (menu_item_id, modifier_group_id, sort_order) VALUES (?, ?, ?)', [itemId, 5, 5]); // Bread
+    const modGroups = [
+      ['Protein', 'single', true, 1, 1, 1],
+      ['Sauce', 'multi', false, 0, 3, 2],
+      ['Add-Ons', 'multi', false, 0, 5, 3],
+      ['Size', 'single', false, 0, 1, 4],
+      ['Bread', 'single', false, 0, 1, 5],
+    ];
+    for (const [name, selType, req, minSel, maxSel, sortOrd] of modGroups) {
+      await s`INSERT INTO modifier_groups (tenant_id, name, selection_type, required, min_selections, max_selections, sort_order, active) VALUES (${tenantId}, ${name}, ${selType}, ${req}, ${minSel}, ${maxSel}, ${sortOrd}, true)`;
     }
 
-    console.log('✓ Seeded modifier groups and modifiers');
+    const groups = await s`SELECT id, name FROM modifier_groups WHERE tenant_id = ${tenantId} ORDER BY sort_order`;
+    const groupId = Object.fromEntries(groups.map(g => [g.name, g.id]));
 
-    // Seed combo definitions
-    run('INSERT INTO combo_definitions (name, description, combo_price, active) VALUES (?, ?, ?, 1)', ['Burger Combo', 'Any burger with fries and a drink — save $25!', 260]);
-    run('INSERT INTO combo_definitions (name, description, combo_price, active) VALUES (?, ?, ?, 1)', ['Lunch Special', 'Any sandwich with a side and a drink — save $20!', 220]);
+    // Seed modifiers
+    const mods = [
+      [groupId['Protein'], 'Beef', 0, 1], [groupId['Protein'], 'Chicken', 0, 2],
+      [groupId['Protein'], 'Fish', 15, 3], [groupId['Protein'], 'Veggie', 0, 4],
+      [groupId['Sauce'], 'BBQ Sauce', 0, 1], [groupId['Sauce'], 'Ranch', 0, 2],
+      [groupId['Sauce'], 'Hot Sauce', 0, 3], [groupId['Sauce'], 'Aioli', 10, 4],
+      [groupId['Add-Ons'], 'Extra Cheese', 15, 1], [groupId['Add-Ons'], 'Bacon', 25, 2],
+      [groupId['Add-Ons'], 'Avocado', 30, 3], [groupId['Add-Ons'], 'Jalapeños', 0, 4],
+      [groupId['Add-Ons'], 'Fried Egg', 20, 5],
+      [groupId['Size'], 'Regular', 0, 1], [groupId['Size'], 'Large (+$30)', 30, 2],
+      [groupId['Bread'], 'White Bread', 0, 1], [groupId['Bread'], 'Sourdough', 0, 2],
+      [groupId['Bread'], 'Whole Wheat', 0, 3],
+    ];
+    for (const [gid, name, price, sortOrd] of mods) {
+      await s`INSERT INTO modifiers (tenant_id, group_id, name, price_adjustment, sort_order, active) VALUES (${tenantId}, ${gid}, ${name}, ${price}, ${sortOrd}, true)`;
+    }
 
-    // Combo slots
-    // Burger Combo (combo_id=1): slot 1 = any main (category 2), slot 2 = any drink (category 6)
-    run('INSERT INTO combo_slots (combo_id, slot_label, category_id, sort_order) VALUES (?, ?, ?, ?)', [1, 'Choose your Main', 2, 1]);
-    run('INSERT INTO combo_slots (combo_id, slot_label, category_id, sort_order) VALUES (?, ?, ?, ?)', [1, 'Choose your Drink', 6, 2]);
-    // Lunch Special (combo_id=2): slot 1 = any sandwich (category 3), slot 2 = any drink (category 6)
-    run('INSERT INTO combo_slots (combo_id, slot_label, category_id, sort_order) VALUES (?, ?, ?, ?)', [2, 'Choose your Sandwich', 3, 1]);
-    run('INSERT INTO combo_slots (combo_id, slot_label, category_id, sort_order) VALUES (?, ?, ?, ?)', [2, 'Choose your Drink', 6, 2]);
+    // Assign modifier groups to menu items
+    const mainItems = items.filter(i => menuItems.find(m => m[0] === catId['Mains'] && m[1] === i.name));
+    for (const item of mainItems) {
+      await s`INSERT INTO menu_item_modifier_groups (tenant_id, menu_item_id, modifier_group_id, sort_order) VALUES (${tenantId}, ${item.id}, ${groupId['Sauce']}, 2)`;
+      await s`INSERT INTO menu_item_modifier_groups (tenant_id, menu_item_id, modifier_group_id, sort_order) VALUES (${tenantId}, ${item.id}, ${groupId['Add-Ons']}, 3)`;
+    }
+    const sandwichItems = items.filter(i => menuItems.find(m => m[0] === catId['Sandwiches'] && m[1] === i.name));
+    for (const item of sandwichItems) {
+      await s`INSERT INTO menu_item_modifier_groups (tenant_id, menu_item_id, modifier_group_id, sort_order) VALUES (${tenantId}, ${item.id}, ${groupId['Sauce']}, 2)`;
+      await s`INSERT INTO menu_item_modifier_groups (tenant_id, menu_item_id, modifier_group_id, sort_order) VALUES (${tenantId}, ${item.id}, ${groupId['Add-Ons']}, 3)`;
+      await s`INSERT INTO menu_item_modifier_groups (tenant_id, menu_item_id, modifier_group_id, sort_order) VALUES (${tenantId}, ${item.id}, ${groupId['Bread']}, 5)`;
+    }
+    console.log('Seeded modifier groups and modifiers');
 
-    console.log('✓ Seeded combo definitions');
+    // Seed combos
+    await s`INSERT INTO combo_definitions (tenant_id, name, description, combo_price, active) VALUES (${tenantId}, 'Burger Combo', 'Any burger with fries and a drink — save $25!', 260, true)`;
+    await s`INSERT INTO combo_definitions (tenant_id, name, description, combo_price, active) VALUES (${tenantId}, 'Lunch Special', 'Any sandwich with a side and a drink — save $20!', 220, true)`;
+    const combos = await s`SELECT id, name FROM combo_definitions WHERE tenant_id = ${tenantId} ORDER BY id`;
+    const comboId = Object.fromEntries(combos.map(c => [c.name, c.id]));
+    await s`INSERT INTO combo_slots (tenant_id, combo_id, slot_label, category_id, sort_order) VALUES (${tenantId}, ${comboId['Burger Combo']}, 'Choose your Main', ${catId['Mains']}, 1)`;
+    await s`INSERT INTO combo_slots (tenant_id, combo_id, slot_label, category_id, sort_order) VALUES (${tenantId}, ${comboId['Burger Combo']}, 'Choose your Drink', ${catId['Drinks']}, 2)`;
+    await s`INSERT INTO combo_slots (tenant_id, combo_id, slot_label, category_id, sort_order) VALUES (${tenantId}, ${comboId['Lunch Special']}, 'Choose your Sandwich', ${catId['Sandwiches']}, 1)`;
+    await s`INSERT INTO combo_slots (tenant_id, combo_id, slot_label, category_id, sort_order) VALUES (${tenantId}, ${comboId['Lunch Special']}, 'Choose your Drink', ${catId['Drinks']}, 2)`;
+    console.log('Seeded combo definitions');
 
     // Seed delivery platforms
-    run('INSERT INTO delivery_platforms (name, display_name, commission_percent, active) VALUES (?, ?, ?, 1)', ['uber_eats', 'Uber Eats', 30]);
-    run('INSERT INTO delivery_platforms (name, display_name, commission_percent, active) VALUES (?, ?, ?, 1)', ['rappi', 'Rappi', 25]);
-    run('INSERT INTO delivery_platforms (name, display_name, commission_percent, active) VALUES (?, ?, ?, 1)', ['didi_food', 'DiDi Food', 22]);
+    await s`INSERT INTO delivery_platforms (tenant_id, name, display_name, commission_percent, active) VALUES (${tenantId}, 'uber_eats', 'Uber Eats', 30, true)`;
+    await s`INSERT INTO delivery_platforms (tenant_id, name, display_name, commission_percent, active) VALUES (${tenantId}, 'rappi', 'Rappi', 25, true)`;
+    await s`INSERT INTO delivery_platforms (tenant_id, name, display_name, commission_percent, active) VALUES (${tenantId}, 'didi_food', 'DiDi Food', 22, true)`;
+    console.log('Seeded 3 delivery platforms');
 
-    console.log('✓ Seeded 3 delivery platforms');
-
-    // Seed loyalty test customers
-    try {
-      exec(`
-        DELETE FROM stamp_events;
-        DELETE FROM referral_events;
-        DELETE FROM loyalty_messages;
-        DELETE FROM stamp_cards;
-        DELETE FROM loyalty_customers;
-      `);
-    } catch (e) {
-      // Tables may not exist yet
-    }
-
-    try {
-      // Customer 1: Maria Lopez — 7 stamps, regular
-      run('INSERT INTO loyalty_customers (phone, name, referral_code, stamps_earned, orders_count, total_spent, sms_opt_in) VALUES (?, ?, ?, ?, ?, ?, ?)',
-        ['5551234567', 'Maria Lopez', 'DKMR42', 7, 7, 1540, 1]);
-      run('INSERT INTO stamp_cards (customer_id, stamps_earned, stamps_required, reward_description) VALUES (?, ?, ?, ?)',
-        [1, 7, 10, 'Free item of your choice']);
-
-      // Customer 2: Carlos Hernandez — completed card + 3 on new card
-      run('INSERT INTO loyalty_customers (phone, name, referral_code, stamps_earned, orders_count, total_spent, sms_opt_in) VALUES (?, ?, ?, ?, ?, ?, ?)',
-        ['5559876543', 'Carlos Hernandez', 'DKCH88', 13, 13, 2890, 1]);
-      run('INSERT INTO stamp_cards (customer_id, stamps_earned, stamps_required, reward_description, completed, completed_at) VALUES (?, ?, ?, ?, 1, datetime(\'now\',\'localtime\'))',
-        [2, 10, 10, 'Free item of your choice']);
-      run('INSERT INTO stamp_cards (customer_id, stamps_earned, stamps_required, reward_description) VALUES (?, ?, ?, ?)',
-        [2, 3, 10, 'Free item of your choice']);
-
-      // Customer 3: Ana Garcia — new customer, 2 stamps (referred by Maria)
-      run('INSERT INTO loyalty_customers (phone, name, referral_code, referred_by, stamps_earned, orders_count, total_spent, sms_opt_in) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-        ['5555551234', 'Ana Garcia', 'DKAG55', 1, 4, 2, 420, 1]);
-      run('INSERT INTO stamp_cards (customer_id, stamps_earned, stamps_required, reward_description) VALUES (?, ?, ?, ?)',
-        [3, 4, 10, 'Free item of your choice']);
-      run('INSERT INTO referral_events (referrer_id, referee_id, referrer_stamps_added, referee_stamps_added) VALUES (?, ?, ?, ?)',
-        [1, 3, 2, 2]);
-
-      console.log('✓ Seeded 3 loyalty test customers');
-    } catch (e) {
-      console.log('⚠ Loyalty tables not ready, skipping loyalty seed');
-    }
-
-    // ==================== Menu Board Brands ====================
-
-    // Clear existing menu board data
-    try {
-      exec(`DELETE FROM virtual_brand_items WHERE virtual_brand_id IN (SELECT id FROM virtual_brands WHERE display_type = 'menu_board')`);
-      exec(`DELETE FROM virtual_brands WHERE display_type = 'menu_board'`);
-      exec(`DELETE FROM delivery_platforms WHERE name = 'menu_board'`);
-    } catch (e) {
-      // Tables or columns may not exist yet
-    }
-
-    // Insert a menu_board pseudo-platform (0% commission) to satisfy the FK
-    const mbPlatform = run('INSERT INTO delivery_platforms (name, display_name, commission_percent, active) VALUES (?, ?, ?, 1)',
-      ['menu_board', 'Menu Board', 0]);
-    const menuBoardPlatformId = mbPlatform.lastInsertRowid;
-
-    // Create Main Kitchen brand
-    const mainBrand = run(`INSERT INTO virtual_brands (name, platform_id, description, display_type, primary_color, secondary_color, font_family, dark_bg, slug, active)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`,
-      ['Main Kitchen', menuBoardPlatformId, 'Full menu — burgers, mains, sandwiches & more',
-       'menu_board', '#0d9488', '#fbbf24', 'system-ui, -apple-system, sans-serif', '#0a0a0a', 'main-kitchen']);
-    const mainBrandId = mainBrand.lastInsertRowid;
-
-    // Create Express Lunch brand
-    const lunchBrand = run(`INSERT INTO virtual_brands (name, platform_id, description, display_type, primary_color, secondary_color, font_family, dark_bg, slug, active)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`,
-      ['Express Lunch', menuBoardPlatformId, 'Quick bites — sandwiches, salads & sides',
-       'menu_board', '#2563eb', '#e8c88a', "'Oswald', 'Montserrat', sans-serif", '#0f172a', 'express-lunch']);
-    const lunchBrandId = lunchBrand.lastInsertRowid;
-
-    // Ensure POS visibility for both brands
-    run('UPDATE virtual_brands SET show_in_pos = 1 WHERE id IN (?, ?)', [mainBrandId, lunchBrandId]);
-
-    console.log('✓ Seeded 2 menu board brands');
-
-    // Query actual menu item IDs (don't hardcode — IDs vary on re-seed)
-    const { all: allFn } = await import('./db/index.js');
-    const allItems = allFn('SELECT id, name FROM menu_items ORDER BY id');
-    const itemByName = Object.fromEntries(allItems.map(i => [i.name, i.id]));
-
-    // Assign ALL menu items to Main Kitchen
-    for (const item of allItems) {
-      run('INSERT INTO virtual_brand_items (virtual_brand_id, menu_item_id, active) VALUES (?, ?, 1)',
-        [mainBrandId, item.id]);
-    }
-
-    console.log(`✓ Assigned ${allItems.length} items to Main Kitchen brand`);
-
-    // Assign curated subset to Express Lunch (sandwiches, salads, sides, drinks)
-    const expressLunchNames = [
-      'Club Sandwich', 'Grilled Cheese', 'Chicken Wrap', 'BLT',
-      'Caesar Salad', 'Garden Salad', 'Grilled Chicken Salad',
-      'French Fries', 'Rice & Beans',
-      'Fresh Lemonade', 'Iced Tea', 'Soda', 'Water',
+    // Seed role permissions
+    const allPermissions = [
+      'pos_access', 'kitchen_access', 'bar_access', 'view_reports', 'manage_menu',
+      'manage_inventory', 'manage_employees', 'manage_printers', 'manage_delivery',
+      'manage_modifiers', 'manage_ai', 'process_refunds', 'void_orders',
+      'apply_discounts', 'view_dashboard', 'manage_permissions', 'manage_purchase_orders',
+      'manage_loyalty', 'manage_branding',
     ];
-
-    let lunchCount = 0;
-    for (const name of expressLunchNames) {
-      const id = itemByName[name];
-      if (id) {
-        run('INSERT INTO virtual_brand_items (virtual_brand_id, menu_item_id, active) VALUES (?, ?, 1)',
-          [lunchBrandId, id]);
-        lunchCount++;
+    const roleDefaults = {
+      admin: allPermissions,
+      manager: allPermissions.filter(p => p !== 'manage_permissions'),
+      cashier: ['pos_access', 'view_dashboard'],
+      kitchen: ['kitchen_access'],
+      bar: ['bar_access'],
+    };
+    for (const [role, perms] of Object.entries(roleDefaults)) {
+      for (const perm of allPermissions) {
+        const granted = perms.includes(perm);
+        await s`INSERT INTO role_permissions (tenant_id, role, permission, granted) VALUES (${tenantId}, ${role}, ${perm}, ${granted}) ON CONFLICT (tenant_id, role, permission) DO NOTHING`;
       }
     }
+    console.log('Seeded role permissions');
 
-    console.log(`✓ Assigned ${lunchCount} items to Express Lunch brand`);
+    // Seed loyalty config
+    const loyaltyDefaults = [
+      ['stamps_required', '10', 'Number of stamps needed for a free reward'],
+      ['reward_description', 'Free item of your choice', 'Default reward description'],
+      ['referral_bonus_stamps', '2', 'Bonus stamps for referrer and referee'],
+      ['sms_enabled', 'true', 'Enable SMS notifications for loyalty events'],
+    ];
+    for (const [key, value, desc] of loyaltyDefaults) {
+      await s`INSERT INTO loyalty_config (tenant_id, key, value, description) VALUES (${tenantId}, ${key}, ${value}, ${desc}) ON CONFLICT (tenant_id, key) DO NOTHING`;
+    }
 
-    saveDbSync(); // Flush to disk immediately
-    console.log('\n✅ Database seeding complete!');
+    // Seed financial targets
+    const ftDefaults = [
+      ['food_cost', 30], ['labor', 25], ['rent', 8], ['utilities', 4],
+      ['stripe_fees', 3], ['delivery_commissions', 5], ['marketing', 2],
+      ['insurance', 2], ['supplies', 3],
+    ];
+    for (const [cat, pct] of ftDefaults) {
+      await s`INSERT INTO financial_targets (tenant_id, category, target_percent, updated_at) VALUES (${tenantId}, ${cat}, ${pct}, NOW()) ON CONFLICT (tenant_id, category) DO NOTHING`;
+    }
+
+    console.log('\nDatabase seeding complete!');
+    process.exit(0);
   } catch (error) {
     console.error('Error seeding database:', error);
     process.exit(1);

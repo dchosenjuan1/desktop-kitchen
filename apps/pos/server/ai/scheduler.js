@@ -63,9 +63,9 @@ export function getSchedulerStatus() {
   };
 }
 
-function runJob(job) {
+async function runJob(job) {
   try {
-    job.fn();
+    await job.fn();
     job.lastRun = new Date().toISOString();
     job.runCount++;
     job.lastError = null;

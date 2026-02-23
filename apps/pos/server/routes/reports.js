@@ -35,12 +35,12 @@ function getDateRange(period) {
 }
 
 // GET /api/reports/sales - sales summary
-router.get('/sales', (req, res) => {
+router.get('/sales', async (req, res) => {
   try {
     const { period = 'daily' } = req.query;
     const startDate = getDateRange(period);
 
-    const stats = get(`
+    const stats = await get(`
       SELECT
         COUNT(*) as order_count,
         ROUND(SUM(subtotal), 2) as total_revenue,
@@ -48,7 +48,7 @@ router.get('/sales', (req, res) => {
         ROUND(SUM(tip), 2) as tip_total,
         ROUND(SUM(tax), 2) as tax_total
       FROM orders
-      WHERE DATE(created_at) >= ?
+      WHERE created_at::date >= $1
         AND payment_status = 'paid'
     `, [startDate]);
 
@@ -64,24 +64,24 @@ router.get('/sales', (req, res) => {
 });
 
 // GET /api/reports/top-items - top selling items
-router.get('/top-items', (req, res) => {
+router.get('/top-items', async (req, res) => {
   try {
     const { period = 'daily', limit = 10 } = req.query;
     const startDate = getDateRange(period);
     const limitNum = Math.min(parseInt(limit) || 10, 100);
 
-    const items = all(`
+    const items = await all(`
       SELECT
         oi.item_name,
         SUM(oi.quantity) as quantity_sold,
         ROUND(SUM(oi.quantity * oi.unit_price), 2) as revenue
       FROM order_items oi
       JOIN orders o ON oi.order_id = o.id
-      WHERE DATE(o.created_at) >= ?
+      WHERE o.created_at::date >= $1
         AND o.payment_status = 'paid'
       GROUP BY oi.item_name
       ORDER BY quantity_sold DESC
-      LIMIT ?
+      LIMIT $2
     `, [startDate, limitNum]);
 
     res.json(items);
@@ -92,12 +92,12 @@ router.get('/top-items', (req, res) => {
 });
 
 // GET /api/reports/employee-performance - sales by employee
-router.get('/employee-performance', (req, res) => {
+router.get('/employee-performance', async (req, res) => {
   try {
     const { period = 'daily' } = req.query;
     const startDate = getDateRange(period);
 
-    const employees = all(`
+    const employees = await all(`
       SELECT
         e.id as employee_id,
         e.name as employee_name,
@@ -106,7 +106,7 @@ router.get('/employee-performance', (req, res) => {
         ROUND(AVG(o.total), 2) as avg_ticket,
         ROUND(SUM(o.tip), 2) as tips_received
       FROM employees e
-      LEFT JOIN orders o ON e.id = o.employee_id AND DATE(o.created_at) >= ? AND o.payment_status = 'paid'
+      LEFT JOIN orders o ON e.id = o.employee_id AND o.created_at::date >= $1 AND o.payment_status = 'paid'
       GROUP BY e.id, e.name
       ORDER BY total_sales DESC
     `, [startDate]);
@@ -119,18 +119,18 @@ router.get('/employee-performance', (req, res) => {
 });
 
 // GET /api/reports/hourly - orders by hour of day
-router.get('/hourly', (req, res) => {
+router.get('/hourly', async (req, res) => {
   try {
     const today = new Date().toISOString().split('T')[0];
 
-    const hourly = all(`
+    const hourly = await all(`
       SELECT
-        CAST(SUBSTR(created_at, 12, 2) AS INTEGER) as hour,
+        EXTRACT(HOUR FROM created_at)::int as hour,
         COUNT(*) as orders,
         ROUND(SUM(subtotal), 2) as revenue,
         ROUND(AVG(total), 2) as avg_ticket
       FROM orders
-      WHERE DATE(created_at) = ?
+      WHERE created_at::date = $1
         AND payment_status = 'paid'
       GROUP BY hour
       ORDER BY hour ASC
@@ -161,19 +161,19 @@ router.get('/hourly', (req, res) => {
 });
 
 // GET /api/reports/cash-card-breakdown - cash vs card stats
-router.get('/cash-card-breakdown', (req, res) => {
+router.get('/cash-card-breakdown', async (req, res) => {
   try {
     const { period = 'daily' } = req.query;
     const startDate = getDateRange(period);
 
-    const breakdown = all(`
+    const breakdown = await all(`
       SELECT
         payment_method,
         COUNT(*) as count,
         ROUND(SUM(subtotal + tip), 2) as total,
         ROUND(SUM(tip), 2) as tips
       FROM orders
-      WHERE DATE(created_at) >= ?
+      WHERE created_at::date >= $1
         AND payment_status = 'paid'
         AND payment_method IS NOT NULL
       GROUP BY payment_method
@@ -202,13 +202,13 @@ router.get('/cash-card-breakdown', (req, res) => {
 });
 
 // GET /api/reports/cogs - per-item COGS and margin
-router.get('/cogs', (req, res) => {
+router.get('/cogs', async (req, res) => {
   try {
     const { period = 'daily' } = req.query;
     const startDate = getDateRange(period);
 
     // Get revenue per menu item
-    const items = all(`
+    const items = await all(`
       SELECT
         oi.menu_item_id,
         oi.item_name,
@@ -216,19 +216,20 @@ router.get('/cogs', (req, res) => {
         ROUND(SUM(oi.quantity * oi.unit_price), 2) as revenue
       FROM order_items oi
       JOIN orders o ON oi.order_id = o.id
-      WHERE DATE(o.created_at) >= ?
+      WHERE o.created_at::date >= $1
         AND o.payment_status = 'paid'
       GROUP BY oi.menu_item_id, oi.item_name
       ORDER BY revenue DESC
     `, [startDate]);
 
     // Calculate COGS per item via menu_item_ingredients JOIN inventory_items.cost_price
-    const result = items.map(item => {
-      const ingredients = all(`
+    const result = [];
+    for (const item of items) {
+      const ingredients = await all(`
         SELECT mii.quantity_used, ii.cost_price
         FROM menu_item_ingredients mii
         JOIN inventory_items ii ON mii.inventory_item_id = ii.id
-        WHERE mii.menu_item_id = ?
+        WHERE mii.menu_item_id = $1
       `, [item.menu_item_id]);
 
       const cogsPerUnit = ingredients.reduce((sum, ing) => sum + (ing.quantity_used * ing.cost_price), 0);
@@ -236,7 +237,7 @@ router.get('/cogs', (req, res) => {
       const margin = item.revenue - totalCogs;
       const marginPercent = item.revenue > 0 ? Math.round((margin / item.revenue) * 100) : 0;
 
-      return {
+      result.push({
         menu_item_id: item.menu_item_id,
         item_name: item.item_name,
         quantity_sold: item.quantity_sold,
@@ -244,8 +245,8 @@ router.get('/cogs', (req, res) => {
         cogs: totalCogs,
         margin,
         margin_percent: marginPercent,
-      };
-    });
+      });
+    }
 
     const totals = {
       total_revenue: result.reduce((s, r) => s + r.revenue, 0),
@@ -264,12 +265,12 @@ router.get('/cogs', (req, res) => {
 });
 
 // GET /api/reports/category-margins - per-category revenue/COGS/margin
-router.get('/category-margins', (req, res) => {
+router.get('/category-margins', async (req, res) => {
   try {
     const { period = 'daily' } = req.query;
     const startDate = getDateRange(period);
 
-    const categories = all(`
+    const categories = await all(`
       SELECT
         mc.id as category_id,
         mc.name as category_name,
@@ -279,40 +280,41 @@ router.get('/category-margins', (req, res) => {
       JOIN orders o ON oi.order_id = o.id
       JOIN menu_items mi ON oi.menu_item_id = mi.id
       JOIN menu_categories mc ON mi.category_id = mc.id
-      WHERE DATE(o.created_at) >= ?
+      WHERE o.created_at::date >= $1
         AND o.payment_status = 'paid'
       GROUP BY mc.id, mc.name
       ORDER BY revenue DESC
     `, [startDate]);
 
-    const result = categories.map(cat => {
+    const result = [];
+    for (const cat of categories) {
       // Get all menu items in this category that were sold
-      const catItems = all(`
+      const catItems = await all(`
         SELECT DISTINCT oi.menu_item_id
         FROM order_items oi
         JOIN orders o ON oi.order_id = o.id
         JOIN menu_items mi ON oi.menu_item_id = mi.id
-        WHERE mi.category_id = ?
-          AND DATE(o.created_at) >= ?
+        WHERE mi.category_id = $1
+          AND o.created_at::date >= $2
           AND o.payment_status = 'paid'
       `, [cat.category_id, startDate]);
 
       let totalCogs = 0;
       for (const item of catItems) {
-        const sold = get(`
+        const sold = await get(`
           SELECT SUM(oi.quantity) as qty
           FROM order_items oi
           JOIN orders o ON oi.order_id = o.id
-          WHERE oi.menu_item_id = ?
-            AND DATE(o.created_at) >= ?
+          WHERE oi.menu_item_id = $1
+            AND o.created_at::date >= $2
             AND o.payment_status = 'paid'
         `, [item.menu_item_id, startDate]);
 
-        const ingredients = all(`
+        const ingredients = await all(`
           SELECT mii.quantity_used, ii.cost_price
           FROM menu_item_ingredients mii
           JOIN inventory_items ii ON mii.inventory_item_id = ii.id
-          WHERE mii.menu_item_id = ?
+          WHERE mii.menu_item_id = $1
         `, [item.menu_item_id]);
 
         const cogsPerUnit = ingredients.reduce((sum, ing) => sum + (ing.quantity_used * ing.cost_price), 0);
@@ -323,13 +325,13 @@ router.get('/category-margins', (req, res) => {
       const margin = cat.revenue - totalCogs;
       const marginPercent = cat.revenue > 0 ? Math.round((margin / cat.revenue) * 100) : 0;
 
-      return {
+      result.push({
         ...cat,
         cogs: totalCogs,
         margin,
         margin_percent: marginPercent,
-      };
-    });
+      });
+    }
 
     res.json({ period, startDate, categories: result });
   } catch (error) {
@@ -339,42 +341,43 @@ router.get('/category-margins', (req, res) => {
 });
 
 // GET /api/reports/contribution-margin - daily revenue minus COGS
-router.get('/contribution-margin', (req, res) => {
+router.get('/contribution-margin', async (req, res) => {
   try {
     const { period = 'weekly', group_by = 'day' } = req.query;
     const startDate = getDateRange(period);
 
-    const dailyRevenue = all(`
+    const dailyRevenue = await all(`
       SELECT
-        DATE(o.created_at) as date,
+        o.created_at::date as date,
         ROUND(SUM(oi.quantity * oi.unit_price), 2) as revenue,
         COUNT(DISTINCT o.id) as orders
       FROM order_items oi
       JOIN orders o ON oi.order_id = o.id
-      WHERE DATE(o.created_at) >= ?
+      WHERE o.created_at::date >= $1
         AND o.payment_status = 'paid'
-      GROUP BY DATE(o.created_at)
+      GROUP BY o.created_at::date
       ORDER BY date ASC
     `, [startDate]);
 
-    const result = dailyRevenue.map(day => {
+    const result = [];
+    for (const day of dailyRevenue) {
       // Calculate COGS for all items sold that day
-      const dayItems = all(`
+      const dayItems = await all(`
         SELECT oi.menu_item_id, SUM(oi.quantity) as qty
         FROM order_items oi
         JOIN orders o ON oi.order_id = o.id
-        WHERE DATE(o.created_at) = ?
+        WHERE o.created_at::date = $1
           AND o.payment_status = 'paid'
         GROUP BY oi.menu_item_id
       `, [day.date]);
 
       let dayCogs = 0;
       for (const item of dayItems) {
-        const ingredients = all(`
+        const ingredients = await all(`
           SELECT mii.quantity_used, ii.cost_price
           FROM menu_item_ingredients mii
           JOIN inventory_items ii ON mii.inventory_item_id = ii.id
-          WHERE mii.menu_item_id = ?
+          WHERE mii.menu_item_id = $1
         `, [item.menu_item_id]);
 
         const cogsPerUnit = ingredients.reduce((sum, ing) => sum + (ing.quantity_used * ing.cost_price), 0);
@@ -385,15 +388,15 @@ router.get('/contribution-margin', (req, res) => {
       const margin = Math.round((day.revenue - dayCogs) * 100) / 100;
       const marginPercent = day.revenue > 0 ? Math.round((margin / day.revenue) * 100) : 0;
 
-      return {
+      result.push({
         date: day.date,
         revenue: day.revenue,
         cogs: dayCogs,
         contribution_margin: margin,
         margin_percent: marginPercent,
         orders: day.orders,
-      };
-    });
+      });
+    }
 
     res.json({ period, startDate, data: result });
   } catch (error) {
@@ -403,12 +406,12 @@ router.get('/contribution-margin', (req, res) => {
 });
 
 // GET /api/reports/live - today's live KPIs + hourly trend
-router.get('/live', (req, res) => {
+router.get('/live', async (req, res) => {
   try {
     const today = new Date().toISOString().split('T')[0];
 
     // Today's KPIs
-    const kpis = get(`
+    const kpis = await get(`
       SELECT
         COUNT(*) as order_count,
         ROUND(SUM(subtotal), 2) as revenue,
@@ -419,41 +422,41 @@ router.get('/live', (req, res) => {
         ROUND(SUM(CASE WHEN payment_method = 'cash' THEN subtotal + tip ELSE 0 END), 2) as cash_revenue,
         ROUND(SUM(CASE WHEN payment_method = 'card' THEN subtotal + tip ELSE 0 END), 2) as card_revenue
       FROM orders
-      WHERE DATE(created_at) = ?
+      WHERE created_at::date = $1
         AND payment_status = 'paid'
     `, [today]);
 
     // Hourly trend
-    const hourly = all(`
+    const hourly = await all(`
       SELECT
-        CAST(SUBSTR(created_at, 12, 2) AS INTEGER) as hour,
+        EXTRACT(HOUR FROM created_at)::int as hour,
         COUNT(*) as orders,
         ROUND(SUM(subtotal), 2) as revenue
       FROM orders
-      WHERE DATE(created_at) = ?
+      WHERE created_at::date = $1
         AND payment_status = 'paid'
       GROUP BY hour
       ORDER BY hour ASC
     `, [today]);
 
     // Source breakdown
-    const sources = all(`
+    const sources = await all(`
       SELECT
         COALESCE(source, 'pos') as source,
         COUNT(*) as count,
         ROUND(SUM(subtotal), 2) as revenue
       FROM orders
-      WHERE DATE(created_at) = ?
+      WHERE created_at::date = $1
         AND payment_status = 'paid'
       GROUP BY source
     `, [today]);
 
     // Top 5 items today
-    const topItems = all(`
+    const topItems = await all(`
       SELECT oi.item_name, SUM(oi.quantity) as qty
       FROM order_items oi
       JOIN orders o ON oi.order_id = o.id
-      WHERE DATE(o.created_at) = ?
+      WHERE o.created_at::date = $1
         AND o.payment_status = 'paid'
       GROUP BY oi.item_name
       ORDER BY qty DESC
@@ -474,12 +477,12 @@ router.get('/live', (req, res) => {
 });
 
 // GET /api/reports/delivery-margins - per-platform delivery margins
-router.get('/delivery-margins', (req, res) => {
+router.get('/delivery-margins', async (req, res) => {
   try {
     const { period = 'daily' } = req.query;
     const startDate = getDateRange(period);
 
-    const platforms = all(`
+    const platforms = await all(`
       SELECT
         dp.id as platform_id,
         dp.display_name,
@@ -491,7 +494,7 @@ router.get('/delivery-margins', (req, res) => {
       FROM delivery_platforms dp
       LEFT JOIN delivery_orders dor ON dp.id = dor.platform_id
       LEFT JOIN orders o ON dor.order_id = o.id
-        AND DATE(o.created_at) >= ?
+        AND o.created_at::date >= $1
         AND o.payment_status = 'paid'
       GROUP BY dp.id, dp.display_name, dp.commission_percent
     `, [startDate]);
@@ -513,19 +516,19 @@ router.get('/delivery-margins', (req, res) => {
 });
 
 // GET /api/reports/channel-comparison - POS vs delivery channels
-router.get('/channel-comparison', (req, res) => {
+router.get('/channel-comparison', async (req, res) => {
   try {
     const { period = 'daily' } = req.query;
     const startDate = getDateRange(period);
 
-    const channels = all(`
+    const channels = await all(`
       SELECT
         COALESCE(o.source, 'pos') as channel,
         COUNT(*) as order_count,
         ROUND(SUM(o.subtotal), 2) as revenue,
         ROUND(AVG(o.total), 2) as avg_ticket
       FROM orders o
-      WHERE DATE(o.created_at) >= ?
+      WHERE o.created_at::date >= $1
         AND o.payment_status = 'paid'
       GROUP BY o.source
       ORDER BY revenue DESC
@@ -546,10 +549,10 @@ router.get('/reconciliation', requireAuth('view_reports'), async (req, res) => {
     const endDate = end_date || startDate;
 
     // Get card orders in range
-    const orders = all(`
+    const orders = await all(`
       SELECT id, order_number, total, tip, payment_intent_id, payment_status, refund_total
       FROM orders
-      WHERE DATE(created_at) >= ? AND DATE(created_at) <= ?
+      WHERE created_at::date >= $1 AND created_at::date <= $2
         AND payment_method = 'card'
         AND payment_intent_id IS NOT NULL
       ORDER BY created_at ASC
@@ -597,10 +600,10 @@ router.get('/payment-fees', requireAuth('view_reports'), async (req, res) => {
     const { period = 'daily' } = req.query;
     const startDate = getDateRange(period);
 
-    const orders = all(`
+    const orders = await all(`
       SELECT id, total, tip, payment_intent_id, created_at
       FROM orders
-      WHERE DATE(created_at) >= ?
+      WHERE created_at::date >= $1
         AND payment_method = 'card'
         AND payment_intent_id IS NOT NULL
         AND payment_status = 'paid'
@@ -647,51 +650,51 @@ router.get('/payment-fees', requireAuth('view_reports'), async (req, res) => {
 });
 
 // GET /api/reports/refund-summary - refund analytics
-router.get('/refund-summary', requireAuth('view_reports'), (req, res) => {
+router.get('/refund-summary', requireAuth('view_reports'), async (req, res) => {
   try {
     const { period = 'daily' } = req.query;
     const startDate = getDateRange(period);
 
-    const summary = get(`
+    const summary = await get(`
       SELECT
         COUNT(*) as total_refunds,
         ROUND(SUM(amount), 2) as total_refunded,
         ROUND(AVG(amount), 2) as avg_refund
       FROM refunds
-      WHERE DATE(created_at) >= ?
+      WHERE created_at::date >= $1
     `, [startDate]);
 
-    const byReason = all(`
+    const byReason = await all(`
       SELECT
         COALESCE(reason, 'unspecified') as reason,
         COUNT(*) as count,
         ROUND(SUM(amount), 2) as total
       FROM refunds
-      WHERE DATE(created_at) >= ?
+      WHERE created_at::date >= $1
       GROUP BY reason
       ORDER BY count DESC
     `, [startDate]);
 
-    const byEmployee = all(`
+    const byEmployee = await all(`
       SELECT
         e.name as employee_name,
         COUNT(r.id) as refund_count,
         ROUND(SUM(r.amount), 2) as total_refunded
       FROM refunds r
       LEFT JOIN employees e ON r.refunded_by = e.id
-      WHERE DATE(r.created_at) >= ?
+      WHERE r.created_at::date >= $1
       GROUP BY r.refunded_by
       ORDER BY refund_count DESC
     `, [startDate]);
 
-    const daily = all(`
+    const daily = await all(`
       SELECT
-        DATE(created_at) as date,
+        created_at::date as date,
         COUNT(*) as count,
         ROUND(SUM(amount), 2) as total
       FROM refunds
-      WHERE DATE(created_at) >= ?
-      GROUP BY DATE(created_at)
+      WHERE created_at::date >= $1
+      GROUP BY created_at::date
       ORDER BY date ASC
     `, [startDate]);
 
@@ -733,31 +736,31 @@ router.get('/financial-projection', requireAuth('view_reports'), async (req, res
     const endDate = `${month}-${String(lastDay).padStart(2, '0')}`;
 
     // Revenue: SUM(subtotal) from paid orders in month
-    const revRow = get(`
+    const revRow = await get(`
       SELECT COALESCE(SUM(subtotal), 0) as revenue
       FROM orders
-      WHERE DATE(created_at) >= ? AND DATE(created_at) <= ?
+      WHERE created_at::date >= $1 AND created_at::date <= $2
         AND payment_status = 'paid'
     `, [startDate, endDate]);
     const revenue = revRow?.revenue || 0;
 
     // Auto-calculate food COGS
-    const soldItems = all(`
+    const soldItems = await all(`
       SELECT oi.menu_item_id, SUM(oi.quantity) as qty
       FROM order_items oi
       JOIN orders o ON oi.order_id = o.id
-      WHERE DATE(o.created_at) >= ? AND DATE(o.created_at) <= ?
+      WHERE o.created_at::date >= $1 AND o.created_at::date <= $2
         AND o.payment_status = 'paid'
       GROUP BY oi.menu_item_id
     `, [startDate, endDate]);
 
     let foodCost = 0;
     for (const item of soldItems) {
-      const ingredients = all(`
+      const ingredients = await all(`
         SELECT mii.quantity_used, ii.cost_price
         FROM menu_item_ingredients mii
         JOIN inventory_items ii ON mii.inventory_item_id = ii.id
-        WHERE mii.menu_item_id = ?
+        WHERE mii.menu_item_id = $1
       `, [item.menu_item_id]);
       const cogsPerUnit = ingredients.reduce((sum, ing) => sum + (ing.quantity_used * (ing.cost_price || 0)), 0);
       foodCost += cogsPerUnit * item.qty;
@@ -766,10 +769,10 @@ router.get('/financial-projection', requireAuth('view_reports'), async (req, res
 
     // Auto-calculate Stripe fees
     let stripeFees = 0;
-    const cardOrders = all(`
+    const cardOrders = await all(`
       SELECT payment_intent_id
       FROM orders
-      WHERE DATE(created_at) >= ? AND DATE(created_at) <= ?
+      WHERE created_at::date >= $1 AND created_at::date <= $2
         AND payment_method = 'card'
         AND payment_intent_id IS NOT NULL
         AND payment_status = 'paid'
@@ -786,11 +789,11 @@ router.get('/financial-projection', requireAuth('view_reports'), async (req, res
     stripeFees = Math.round(stripeFees * 100) / 100;
 
     // Auto-calculate delivery commissions
-    const delRow = get(`
+    const delRow = await get(`
       SELECT COALESCE(SUM(dor.platform_commission), 0) as total
       FROM delivery_orders dor
       JOIN orders o ON dor.order_id = o.id
-      WHERE DATE(o.created_at) >= ? AND DATE(o.created_at) <= ?
+      WHERE o.created_at::date >= $1 AND o.created_at::date <= $2
         AND o.payment_status = 'paid'
     `, [startDate, endDate]);
     const deliveryCommissions = Math.round((delRow?.total || 0) * 100) / 100;
@@ -799,24 +802,24 @@ router.get('/financial-projection', requireAuth('view_reports'), async (req, res
     const autoValues = { food_cost: foodCost, stripe_fees: stripeFees, delivery_commissions: deliveryCommissions };
     for (const [cat, amount] of Object.entries(autoValues)) {
       // Check if a manual override exists
-      const existing = get(`SELECT auto_calculated FROM financial_actuals WHERE category = ? AND period = ?`, [cat, month]);
-      if (!existing || existing.auto_calculated === 1) {
-        run(`INSERT INTO financial_actuals (category, period, amount, auto_calculated)
-             VALUES (?, ?, ?, 1)
+      const existing = await get(`SELECT auto_calculated FROM financial_actuals WHERE category = $1 AND period = $2`, [cat, month]);
+      if (!existing || existing.auto_calculated === true) {
+        await run(`INSERT INTO financial_actuals (category, period, amount, auto_calculated)
+             VALUES ($1, $2, $3, true)
              ON CONFLICT(category, period)
-             DO UPDATE SET amount = ?, auto_calculated = 1`, [cat, month, amount, amount]);
+             DO UPDATE SET amount = $3, auto_calculated = true`, [cat, month, amount]);
       }
     }
 
     // Load all targets
-    const targets = all(`SELECT category, target_percent FROM financial_targets`);
+    const targets = await all(`SELECT category, target_percent FROM financial_targets`);
     const targetMap = {};
     for (const t of targets) {
       targetMap[t.category] = t.target_percent;
     }
 
     // Load all actuals for this month
-    const actuals = all(`SELECT category, amount FROM financial_actuals WHERE period = ?`, [month]);
+    const actuals = await all(`SELECT category, amount FROM financial_actuals WHERE period = $1`, [month]);
     const actualMap = {};
     for (const a of actuals) {
       actualMap[a.category] = a.amount;
@@ -857,7 +860,7 @@ router.get('/financial-projection', requireAuth('view_reports'), async (req, res
 });
 
 // PUT /api/reports/financial-targets
-router.put('/financial-targets', requireAuth('view_reports'), (req, res) => {
+router.put('/financial-targets', requireAuth('view_reports'), async (req, res) => {
   try {
     // Plan check — trial cannot edit variables
     const plan = req.tenant?.plan || 'trial';
@@ -878,11 +881,11 @@ router.put('/financial-targets', requireAuth('view_reports'), (req, res) => {
 
     for (const t of targets) {
       if (!t.category || t.target_percent == null) continue;
-      run(`INSERT INTO financial_targets (category, target_percent, updated_at)
-           VALUES (?, ?, datetime('now','localtime'))
+      await run(`INSERT INTO financial_targets (category, target_percent, updated_at)
+           VALUES ($1, $2, NOW())
            ON CONFLICT(category)
-           DO UPDATE SET target_percent = ?, updated_at = datetime('now','localtime')`,
-        [t.category, t.target_percent, t.target_percent]);
+           DO UPDATE SET target_percent = $2, updated_at = NOW()`,
+        [t.category, t.target_percent]);
     }
 
     res.json({ success: true });
@@ -893,7 +896,7 @@ router.put('/financial-targets', requireAuth('view_reports'), (req, res) => {
 });
 
 // PUT /api/reports/financial-actuals
-router.put('/financial-actuals', requireAuth('view_reports'), (req, res) => {
+router.put('/financial-actuals', requireAuth('view_reports'), async (req, res) => {
   try {
     // Plan check — trial cannot edit variables
     const plan = req.tenant?.plan || 'trial';
@@ -912,11 +915,11 @@ router.put('/financial-actuals', requireAuth('view_reports'), (req, res) => {
       return res.status(400).json({ error: 'period, category, and amount are required' });
     }
 
-    run(`INSERT INTO financial_actuals (category, period, amount, auto_calculated)
-         VALUES (?, ?, ?, 0)
+    await run(`INSERT INTO financial_actuals (category, period, amount, auto_calculated)
+         VALUES ($1, $2, $3, false)
          ON CONFLICT(category, period)
-         DO UPDATE SET amount = ?, auto_calculated = 0`,
-      [category, period, amount, amount]);
+         DO UPDATE SET amount = $3, auto_calculated = false`,
+      [category, period, amount]);
 
     res.json({ success: true });
   } catch (error) {

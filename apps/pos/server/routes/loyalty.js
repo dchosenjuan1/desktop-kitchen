@@ -19,7 +19,7 @@ const router = Router();
 /* ==================== Customer Endpoints ==================== */
 
 // GET /customers — List/search (paginated)
-router.get('/customers', requireAuth('manage_loyalty'), (req, res) => {
+router.get('/customers', requireAuth('manage_loyalty'), async (req, res) => {
   try {
     const { search, page = 1, limit = 20 } = req.query;
     const offset = (parseInt(page) - 1) * parseInt(limit);
@@ -28,21 +28,25 @@ router.get('/customers', requireAuth('manage_loyalty'), (req, res) => {
     const params = [];
 
     if (search) {
-      where = `WHERE name LIKE ? OR phone LIKE ?`;
+      where = `WHERE name LIKE $1 OR phone LIKE $2`;
       params.push(`%${search}%`, `%${search}%`);
     }
 
-    const countResult = get(`SELECT COUNT(*) as total FROM loyalty_customers ${where}`, params);
-    const customers = all(
-      `SELECT * FROM loyalty_customers ${where} ORDER BY created_at DESC LIMIT ? OFFSET ?`,
+    const countResult = await get(`SELECT COUNT(*) as total FROM loyalty_customers ${where}`, params);
+
+    const limitParamIdx = params.length + 1;
+    const offsetParamIdx = params.length + 2;
+    const customers = await all(
+      `SELECT * FROM loyalty_customers ${where} ORDER BY created_at DESC LIMIT $${limitParamIdx} OFFSET $${offsetParamIdx}`,
       [...params, parseInt(limit), offset]
     );
 
     // Attach active stamp card to each customer
-    const enriched = customers.map((c) => {
-      const card = getActiveStampCard(c.id);
-      return { ...c, activeCard: card };
-    });
+    const enriched = [];
+    for (const c of customers) {
+      const card = await getActiveStampCard(c.id);
+      enriched.push({ ...c, activeCard: card });
+    }
 
     res.json({ data: enriched, total: countResult.total, page: parseInt(page), limit: parseInt(limit) });
   } catch (err) {
@@ -51,9 +55,9 @@ router.get('/customers', requireAuth('manage_loyalty'), (req, res) => {
 });
 
 // GET /customers/:id — Detail + stamp cards + events
-router.get('/customers/:id', requireAuth('manage_loyalty'), (req, res) => {
+router.get('/customers/:id', requireAuth('manage_loyalty'), async (req, res) => {
   try {
-    const data = getCustomerWithCard(parseInt(req.params.id));
+    const data = await getCustomerWithCard(parseInt(req.params.id));
     if (!data) return res.status(404).json({ error: 'Customer not found' });
     res.json(data);
   } catch (err) {
@@ -62,13 +66,13 @@ router.get('/customers/:id', requireAuth('manage_loyalty'), (req, res) => {
 });
 
 // GET /customers/phone/:phone — Lookup by phone (POS checkout)
-router.get('/customers/phone/:phone', requireAuth('pos_access'), (req, res) => {
+router.get('/customers/phone/:phone', requireAuth('pos_access'), async (req, res) => {
   try {
     const normalized = normalizePhone(req.params.phone);
-    const customer = get('SELECT * FROM loyalty_customers WHERE phone = ?', [normalized]);
+    const customer = await get('SELECT * FROM loyalty_customers WHERE phone = $1', [normalized]);
     if (!customer) return res.status(404).json({ error: 'Customer not found' });
 
-    const activeCard = getActiveStampCard(customer.id);
+    const activeCard = await getActiveStampCard(customer.id);
     res.json({ ...customer, activeCard });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -87,10 +91,10 @@ router.post('/customers', requireAuth('pos_access'), async (req, res) => {
     const { customer, created } = await findOrCreateCustomer(normalized, name, referral_code_used, sms_opt_in, req.tenant?.name || 'Restaurant');
 
     if (!created && sms_opt_in !== undefined) {
-      run('UPDATE loyalty_customers SET sms_opt_in = ? WHERE id = ?', [sms_opt_in ? 1 : 0, customer.id]);
+      await run('UPDATE loyalty_customers SET sms_opt_in = $1 WHERE id = $2', [sms_opt_in ? true : false, customer.id]);
     }
 
-    const activeCard = getActiveStampCard(customer.id);
+    const activeCard = await getActiveStampCard(customer.id);
     res.status(created ? 201 : 200).json({ ...customer, activeCard, created });
   } catch (err) {
     if (err.message?.includes('UNIQUE')) {
@@ -101,17 +105,17 @@ router.post('/customers', requireAuth('pos_access'), async (req, res) => {
 });
 
 // PUT /customers/:id — Update customer info
-router.put('/customers/:id', requireAuth('manage_loyalty'), (req, res) => {
+router.put('/customers/:id', requireAuth('manage_loyalty'), async (req, res) => {
   try {
     const { name, sms_opt_in } = req.body;
     const id = parseInt(req.params.id);
-    const customer = get('SELECT * FROM loyalty_customers WHERE id = ?', [id]);
+    const customer = await get('SELECT * FROM loyalty_customers WHERE id = $1', [id]);
     if (!customer) return res.status(404).json({ error: 'Customer not found' });
 
-    if (name !== undefined) run('UPDATE loyalty_customers SET name = ? WHERE id = ?', [name, id]);
-    if (sms_opt_in !== undefined) run('UPDATE loyalty_customers SET sms_opt_in = ? WHERE id = ?', [sms_opt_in ? 1 : 0, id]);
+    if (name !== undefined) await run('UPDATE loyalty_customers SET name = $1 WHERE id = $2', [name, id]);
+    if (sms_opt_in !== undefined) await run('UPDATE loyalty_customers SET sms_opt_in = $1 WHERE id = $2', [sms_opt_in ? true : false, id]);
 
-    res.json(get('SELECT * FROM loyalty_customers WHERE id = ?', [id]));
+    res.json(await get('SELECT * FROM loyalty_customers WHERE id = $1', [id]));
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -125,16 +129,16 @@ router.post('/customers/:id/stamps', requireAuth('pos_access'), async (req, res)
     const { order_id } = req.body;
     const customerId = parseInt(req.params.id);
 
-    const customer = get('SELECT * FROM loyalty_customers WHERE id = ?', [customerId]);
+    const customer = await get('SELECT * FROM loyalty_customers WHERE id = $1', [customerId]);
     if (!customer) return res.status(404).json({ error: 'Customer not found' });
 
     const result = await addStampsForOrder(customerId, order_id, 1, req.tenant?.name || 'Restaurant');
 
     // Update total_spent from order
     if (order_id) {
-      const order = get('SELECT total FROM orders WHERE id = ?', [order_id]);
+      const order = await get('SELECT total FROM orders WHERE id = $1', [order_id]);
       if (order) {
-        run('UPDATE loyalty_customers SET total_spent = total_spent + ? WHERE id = ?', [order.total, customerId]);
+        await run('UPDATE loyalty_customers SET total_spent = total_spent + $1 WHERE id = $2', [order.total, customerId]);
       }
     }
 
@@ -145,16 +149,16 @@ router.post('/customers/:id/stamps', requireAuth('pos_access'), async (req, res)
 });
 
 // POST /customers/:id/stamps/manual — Manager manual stamp add
-router.post('/customers/:id/stamps/manual', requireAuth('manage_loyalty'), (req, res) => {
+router.post('/customers/:id/stamps/manual', requireAuth('manage_loyalty'), async (req, res) => {
   try {
     const { count = 1 } = req.body;
     const customerId = parseInt(req.params.id);
 
-    const customer = get('SELECT * FROM loyalty_customers WHERE id = ?', [customerId]);
+    const customer = await get('SELECT * FROM loyalty_customers WHERE id = $1', [customerId]);
     if (!customer) return res.status(404).json({ error: 'Customer not found' });
 
-    const card = addBonusStamps(customerId, parseInt(count), 'manual');
-    const updatedCustomer = get('SELECT * FROM loyalty_customers WHERE id = ?', [customerId]);
+    const card = await addBonusStamps(customerId, parseInt(count), 'manual');
+    const updatedCustomer = await get('SELECT * FROM loyalty_customers WHERE id = $1', [customerId]);
 
     res.json({ stampCard: card, customer: updatedCustomer });
   } catch (err) {
@@ -163,20 +167,20 @@ router.post('/customers/:id/stamps/manual', requireAuth('manage_loyalty'), (req,
 });
 
 // POST /customers/:id/redeem — Redeem completed card
-router.post('/customers/:id/redeem', requireAuth('pos_access'), (req, res) => {
+router.post('/customers/:id/redeem', requireAuth('pos_access'), async (req, res) => {
   try {
     const customerId = parseInt(req.params.id);
-    const customer = get('SELECT * FROM loyalty_customers WHERE id = ?', [customerId]);
+    const customer = await get('SELECT * FROM loyalty_customers WHERE id = $1', [customerId]);
     if (!customer) return res.status(404).json({ error: 'Customer not found' });
 
     // Find the oldest completed but unredeemed card
-    const card = get(
-      'SELECT * FROM stamp_cards WHERE customer_id = ? AND completed = 1 AND redeemed = 0 ORDER BY completed_at ASC LIMIT 1',
+    const card = await get(
+      'SELECT * FROM stamp_cards WHERE customer_id = $1 AND completed = true AND redeemed = false ORDER BY completed_at ASC LIMIT 1',
       [customerId]
     );
     if (!card) return res.status(400).json({ error: 'No completed cards available to redeem' });
 
-    const redeemed = redeemReward(card.id);
+    const redeemed = await redeemReward(card.id);
     res.json(redeemed);
   } catch (err) {
     res.status(400).json({ error: err.message });
@@ -186,38 +190,38 @@ router.post('/customers/:id/redeem', requireAuth('pos_access'), (req, res) => {
 /* ==================== Analytics ==================== */
 
 // GET /analytics — Metrics
-router.get('/analytics', requireAuth('manage_loyalty'), (req, res) => {
+router.get('/analytics', requireAuth('manage_loyalty'), async (req, res) => {
   try {
-    const totalMembers = get('SELECT COUNT(*) as count FROM loyalty_customers')?.count || 0;
+    const totalMembers = (await get('SELECT COUNT(*) as count FROM loyalty_customers'))?.count || 0;
 
-    const newThisMonth = get(
+    const newThisMonth = (await get(
       `SELECT COUNT(*) as count FROM loyalty_customers
-       WHERE created_at >= date('now', 'start of month', 'localtime')`
-    )?.count || 0;
+       WHERE created_at >= date_trunc('month', NOW())`
+    ))?.count || 0;
 
-    const activeCards = get(
-      'SELECT COUNT(*) as count FROM stamp_cards WHERE completed = 0'
-    )?.count || 0;
+    const activeCards = (await get(
+      'SELECT COUNT(*) as count FROM stamp_cards WHERE completed = false'
+    ))?.count || 0;
 
-    const completedCards = get(
-      'SELECT COUNT(*) as count FROM stamp_cards WHERE completed = 1'
-    )?.count || 0;
+    const completedCards = (await get(
+      'SELECT COUNT(*) as count FROM stamp_cards WHERE completed = true'
+    ))?.count || 0;
 
-    const redeemedCards = get(
-      'SELECT COUNT(*) as count FROM stamp_cards WHERE redeemed = 1'
-    )?.count || 0;
+    const redeemedCards = (await get(
+      'SELECT COUNT(*) as count FROM stamp_cards WHERE redeemed = true'
+    ))?.count || 0;
 
     const redemptionRate = completedCards > 0
       ? Math.round((redeemedCards / completedCards) * 100)
       : 0;
 
-    const topCustomers = all(
+    const topCustomers = await all(
       `SELECT id, name, phone, stamps_earned, orders_count, total_spent, last_visit
        FROM loyalty_customers ORDER BY total_spent DESC LIMIT 10`
     );
 
-    const signupsByMonth = all(
-      `SELECT strftime('%Y-%m', created_at) as month, COUNT(*) as count
+    const signupsByMonth = await all(
+      `SELECT to_char(created_at, 'YYYY-MM') as month, COUNT(*) as count
        FROM loyalty_customers
        GROUP BY month ORDER BY month DESC LIMIT 12`
     );
@@ -240,21 +244,21 @@ router.get('/analytics', requireAuth('manage_loyalty'), (req, res) => {
 /* ==================== Referrals ==================== */
 
 // GET /referrals — Referral leaderboard
-router.get('/referrals', requireAuth('manage_loyalty'), (req, res) => {
+router.get('/referrals', requireAuth('manage_loyalty'), async (req, res) => {
   try {
-    const leaderboard = all(
+    const leaderboard = await all(
       `SELECT lc.id, lc.name, lc.phone, lc.referral_code,
               COUNT(re.id) as referral_count,
               SUM(re.referrer_stamps_added) as total_bonus_stamps
        FROM loyalty_customers lc
        LEFT JOIN referral_events re ON re.referrer_id = lc.id
        GROUP BY lc.id
-       HAVING referral_count > 0
+       HAVING COUNT(re.id) > 0
        ORDER BY referral_count DESC
        LIMIT 20`
     );
 
-    const recentReferrals = all(
+    const recentReferrals = await all(
       `SELECT re.*,
               r.name as referrer_name, r.phone as referrer_phone,
               e.name as referee_name, e.phone as referee_phone
@@ -264,7 +268,7 @@ router.get('/referrals', requireAuth('manage_loyalty'), (req, res) => {
        ORDER BY re.created_at DESC LIMIT 20`
     );
 
-    const totalReferrals = get('SELECT COUNT(*) as count FROM referral_events')?.count || 0;
+    const totalReferrals = (await get('SELECT COUNT(*) as count FROM referral_events'))?.count || 0;
 
     res.json({ leaderboard, recentReferrals, totalReferrals });
   } catch (err) {
@@ -275,16 +279,16 @@ router.get('/referrals', requireAuth('manage_loyalty'), (req, res) => {
 /* ==================== Config ==================== */
 
 // GET /config — Get loyalty settings
-router.get('/config', requireAuth('manage_loyalty'), (req, res) => {
+router.get('/config', requireAuth('manage_loyalty'), async (req, res) => {
   try {
-    res.json(getLoyaltyConfig());
+    res.json(await getLoyaltyConfig());
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
 // PUT /config — Update loyalty settings
-router.put('/config', requireAuth('manage_loyalty'), (req, res) => {
+router.put('/config', requireAuth('manage_loyalty'), async (req, res) => {
   try {
     const plan = req.tenant?.plan || 'trial';
     if (getPlanLimits(plan).loyalty.locked) {
@@ -294,8 +298,8 @@ router.put('/config', requireAuth('manage_loyalty'), (req, res) => {
     const { key, value } = req.body;
     if (!key || value === undefined) return res.status(400).json({ error: 'Key and value are required' });
 
-    updateLoyaltyConfig(key, String(value));
-    res.json(getLoyaltyConfig());
+    await updateLoyaltyConfig(key, String(value));
+    res.json(await getLoyaltyConfig());
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

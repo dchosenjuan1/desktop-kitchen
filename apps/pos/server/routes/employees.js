@@ -9,9 +9,9 @@ const JWT_SECRET = process.env.JWT_SECRET || 'dev-jwt-secret-change-me';
 const router = Router();
 
 // GET /api/employees - list employees
-router.get('/', (req, res) => {
+router.get('/', async (req, res) => {
   try {
-    const employees = all(`
+    const employees = await all(`
       SELECT id, name, role, active, created_at
       FROM employees
       ORDER BY name ASC
@@ -25,7 +25,7 @@ router.get('/', (req, res) => {
 });
 
 // POST /api/employees - create employee
-router.post('/', (req, res) => {
+router.post('/', async (req, res) => {
   try {
     const { name, pin, role = 'cashier' } = req.body;
 
@@ -40,15 +40,15 @@ router.post('/', (req, res) => {
 
     // Plan limit check
     const plan = req.tenant?.plan || 'trial';
-    const { cnt } = get('SELECT COUNT(*) as cnt FROM employees WHERE active = 1') || { cnt: 0 };
+    const { cnt } = await get('SELECT COUNT(*) as cnt FROM employees WHERE active = true') || { cnt: 0 };
     const check = checkLimit(plan, 'employees', cnt);
     if (!check.allowed) {
       return res.status(403).json({ error: `Employee limit reached (${check.limit})`, upgrade: true, limit: check.limit, current: check.current });
     }
 
-    const result = run(`
+    const result = await run(`
       INSERT INTO employees (name, pin, role, active)
-      VALUES (?, ?, ?, 1)
+      VALUES (?, ?, ?, true)
     `, [name, pin, role]);
 
     res.status(201).json({
@@ -64,7 +64,7 @@ router.post('/', (req, res) => {
 });
 
 // POST /api/employees/login - PIN login (must be before /:id to avoid shadowing)
-router.post('/login', (req, res) => {
+router.post('/login', async (req, res) => {
   try {
     const { pin } = req.body;
 
@@ -72,7 +72,7 @@ router.post('/login', (req, res) => {
       return res.status(400).json({ error: 'PIN required' });
     }
 
-    const employee = get(`
+    const employee = await get(`
       SELECT id, name, pin, role, active, created_at
       FROM employees
       WHERE pin = ?
@@ -82,13 +82,13 @@ router.post('/login', (req, res) => {
       return res.status(401).json({ error: 'Invalid PIN' });
     }
 
-    if (employee.active === 0) {
+    if (employee.active === false) {
       return res.status(401).json({ error: 'Employee account is inactive' });
     }
 
     // Fetch permissions for this role
-    const perms = all(
-      'SELECT permission FROM role_permissions WHERE role = ? AND granted = 1',
+    const perms = await all(
+      'SELECT permission FROM role_permissions WHERE role = ? AND granted = true',
       [employee.role]
     );
     const permissions = perms.map(p => p.permission);
@@ -104,7 +104,7 @@ router.post('/login', (req, res) => {
       id: employee.id,
       name: employee.name,
       role: employee.role,
-      active: employee.active === 1,
+      active: employee.active,
       created_at: employee.created_at,
       permissions,
       token,
@@ -116,9 +116,9 @@ router.post('/login', (req, res) => {
 });
 
 // GET /api/employees/permissions - all roles with permissions
-router.get('/permissions', (req, res) => {
+router.get('/permissions', async (req, res) => {
   try {
-    const rows = all(`
+    const rows = await all(`
       SELECT role, permission, granted
       FROM role_permissions
       ORDER BY role, permission
@@ -128,7 +128,7 @@ router.get('/permissions', (req, res) => {
     const result = {};
     for (const row of rows) {
       if (!result[row.role]) result[row.role] = {};
-      result[row.role][row.permission] = row.granted === 1;
+      result[row.role][row.permission] = row.granted;
     }
 
     res.json(result);
@@ -139,7 +139,7 @@ router.get('/permissions', (req, res) => {
 });
 
 // PUT /api/employees/permissions/:role - update permissions for a role (admin only)
-router.put('/permissions/:role', requireAuth('manage_permissions'), (req, res) => {
+router.put('/permissions/:role', requireAuth('manage_permissions'), async (req, res) => {
   try {
     const { role } = req.params;
     const { permissions } = req.body;
@@ -149,20 +149,20 @@ router.put('/permissions/:role', requireAuth('manage_permissions'), (req, res) =
     }
 
     for (const [permission, granted] of Object.entries(permissions)) {
-      const existing = get(
+      const existing = await get(
         'SELECT id FROM role_permissions WHERE role = ? AND permission = ?',
         [role, permission]
       );
 
       if (existing) {
-        run(
+        await run(
           'UPDATE role_permissions SET granted = ? WHERE role = ? AND permission = ?',
-          [granted ? 1 : 0, role, permission]
+          [granted ? true : false, role, permission]
         );
       } else {
-        run(
+        await run(
           'INSERT INTO role_permissions (role, permission, granted) VALUES (?, ?, ?)',
-          [role, permission, granted ? 1 : 0]
+          [role, permission, granted ? true : false]
         );
       }
     }
@@ -175,12 +175,12 @@ router.put('/permissions/:role', requireAuth('manage_permissions'), (req, res) =
 });
 
 // PUT /api/employees/:id - update employee
-router.put('/:id', (req, res) => {
+router.put('/:id', async (req, res) => {
   try {
     const { id } = req.params;
     const { name, pin, role } = req.body;
 
-    const employee = get('SELECT id FROM employees WHERE id = ?', [id]);
+    const employee = await get('SELECT id FROM employees WHERE id = ?', [id]);
     if (!employee) {
       return res.status(404).json({ error: 'Employee not found' });
     }
@@ -211,7 +211,7 @@ router.put('/:id', (req, res) => {
 
     values.push(id);
 
-    run(`
+    await run(`
       UPDATE employees
       SET ${updates.join(', ')}
       WHERE id = ?
@@ -225,19 +225,19 @@ router.put('/:id', (req, res) => {
 });
 
 // PUT /api/employees/:id/toggle - toggle active
-router.put('/:id/toggle', (req, res) => {
+router.put('/:id/toggle', async (req, res) => {
   try {
     const { id } = req.params;
 
-    const employee = get('SELECT id, active FROM employees WHERE id = ?', [id]);
+    const employee = await get('SELECT id, active FROM employees WHERE id = ?', [id]);
     if (!employee) {
       return res.status(404).json({ error: 'Employee not found' });
     }
 
-    const newActive = employee.active === 1 ? 0 : 1;
-    run('UPDATE employees SET active = ? WHERE id = ?', [newActive, id]);
+    const newActive = !employee.active;
+    await run('UPDATE employees SET active = ? WHERE id = ?', [newActive, id]);
 
-    res.json({ id, active: newActive === 1 });
+    res.json({ id, active: newActive });
   } catch (error) {
     console.error('Error toggling employee:', error);
     res.status(500).json({ error: 'Failed to toggle employee' });

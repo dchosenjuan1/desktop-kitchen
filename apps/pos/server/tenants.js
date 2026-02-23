@@ -1,186 +1,150 @@
-import Database from 'better-sqlite3';
-import fs from 'fs';
-import path from 'path';
-import { fileURLToPath } from 'url';
-import { applySchema, createDbHelpers } from './db/index.js';
-import { runMigrationsSync } from './db/migrate.js';
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const dataDir = path.join(__dirname, '../data');
-const tenantsDir = path.join(dataDir, 'tenants');
-const masterDbPath = path.join(dataDir, 'master.db');
-
-// Ensure directories exist
-for (const dir of [dataDir, tenantsDir]) {
-  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-}
-
-let masterDb = null;
-
-/** Open (or create) the master registry database */
-export function initMasterDb() {
-  if (masterDb) return masterDb;
-
-  masterDb = new Database(masterDbPath);
-  masterDb.pragma('journal_mode = WAL');
-  masterDb.pragma('foreign_keys = ON');
-
-  masterDb.exec(`
-    CREATE TABLE IF NOT EXISTS tenants (
-      id TEXT PRIMARY KEY,
-      name TEXT NOT NULL,
-      subdomain TEXT UNIQUE,
-      plan TEXT DEFAULT 'trial',
-      stripe_customer_id TEXT,
-      stripe_subscription_id TEXT,
-      subscription_status TEXT DEFAULT 'active',
-      owner_email TEXT NOT NULL,
-      owner_password_hash TEXT NOT NULL,
-      branding_json TEXT,
-      active INTEGER DEFAULT 1,
-      created_at TEXT DEFAULT (datetime('now'))
-    )
-  `);
-
-  return masterDb;
-}
-
-/** Get the master DB (must call initMasterDb first) */
-export function getMasterDb() {
-  if (!masterDb) throw new Error('Master DB not initialized. Call initMasterDb() first.');
-  return masterDb;
-}
-
-// ==================== Tenant DB Pool ====================
-
-/** Cache of open tenant Database connections: tenantId -> Database */
-const tenantPool = new Map();
-
-/**
- * Open (or return cached) a tenant's SQLite database.
- * Creates the file and applies the full POS schema if it doesn't exist.
- */
-export function openTenantDb(tenantId) {
-  if (tenantPool.has(tenantId)) return tenantPool.get(tenantId);
-
-  const tenantDbPath = path.join(tenantsDir, `${tenantId}.db`);
-  const isNew = !fs.existsSync(tenantDbPath);
-
-  const tenantDb = new Database(tenantDbPath);
-  tenantDb.pragma('journal_mode = WAL');
-  tenantDb.pragma('foreign_keys = ON');
-
-  if (isNew) {
-    applySchema(tenantDb);
-
-    // Seed generic virtual brands for menu board
-    try {
-      tenantDb.prepare(`
-        INSERT OR IGNORE INTO virtual_brands (name, slug, description, primary_color, show_in_pos, display_type, active)
-        VALUES (?, ?, ?, ?, 1, 'menu_board', 1)
-      `).run('Brand 1', 'brand-1', 'Your first brand', '#0d9488');
-      tenantDb.prepare(`
-        INSERT OR IGNORE INTO virtual_brands (name, slug, description, primary_color, show_in_pos, display_type, active)
-        VALUES (?, ?, ?, ?, 1, 'menu_board', 1)
-      `).run('Brand 2', 'brand-2', 'Your second brand', '#3b82f6');
-    } catch (err) {
-      // virtual_brands table may not exist if schema doesn't include it yet
-      console.log(`[Tenants] Could not seed virtual brands for ${tenantId}:`, err.message);
-    }
-
-    console.log(`[Tenants] Initialized new tenant DB: ${tenantId}`);
-  }
-
-  // Always run migrations — catches up existing tenants that missed alterSafe columns
-  runMigrationsSync(tenantDb, `tenant:${tenantId}`);
-
-  tenantPool.set(tenantId, tenantDb);
-  return tenantDb;
-}
-
-/** Close all cached tenant connections (for graceful shutdown) */
-export function closeAllTenantDbs() {
-  for (const [id, tdb] of tenantPool) {
-    try { tdb.close(); } catch {}
-  }
-  tenantPool.clear();
-  if (masterDb) {
-    try { masterDb.close(); } catch {}
-    masterDb = null;
-  }
-}
-
-// Cleanup on exit
-process.on('exit', closeAllTenantDbs);
+import { adminSql } from './db/index.js';
 
 // ==================== Tenant CRUD ====================
+// All operations use adminSql (neondb_owner, bypasses RLS).
+// No more file management — everything is in Postgres.
 
 /** Look up a tenant by ID */
-export function getTenant(tenantId) {
-  const db = getMasterDb();
-  return db.prepare('SELECT * FROM tenants WHERE id = ?').get(tenantId);
+export async function getTenant(tenantId) {
+  const rows = await adminSql`SELECT * FROM tenants WHERE id = ${tenantId}`;
+  return rows[0] || undefined;
 }
 
 /** Look up a tenant by subdomain */
-export function getTenantBySubdomain(subdomain) {
-  const db = getMasterDb();
-  return db.prepare('SELECT * FROM tenants WHERE subdomain = ? AND active = 1').get(subdomain);
+export async function getTenantBySubdomain(subdomain) {
+  const rows = await adminSql`SELECT * FROM tenants WHERE subdomain = ${subdomain} AND active = true`;
+  return rows[0] || undefined;
 }
 
 /** Look up a tenant by email */
-export function getTenantByEmail(email) {
-  const db = getMasterDb();
-  return db.prepare('SELECT * FROM tenants WHERE owner_email = ?').get(email);
+export async function getTenantByEmail(email) {
+  const rows = await adminSql`SELECT * FROM tenants WHERE owner_email = ${email}`;
+  return rows[0] || undefined;
 }
 
-/** Create a new tenant in the master registry and initialize its DB */
-export function createTenant({ id, name, subdomain, owner_email, owner_password_hash, plan, branding_json }) {
-  const db = getMasterDb();
-
-  db.prepare(`
+/** Create a new tenant in the registry */
+export async function createTenant({ id, name, subdomain, owner_email, owner_password_hash, plan, branding_json }) {
+  await adminSql`
     INSERT INTO tenants (id, name, subdomain, owner_email, owner_password_hash, plan, branding_json)
-    VALUES (?, ?, ?, ?, ?, ?, ?)
-  `).run(id, name, subdomain || id, owner_email, owner_password_hash, plan || 'trial', branding_json || null);
+    VALUES (${id}, ${name}, ${subdomain || id}, ${owner_email}, ${owner_password_hash}, ${plan || 'trial'}, ${branding_json || null})
+  `;
 
-  // Initialize the tenant's POS database
-  openTenantDb(id);
+  // Seed default role permissions for the new tenant
+  await seedTenantDefaults(id);
 
   return getTenant(id);
 }
 
 /** Update tenant fields */
-export function updateTenant(tenantId, updates) {
-  const db = getMasterDb();
-  const fields = [];
-  const values = [];
+export async function updateTenant(tenantId, updates) {
+  const fields = Object.entries(updates);
+  if (fields.length === 0) return;
 
-  for (const [key, val] of Object.entries(updates)) {
-    fields.push(`${key} = ?`);
-    values.push(val);
+  // Build SET clause dynamically
+  const setClauses = fields.map(([key], i) => `${key} = $${i + 1}`).join(', ');
+  const values = [...fields.map(([, val]) => val), tenantId];
+  await adminSql.unsafe(
+    `UPDATE tenants SET ${setClauses} WHERE id = $${values.length}`,
+    values
+  );
+}
+
+/** List all tenants with stats (uses admin pool, cross-tenant subqueries) */
+export async function listTenants() {
+  const tenants = await adminSql`
+    SELECT t.*,
+      (SELECT COUNT(*) FROM orders WHERE tenant_id = t.id) AS order_count,
+      (SELECT COUNT(*) FROM employees WHERE tenant_id = t.id) AS employee_count
+    FROM tenants t
+    ORDER BY created_at DESC
+  `;
+  return Array.from(tenants);
+}
+
+/** Seed default role permissions and loyalty config for a new tenant */
+async function seedTenantDefaults(tenantId) {
+  const allPermissions = [
+    'pos_access', 'kitchen_access', 'bar_access', 'view_reports', 'manage_menu',
+    'manage_inventory', 'manage_employees', 'manage_printers', 'manage_delivery',
+    'manage_modifiers', 'manage_ai', 'process_refunds', 'void_orders',
+    'apply_discounts', 'view_dashboard', 'manage_permissions', 'manage_purchase_orders',
+    'manage_loyalty', 'manage_branding',
+  ];
+
+  const roleDefaults = {
+    admin: allPermissions,
+    manager: allPermissions.filter(p => p !== 'manage_permissions'),
+    cashier: ['pos_access', 'view_dashboard'],
+    kitchen: ['kitchen_access'],
+    bar: ['bar_access'],
+  };
+
+  const permRows = [];
+  for (const [role, perms] of Object.entries(roleDefaults)) {
+    for (const perm of allPermissions) {
+      const granted = perms.includes(perm);
+      permRows.push({ tenant_id: tenantId, role, permission: perm, granted });
+    }
   }
 
-  if (fields.length === 0) return;
-  values.push(tenantId);
-  db.prepare(`UPDATE tenants SET ${fields.join(', ')} WHERE id = ?`).run(...values);
+  // Batch insert role_permissions
+  if (permRows.length > 0) {
+    await adminSql`
+      INSERT INTO role_permissions ${adminSql(permRows, 'tenant_id', 'role', 'permission', 'granted')}
+      ON CONFLICT (tenant_id, role, permission) DO NOTHING
+    `;
+  }
+
+  // Seed loyalty config
+  const loyaltyDefaults = [
+    { key: 'stamps_required', value: '10', description: 'Number of stamps needed for a free reward' },
+    { key: 'reward_description', value: 'Free item of your choice', description: 'Default reward description' },
+    { key: 'referral_bonus_stamps', value: '2', description: 'Bonus stamps for referrer and referee' },
+    { key: 'sms_enabled', value: 'true', description: 'Enable SMS notifications for loyalty events' },
+  ];
+
+  for (const { key, value, description } of loyaltyDefaults) {
+    await adminSql`
+      INSERT INTO loyalty_config (tenant_id, key, value, description)
+      VALUES (${tenantId}, ${key}, ${value}, ${description})
+      ON CONFLICT (tenant_id, key) DO NOTHING
+    `;
+  }
+
+  // Seed financial targets
+  const financialDefaults = [
+    ['food_cost', 30], ['labor', 25], ['rent', 8], ['utilities', 4],
+    ['stripe_fees', 3], ['delivery_commissions', 5], ['marketing', 2],
+    ['insurance', 2], ['supplies', 3],
+  ];
+
+  for (const [category, target_percent] of financialDefaults) {
+    await adminSql`
+      INSERT INTO financial_targets (tenant_id, category, target_percent, updated_at)
+      VALUES (${tenantId}, ${category}, ${target_percent}, NOW())
+      ON CONFLICT (tenant_id, category) DO NOTHING
+    `;
+  }
+
+  // Seed default virtual brands for menu board
+  try {
+    await adminSql`
+      INSERT INTO virtual_brands (tenant_id, name, slug, description, primary_color, show_in_pos, display_type, active)
+      VALUES (${tenantId}, 'Brand 1', 'brand-1', 'Your first brand', '#0d9488', true, 'menu_board', true)
+      ON CONFLICT DO NOTHING
+    `;
+    await adminSql`
+      INSERT INTO virtual_brands (tenant_id, name, slug, description, primary_color, show_in_pos, display_type, active)
+      VALUES (${tenantId}, 'Brand 2', 'brand-2', 'Your second brand', '#3b82f6', true, 'menu_board', true)
+      ON CONFLICT DO NOTHING
+    `;
+  } catch (err) {
+    console.log(`[Tenants] Could not seed virtual brands for ${tenantId}:`, err.message);
+  }
 }
 
-/** List all tenants with optional stats */
-export function listTenants() {
-  const db = getMasterDb();
-  const tenants = db.prepare('SELECT * FROM tenants ORDER BY created_at DESC').all();
-
-  return tenants.map(t => {
-    let stats = {};
-    try {
-      const tdb = openTenantDb(t.id);
-      const helpers = createDbHelpers(tdb);
-      const orderCount = helpers.get('SELECT COUNT(*) as cnt FROM orders');
-      const employeeCount = helpers.get('SELECT COUNT(*) as cnt FROM employees');
-      stats = {
-        order_count: orderCount?.cnt || 0,
-        employee_count: employeeCount?.cnt || 0,
-      };
-    } catch {}
-    return { ...t, ...stats };
-  });
-}
+// No-ops replacing SQLite file management
+export function initMasterDb() {}
+export function getMasterDb() { return null; }
+export function openTenantDb() { return null; }
+export function closeAllTenantDbs() {}

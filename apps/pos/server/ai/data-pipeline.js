@@ -3,14 +3,14 @@ import { all, get, run } from '../db/index.js';
 /**
  * Capture hourly snapshot of sales data
  */
-export function captureHourlySnapshot() {
+export async function captureHourlySnapshot() {
   try {
     const now = new Date();
     const hourStr = now.toISOString().slice(0, 13); // YYYY-MM-DDTHH
     const dayOfWeek = now.getDay(); // 0=Sunday
 
     // Check if already captured this hour
-    const existing = get(
+    const existing = await get(
       `SELECT id FROM ai_hourly_snapshots WHERE snapshot_hour = ?`,
       [hourStr]
     );
@@ -22,10 +22,7 @@ export function captureHourlySnapshot() {
     const hourEnd = new Date(now);
     hourEnd.setMinutes(59, 59, 999);
 
-    const startStr = hourStart.toISOString().replace('T', ' ').slice(0, 19);
-    const endStr = hourEnd.toISOString().replace('T', ' ').slice(0, 19);
-
-    const stats = get(`
+    const stats = await get(`
       SELECT
         COUNT(*) as order_count,
         COALESCE(SUM(total), 0) as revenue,
@@ -33,9 +30,9 @@ export function captureHourlySnapshot() {
       FROM orders
       WHERE created_at >= ? AND created_at <= ?
         AND status != 'cancelled'
-    `, [startStr, endStr]);
+    `, [hourStart.toISOString(), hourEnd.toISOString()]);
 
-    run(`
+    await run(`
       INSERT INTO ai_hourly_snapshots (snapshot_hour, order_count, revenue, avg_ticket, day_of_week)
       VALUES (?, ?, ?, ?, ?)
     `, [hourStr, stats.order_count, stats.revenue, stats.avg_ticket, dayOfWeek]);
@@ -49,21 +46,21 @@ export function captureHourlySnapshot() {
 /**
  * Update item pair co-occurrence data from recent orders
  */
-export function updateItemPairs() {
+export async function updateItemPairs() {
   try {
     // Get orders from the last 2 hours
-    const recentOrders = all(`
+    const recentOrders = await all(`
       SELECT DISTINCT order_id
       FROM order_items
       WHERE order_id IN (
         SELECT id FROM orders
-        WHERE created_at >= datetime('now', '-2 hours', 'localtime')
+        WHERE created_at >= NOW() - INTERVAL '2 hours'
           AND status != 'cancelled'
       )
     `);
 
     for (const { order_id } of recentOrders) {
-      const items = all(
+      const items = await all(
         `SELECT menu_item_id FROM order_items WHERE order_id = ?`,
         [order_id]
       );
@@ -74,18 +71,18 @@ export function updateItemPairs() {
           const a = Math.min(items[i].menu_item_id, items[j].menu_item_id);
           const b = Math.max(items[i].menu_item_id, items[j].menu_item_id);
 
-          const existing = get(
+          const existing = await get(
             `SELECT id, pair_count FROM ai_item_pairs WHERE item_a_id = ? AND item_b_id = ?`,
             [a, b]
           );
 
           if (existing) {
-            run(
-              `UPDATE ai_item_pairs SET pair_count = pair_count + 1, last_seen = datetime('now','localtime') WHERE id = ?`,
+            await run(
+              `UPDATE ai_item_pairs SET pair_count = pair_count + 1, last_seen = NOW() WHERE id = ?`,
               [existing.id]
             );
           } else {
-            run(
+            await run(
               `INSERT INTO ai_item_pairs (item_a_id, item_b_id, pair_count) VALUES (?, ?, 1)`,
               [a, b]
             );
@@ -103,12 +100,12 @@ export function updateItemPairs() {
 /**
  * Update inventory velocity (daily consumption rates)
  */
-export function updateInventoryVelocity() {
+export async function updateInventoryVelocity() {
   try {
     const today = new Date().toISOString().split('T')[0];
 
     // Get today's consumption from completed orders
-    const consumption = all(`
+    const consumption = await all(`
       SELECT
         mii.inventory_item_id,
         SUM(mii.quantity_used * oi.quantity) as total_used,
@@ -116,24 +113,24 @@ export function updateInventoryVelocity() {
       FROM order_items oi
       JOIN menu_item_ingredients mii ON oi.menu_item_id = mii.menu_item_id
       JOIN orders o ON oi.order_id = o.id
-      WHERE DATE(o.created_at) = ?
+      WHERE o.created_at::date = ?::date
         AND o.status != 'cancelled'
       GROUP BY mii.inventory_item_id
     `, [today]);
 
     for (const row of consumption) {
-      const existing = get(
+      const existing = await get(
         `SELECT id FROM ai_inventory_velocity WHERE inventory_item_id = ? AND date = ?`,
         [row.inventory_item_id, today]
       );
 
       if (existing) {
-        run(
+        await run(
           `UPDATE ai_inventory_velocity SET quantity_used = ?, orders_count = ? WHERE id = ?`,
           [row.total_used, row.orders_count, existing.id]
         );
       } else {
-        run(
+        await run(
           `INSERT INTO ai_inventory_velocity (inventory_item_id, date, quantity_used, orders_count) VALUES (?, ?, ?, ?)`,
           [row.inventory_item_id, today, row.total_used, row.orders_count]
         );
@@ -149,33 +146,35 @@ export function updateInventoryVelocity() {
 /**
  * Record item pairs from a single order (fire-and-forget hook)
  */
-export function recordOrderItemPairs(orderId) {
+export async function recordOrderItemPairs(orderId, tenantId) {
   try {
-    const items = all(
-      `SELECT menu_item_id FROM order_items WHERE order_id = ?`,
-      [orderId]
-    );
+    // This runs outside request context (via setImmediate), so we use adminSql
+    // The caller must pass tenantId for the explicit WHERE clause
+    const { adminSql } = await import('../db/index.js');
+
+    const items = await adminSql`
+      SELECT menu_item_id FROM order_items WHERE order_id = ${orderId} AND tenant_id = ${tenantId}
+    `;
 
     for (let i = 0; i < items.length; i++) {
       for (let j = i + 1; j < items.length; j++) {
         const a = Math.min(items[i].menu_item_id, items[j].menu_item_id);
         const b = Math.max(items[i].menu_item_id, items[j].menu_item_id);
 
-        const existing = get(
-          `SELECT id FROM ai_item_pairs WHERE item_a_id = ? AND item_b_id = ?`,
-          [a, b]
-        );
+        const existing = await adminSql`
+          SELECT id FROM ai_item_pairs WHERE item_a_id = ${a} AND item_b_id = ${b} AND tenant_id = ${tenantId}
+        `;
 
-        if (existing) {
-          run(
-            `UPDATE ai_item_pairs SET pair_count = pair_count + 1, last_seen = datetime('now','localtime') WHERE id = ?`,
-            [existing.id]
-          );
+        if (existing.length > 0) {
+          await adminSql`
+            UPDATE ai_item_pairs SET pair_count = pair_count + 1, last_seen = NOW()
+            WHERE id = ${existing[0].id}
+          `;
         } else {
-          run(
-            `INSERT INTO ai_item_pairs (item_a_id, item_b_id, pair_count) VALUES (?, ?, 1)`,
-            [a, b]
-          );
+          await adminSql`
+            INSERT INTO ai_item_pairs (item_a_id, item_b_id, pair_count, tenant_id)
+            VALUES (${a}, ${b}, 1, ${tenantId})
+          `;
         }
       }
     }
@@ -187,9 +186,9 @@ export function recordOrderItemPairs(orderId) {
 /**
  * Log a restock event for pattern analysis
  */
-export function logRestockEvent(inventoryItemId, quantityBefore, quantityAdded) {
+export async function logRestockEvent(inventoryItemId, quantityBefore, quantityAdded) {
   try {
-    run(`
+    await run(`
       INSERT INTO ai_restock_log (inventory_item_id, quantity_before, quantity_added, quantity_after)
       VALUES (?, ?, ?, ?)
     `, [inventoryItemId, quantityBefore, quantityAdded, quantityBefore + quantityAdded]);
@@ -200,12 +199,10 @@ export function logRestockEvent(inventoryItemId, quantityBefore, quantityAdded) 
 
 /**
  * Detect shrinkage patterns by analyzing inventory counts for recurring high-variance items.
- * Runs daily to flag items with consistently high variance across multiple counts.
  */
-export function detectShrinkagePatterns() {
+export async function detectShrinkagePatterns() {
   try {
-    // Find items with multiple high-variance counts in the last 30 days
-    const patterns = all(`
+    const patterns = await all(`
       SELECT
         ic.inventory_item_id,
         ii.name,
@@ -218,17 +215,16 @@ export function detectShrinkagePatterns() {
       FROM inventory_counts ic
       JOIN inventory_items ii ON ic.inventory_item_id = ii.id
       WHERE ABS(ic.variance_percent) > 5
-        AND ic.created_at >= datetime('now', '-30 days', 'localtime')
-      GROUP BY ic.inventory_item_id
-      HAVING high_variance_count >= 2
-      ORDER BY ABS(avg_variance_percent) DESC
+        AND ic.created_at >= NOW() - INTERVAL '30 days'
+      GROUP BY ic.inventory_item_id, ii.name, ii.unit
+      HAVING COUNT(*) >= 2
+      ORDER BY ABS(AVG(ic.variance_percent)) DESC
     `);
 
     for (const pattern of patterns) {
-      // Check if we already have an unacknowledged alert for this item
-      const existingAlert = get(`
+      const existingAlert = await get(`
         SELECT id FROM shrinkage_alerts
-        WHERE inventory_item_id = ? AND acknowledged = 0 AND alert_type = 'pattern'
+        WHERE inventory_item_id = ? AND acknowledged = false AND alert_type = 'pattern'
       `, [pattern.inventory_item_id]);
 
       if (existingAlert) continue;
@@ -236,7 +232,7 @@ export function detectShrinkagePatterns() {
       const severity = Math.abs(pattern.avg_variance_percent) > 15 ? 'high' : 'medium';
       const direction = pattern.avg_variance < 0 ? 'shrinkage' : 'surplus';
 
-      run(`
+      await run(`
         INSERT INTO shrinkage_alerts (inventory_item_id, alert_type, severity, message, variance_amount)
         VALUES (?, 'pattern', ?, ?, ?)
       `, [
@@ -256,8 +252,8 @@ export function detectShrinkagePatterns() {
 /**
  * Get top item pairs for analysis
  */
-export function getTopItemPairs(limit = 20) {
-  return all(`
+export async function getTopItemPairs(limit = 20) {
+  return await all(`
     SELECT
       aip.item_a_id, aip.item_b_id, aip.pair_count, aip.last_seen,
       ma.name as item_a_name, mb.name as item_b_name

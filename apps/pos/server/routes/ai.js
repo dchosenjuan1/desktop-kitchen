@@ -35,7 +35,7 @@ const MOCK_ANALYSIS = {
 // ==================== Suggestion Endpoints ====================
 
 // GET /api/ai/suggestions/cart?items=1,3,7&hour=14
-router.get('/suggestions/cart', (req, res) => {
+router.get('/suggestions/cart', async (req, res) => {
   try {
     const itemsParam = req.query.items;
     const hour = req.query.hour ? parseInt(req.query.hour) : new Date().getHours();
@@ -49,8 +49,8 @@ router.get('/suggestions/cart', (req, res) => {
       return res.json([]);
     }
 
-    const maxSuggestions = getConfigNumber('max_suggestions_per_order') || 2;
-    const suggestions = getCartSuggestions(itemIds, hour);
+    const maxSuggestions = await getConfigNumber('max_suggestions_per_order') || 2;
+    const suggestions = await getCartSuggestions(itemIds, hour);
 
     res.json(suggestions.slice(0, maxSuggestions));
   } catch (error) {
@@ -60,9 +60,9 @@ router.get('/suggestions/cart', (req, res) => {
 });
 
 // GET /api/ai/suggestions/inventory-push
-router.get('/suggestions/inventory-push', (req, res) => {
+router.get('/suggestions/inventory-push', async (req, res) => {
   try {
-    const result = getInventoryPush();
+    const result = await getInventoryPush();
     res.json(result);
   } catch (error) {
     console.error('Error getting inventory push:', error);
@@ -71,7 +71,7 @@ router.get('/suggestions/inventory-push', (req, res) => {
 });
 
 // POST /api/ai/suggestions/feedback
-router.post('/suggestions/feedback', (req, res) => {
+router.post('/suggestions/feedback', async (req, res) => {
   try {
     const { suggestion_type, suggestion_data, action, employee_id, order_id } = req.body;
 
@@ -83,7 +83,7 @@ router.post('/suggestions/feedback', (req, res) => {
       return res.status(400).json({ error: 'Action must be "accepted" or "dismissed"' });
     }
 
-    run(`
+    await run(`
       INSERT INTO ai_suggestion_events (suggestion_type, suggestion_data, action, employee_id, order_id)
       VALUES (?, ?, ?, ?, ?)
     `, [
@@ -104,9 +104,9 @@ router.post('/suggestions/feedback', (req, res) => {
 // ==================== Config Endpoints ====================
 
 // GET /api/ai/config
-router.get('/config', (req, res) => {
+router.get('/config', async (req, res) => {
   try {
-    const config = getAllConfig();
+    const config = await getAllConfig();
     res.json(config);
   } catch (error) {
     console.error('Error getting AI config:', error);
@@ -115,7 +115,7 @@ router.get('/config', (req, res) => {
 });
 
 // PUT /api/ai/config
-router.put('/config', requireAuth('manage_ai'), (req, res) => {
+router.put('/config', requireAuth('manage_ai'), async (req, res) => {
   try {
     // Only Pro plan can modify AI config
     const plan = req.tenant?.plan || 'trial';
@@ -127,9 +127,9 @@ router.put('/config', requireAuth('manage_ai'), (req, res) => {
     const { entries } = req.body;
 
     if (entries && Array.isArray(entries)) {
-      setMultipleConfig(entries);
+      await setMultipleConfig(entries);
     } else if (req.body.key && req.body.value !== undefined) {
-      setConfig(req.body.key, req.body.value, req.body.description);
+      await setConfig(req.body.key, req.body.value, req.body.description);
     } else {
       return res.status(400).json({ error: 'Missing config data' });
     }
@@ -144,27 +144,27 @@ router.put('/config', requireAuth('manage_ai'), (req, res) => {
 // ==================== Analytics & Insights Endpoints ====================
 
 // GET /api/ai/insights
-router.get('/insights', (req, res) => {
+router.get('/insights', async (req, res) => {
   try {
     // Aggregate insights from various sources
-    const inventoryPush = getInventoryPush();
-    const topPairs = getTopItemPairs(10);
+    const inventoryPush = await getInventoryPush();
+    const topPairs = await getTopItemPairs(10);
 
     // Get suggestion effectiveness
-    const totalSuggestions = get(`
+    const totalSuggestions = (await get(`
       SELECT COUNT(*) as total FROM ai_suggestion_events
-    `)?.total || 0;
+    `))?.total || 0;
 
-    const acceptedSuggestions = get(`
+    const acceptedSuggestions = (await get(`
       SELECT COUNT(*) as total FROM ai_suggestion_events WHERE action = 'accepted'
-    `)?.total || 0;
+    `))?.total || 0;
 
     const acceptanceRate = totalSuggestions > 0
       ? Math.round((acceptedSuggestions / totalSuggestions) * 100)
       : 0;
 
     // Get recent hourly snapshots
-    const recentSnapshots = all(`
+    const recentSnapshots = await all(`
       SELECT snapshot_hour, order_count, revenue, avg_ticket, day_of_week
       FROM ai_hourly_snapshots
       ORDER BY snapshot_hour DESC
@@ -194,27 +194,27 @@ router.get('/insights', (req, res) => {
 });
 
 // GET /api/ai/analytics
-router.get('/analytics', (req, res) => {
+router.get('/analytics', async (req, res) => {
   try {
     const period = req.query.period || 'week';
     let dateFilter;
 
     switch (period) {
       case 'today':
-        dateFilter = `DATE(created_at) = DATE('now', 'localtime')`;
+        dateFilter = `DATE(created_at) = CURRENT_DATE`;
         break;
       case 'week':
-        dateFilter = `created_at >= datetime('now', '-7 days', 'localtime')`;
+        dateFilter = `created_at >= NOW() - INTERVAL '7 days'`;
         break;
       case 'month':
-        dateFilter = `created_at >= datetime('now', '-30 days', 'localtime')`;
+        dateFilter = `created_at >= NOW() - INTERVAL '30 days'`;
         break;
       default:
-        dateFilter = `created_at >= datetime('now', '-7 days', 'localtime')`;
+        dateFilter = `created_at >= NOW() - INTERVAL '7 days'`;
     }
 
     // Suggestion events by type
-    const byType = all(`
+    const byType = await all(`
       SELECT suggestion_type, action, COUNT(*) as count
       FROM ai_suggestion_events
       WHERE ${dateFilter}
@@ -223,7 +223,7 @@ router.get('/analytics', (req, res) => {
     `);
 
     // Daily trend
-    const dailyTrend = all(`
+    const dailyTrend = await all(`
       SELECT DATE(created_at) as date, action, COUNT(*) as count
       FROM ai_suggestion_events
       WHERE ${dateFilter}
@@ -232,12 +232,12 @@ router.get('/analytics', (req, res) => {
     `);
 
     // Revenue from AI-suggested items
-    const aiRevenue = get(`
+    const aiRevenue = await get(`
       SELECT
         COUNT(*) as ai_items_sold,
         COALESCE(SUM(oi.unit_price * oi.quantity), 0) as ai_revenue
       FROM order_items oi
-      WHERE oi.was_ai_suggested = 1
+      WHERE oi.was_ai_suggested = true
         AND oi.order_id IN (
           SELECT id FROM orders WHERE ${dateFilter.replace('created_at', 'orders.created_at')}
         )
@@ -261,9 +261,9 @@ router.get('/analytics', (req, res) => {
 // ==================== Dynamic Pricing Endpoints ====================
 
 // GET /api/ai/pricing-suggestions
-router.get('/pricing-suggestions', (req, res) => {
+router.get('/pricing-suggestions', async (req, res) => {
   try {
-    const suggestions = generatePricingSuggestions();
+    const suggestions = await generatePricingSuggestions();
     res.json(suggestions);
   } catch (error) {
     console.error('Error getting pricing suggestions:', error);
@@ -272,7 +272,7 @@ router.get('/pricing-suggestions', (req, res) => {
 });
 
 // POST /api/ai/pricing-suggestions/:id/apply
-router.post('/pricing-suggestions/:id/apply', requireAuth('manage_ai'), (req, res) => {
+router.post('/pricing-suggestions/:id/apply', requireAuth('manage_ai'), async (req, res) => {
   try {
     const { menu_item_id, new_price } = req.body;
 
@@ -280,18 +280,18 @@ router.post('/pricing-suggestions/:id/apply', requireAuth('manage_ai'), (req, re
       return res.status(400).json({ error: 'Missing menu_item_id or new_price' });
     }
 
-    const item = get('SELECT id, price FROM menu_items WHERE id = ?', [menu_item_id]);
+    const item = await get('SELECT id, price FROM menu_items WHERE id = ?', [menu_item_id]);
     if (!item) {
       return res.status(404).json({ error: 'Menu item not found' });
     }
 
     // Store original price for reverting
-    run(`
+    await run(`
       UPDATE menu_items SET price = ? WHERE id = ?
     `, [new_price, menu_item_id]);
 
     // Log the event
-    run(`
+    await run(`
       INSERT INTO ai_suggestion_events (suggestion_type, suggestion_data, action)
       VALUES ('dynamic_pricing', ?, 'accepted')
     `, [JSON.stringify({
@@ -318,10 +318,10 @@ router.post('/pricing-suggestions/:id/apply', requireAuth('manage_ai'), (req, re
 // GET /api/ai/inventory-forecast
 router.get('/inventory-forecast', async (req, res) => {
   try {
-    const forecasts = generateInventoryForecast();
+    const forecasts = await generateInventoryForecast();
 
     // Optionally enhance with Claude if enabled
-    if (getConfigBool('grok_api_enabled') && process.env.XAI_API_KEY && req.query.enhance === '1') {
+    if (await getConfigBool('grok_api_enabled') && process.env.XAI_API_KEY && req.query.enhance === '1') {
       const criticalItems = forecasts.filter(f => f.risk_level === 'critical' || f.risk_level === 'high');
       if (criticalItems.length > 0) {
         const enhanced = await enhanceForecast(criticalItems);
@@ -356,13 +356,13 @@ router.post('/analyze', requireAuth('manage_ai'), async (req, res) => {
 
     // Pro plan — check monthly analysis cap
     if (limits.ai.monthlyAnalyses > 0) {
-      const { cnt } = get(`SELECT COUNT(*) as cnt FROM ai_suggestion_events WHERE created_at >= datetime('now', 'start of month', 'localtime')`) || { cnt: 0 };
+      const { cnt } = (await get(`SELECT COUNT(*) as cnt FROM ai_suggestion_events WHERE created_at >= date_trunc('month', NOW())`)) || { cnt: 0 };
       if (cnt >= limits.ai.monthlyAnalyses) {
         return res.status(429).json({ error: `Monthly analysis limit reached (${limits.ai.monthlyAnalyses})`, upgrade: true });
       }
     }
 
-    if (!getConfigBool('grok_api_enabled')) {
+    if (!await getConfigBool('grok_api_enabled')) {
       return res.status(400).json({ error: 'Grok API is not enabled. Turn it on in AI Config.' });
     }
 
@@ -375,7 +375,7 @@ router.post('/analyze', requireAuth('manage_ai'), async (req, res) => {
 
     // Upsell pattern analysis
     if (type === 'all' || type === 'upsell') {
-      const topPairs = getTopItemPairs(15);
+      const topPairs = await getTopItemPairs(15);
       if (topPairs.length > 0) {
         const upsellResult = await analyzeUpsellPatterns(topPairs);
         results.upsell = upsellResult || { message: 'Not enough pair data for analysis' };
@@ -386,11 +386,11 @@ router.post('/analyze', requireAuth('manage_ai'), async (req, res) => {
 
     // Inventory trend analysis
     if (type === 'all' || type === 'inventory') {
-      const velocityData = all(`
+      const velocityData = await all(`
         SELECT iv.inventory_item_id, ii.name, iv.date, iv.quantity_used
         FROM ai_inventory_velocity iv
         JOIN inventory_items ii ON iv.inventory_item_id = ii.id
-        WHERE iv.date >= DATE('now', '-7 days', 'localtime')
+        WHERE iv.date >= CURRENT_DATE - INTERVAL '7 days'
         ORDER BY iv.date DESC
       `);
 
@@ -404,7 +404,7 @@ router.post('/analyze', requireAuth('manage_ai'), async (req, res) => {
 
     // Forecast enhancement
     if (type === 'all' || type === 'forecast') {
-      const forecastData = generateInventoryForecast();
+      const forecastData = await generateInventoryForecast();
       const criticalItems = forecastData.filter(f => f.risk_level === 'critical' || f.risk_level === 'high');
       if (criticalItems.length > 0) {
         const forecastResult = await enhanceForecast(criticalItems);
@@ -427,10 +427,10 @@ router.post('/analyze', requireAuth('manage_ai'), async (req, res) => {
 // ==================== Prep Forecast ====================
 
 // GET /api/ai/prep-forecast?date=YYYY-MM-DD
-router.get('/prep-forecast', (req, res) => {
+router.get('/prep-forecast', async (req, res) => {
   try {
     const date = req.query.date || new Date(Date.now() + 86400000).toISOString().split('T')[0];
-    const forecast = generatePrepForecast(date);
+    const forecast = await generatePrepForecast(date);
     res.json(forecast);
   } catch (error) {
     console.error('Error getting prep forecast:', error);
@@ -441,9 +441,9 @@ router.get('/prep-forecast', (req, res) => {
 // ==================== Category Roles ====================
 
 // GET /api/ai/category-roles
-router.get('/category-roles', (req, res) => {
+router.get('/category-roles', async (req, res) => {
   try {
-    const roles = all(`
+    const roles = await all(`
       SELECT acr.id, acr.category_id, acr.role, mc.name as category_name
       FROM ai_category_roles acr
       JOIN menu_categories mc ON acr.category_id = mc.id
@@ -457,7 +457,7 @@ router.get('/category-roles', (req, res) => {
 });
 
 // PUT /api/ai/category-roles/:categoryId
-router.put('/category-roles/:categoryId', requireAuth('manage_ai'), (req, res) => {
+router.put('/category-roles/:categoryId', requireAuth('manage_ai'), async (req, res) => {
   try {
     const { categoryId } = req.params;
     const { role } = req.body;
@@ -466,12 +466,12 @@ router.put('/category-roles/:categoryId', requireAuth('manage_ai'), (req, res) =
       return res.status(400).json({ error: 'Missing role' });
     }
 
-    const existing = get('SELECT id FROM ai_category_roles WHERE category_id = ?', [categoryId]);
+    const existing = await get('SELECT id FROM ai_category_roles WHERE category_id = ?', [categoryId]);
 
     if (existing) {
-      run('UPDATE ai_category_roles SET role = ? WHERE category_id = ?', [role, categoryId]);
+      await run('UPDATE ai_category_roles SET role = ? WHERE category_id = ?', [role, categoryId]);
     } else {
-      run('INSERT INTO ai_category_roles (category_id, role) VALUES (?, ?)', [categoryId, role]);
+      await run('INSERT INTO ai_category_roles (category_id, role) VALUES (?, ?)', [categoryId, role]);
     }
 
     res.json({ success: true, category_id: parseInt(categoryId), role });
@@ -484,10 +484,10 @@ router.put('/category-roles/:categoryId', requireAuth('manage_ai'), (req, res) =
 // ==================== Config Export/Import ====================
 
 // GET /api/ai/config/export
-router.get('/config/export', (req, res) => {
+router.get('/config/export', async (req, res) => {
   try {
-    const config = getAllConfig();
-    const roles = all(`
+    const config = await getAllConfig();
+    const roles = await all(`
       SELECT acr.category_id, acr.role, mc.name as category_name
       FROM ai_category_roles acr
       JOIN menu_categories mc ON acr.category_id = mc.id
@@ -506,7 +506,7 @@ router.get('/config/export', (req, res) => {
 });
 
 // POST /api/ai/config/import
-router.post('/config/import', requireAuth('manage_ai'), (req, res) => {
+router.post('/config/import', requireAuth('manage_ai'), async (req, res) => {
   try {
     const { config, category_roles } = req.body;
 
@@ -516,16 +516,16 @@ router.post('/config/import', requireAuth('manage_ai'), (req, res) => {
         value: typeof val === 'object' ? val.value : val,
         description: typeof val === 'object' ? val.description : null,
       }));
-      setMultipleConfig(entries);
+      await setMultipleConfig(entries);
     }
 
     if (category_roles && Array.isArray(category_roles)) {
       for (const role of category_roles) {
-        const existing = get('SELECT id FROM ai_category_roles WHERE category_id = ?', [role.category_id]);
+        const existing = await get('SELECT id FROM ai_category_roles WHERE category_id = ?', [role.category_id]);
         if (existing) {
-          run('UPDATE ai_category_roles SET role = ? WHERE category_id = ?', [role.role, role.category_id]);
+          await run('UPDATE ai_category_roles SET role = ? WHERE category_id = ?', [role.role, role.category_id]);
         } else {
-          run('INSERT INTO ai_category_roles (category_id, role) VALUES (?, ?)', [role.category_id, role.role]);
+          await run('INSERT INTO ai_category_roles (category_id, role) VALUES (?, ?)', [role.category_id, role.role]);
         }
       }
     }

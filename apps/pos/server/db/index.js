@@ -1,148 +1,239 @@
-import Database from 'better-sqlite3';
-import fs from 'fs';
-import path from 'path';
-import { fileURLToPath } from 'url';
+import postgres from 'postgres';
 import { AsyncLocalStorage } from 'node:async_hooks';
-import { applySchema } from './schema.js';
-import { runMigrationsSync } from './migrate.js';
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const dataDir = path.join(__dirname, '../../data');
-const dbPath = path.join(dataDir, 'desktop-kitchen.db');
-
-let db = null;
-
-// Ensure data directory exists
-if (!fs.existsSync(dataDir)) {
-  fs.mkdirSync(dataDir, { recursive: true });
-}
-
-// Auto-migrate from old database filename
-const oldDbPath = path.join(dataDir, 'juanbertos.db');
-if (!fs.existsSync(dbPath) && fs.existsSync(oldDbPath)) {
-  fs.renameSync(oldDbPath, dbPath);
-  console.log('Migrated database: juanbertos.db → desktop-kitchen.db');
-}
 
 // ==================== Tenant Context ====================
-// AsyncLocalStorage allows tenant middleware to set a per-request DB
-// so run/get/all/exec automatically resolve to the right tenant DB.
 export const tenantContext = new AsyncLocalStorage();
 
-// Re-export applySchema so existing imports still work
-export { applySchema };
+// ==================== Connection Pools ====================
+
+const DATABASE_URL = process.env.DATABASE_URL;
+if (!DATABASE_URL) {
+  console.error('FATAL: DATABASE_URL environment variable is required.');
+  process.exit(1);
+}
+
+/**
+ * Admin pool — connects as neondb_owner (table owner, bypasses RLS).
+ * Used by: admin routes, auth routes, AI scheduler, tenant CRUD, migrations, seeds.
+ */
+export const adminSql = postgres(DATABASE_URL, {
+  max: 5,
+  idle_timeout: 20,
+  connect_timeout: 10,
+});
+
+/**
+ * Tenant pool — connects as app_user (RLS enforced).
+ * Used by: all /api/* tenant-scoped routes via reserve() + set_config.
+ */
+const PG_APP_USER = process.env.PG_APP_USER || 'app_user';
+const PG_APP_PASSWORD = process.env.PG_APP_PASSWORD || '';
+
+// Build tenant connection URL by replacing credentials in DATABASE_URL
+function buildTenantUrl() {
+  const url = new URL(DATABASE_URL);
+  url.username = PG_APP_USER;
+  url.password = PG_APP_PASSWORD;
+  return url.toString();
+}
+
+export const tenantSql = postgres(buildTenantUrl(), {
+  max: 20,
+  idle_timeout: 20,
+  connect_timeout: 10,
+});
+
+// ==================== Parameter Conversion ====================
+
+/**
+ * Convert SQLite-style `?` placeholders to Postgres `$1, $2, ...` placeholders.
+ * Handles quoted strings (single and double) so `?` inside strings are not replaced.
+ */
+export function convertParams(sql) {
+  let idx = 0;
+  let result = '';
+  let i = 0;
+  while (i < sql.length) {
+    const ch = sql[i];
+    // Skip single-quoted strings
+    if (ch === "'") {
+      let j = i + 1;
+      while (j < sql.length) {
+        if (sql[j] === "'" && sql[j + 1] === "'") { j += 2; continue; }
+        if (sql[j] === "'") break;
+        j++;
+      }
+      result += sql.slice(i, j + 1);
+      i = j + 1;
+      continue;
+    }
+    // Skip double-quoted identifiers
+    if (ch === '"') {
+      let j = i + 1;
+      while (j < sql.length && sql[j] !== '"') j++;
+      result += sql.slice(i, j + 1);
+      i = j + 1;
+      continue;
+    }
+    if (ch === '?') {
+      idx++;
+      result += '$' + idx;
+      i++;
+      continue;
+    }
+    result += ch;
+    i++;
+  }
+  return result;
+}
+
+// ==================== Connection Resolution ====================
+
+/**
+ * Get the current connection. Checks AsyncLocalStorage for a reserved
+ * tenant connection first, falls back to adminSql.
+ */
+export function getConn() {
+  const store = tenantContext.getStore();
+  if (store?.conn) return store.conn;
+  return adminSql;
+}
+
+// ==================== Query Helpers ====================
+
+/**
+ * Execute INSERT/UPDATE/DELETE and return { lastInsertRowid }.
+ * For INSERTs without RETURNING, auto-appends RETURNING id.
+ */
+export async function run(sql, params = []) {
+  const conn = getConn();
+  const pgSql = convertParams(sql);
+
+  // Auto-append RETURNING id for INSERTs that don't already have RETURNING
+  const isInsert = /^\s*INSERT\s/i.test(pgSql);
+  const hasReturning = /\bRETURNING\b/i.test(pgSql);
+
+  let finalSql = pgSql;
+  if (isInsert && !hasReturning) {
+    finalSql = pgSql.replace(/;?\s*$/, ' RETURNING id');
+  }
+
+  const rows = await conn.unsafe(finalSql, params);
+
+  if (isInsert && rows.length > 0 && rows[0].id != null) {
+    return { lastInsertRowid: Number(rows[0].id) };
+  }
+
+  return { lastInsertRowid: 0, changes: rows.count ?? 0 };
+}
+
+/**
+ * Execute a SELECT query and return a single row as an object (or undefined).
+ */
+export async function get(sql, params = []) {
+  const conn = getConn();
+  const pgSql = convertParams(sql);
+  const rows = await conn.unsafe(pgSql, params);
+  return rows[0] || undefined;
+}
+
+/**
+ * Execute a SELECT query and return all rows as objects.
+ */
+export async function all(sql, params = []) {
+  const conn = getConn();
+  const pgSql = convertParams(sql);
+  const rows = await conn.unsafe(pgSql, params);
+  return Array.from(rows);
+}
+
+/**
+ * Execute raw SQL (multi-statement DDL/DML without parameters).
+ * Splits on semicolons and executes each statement.
+ */
+export async function exec(sql) {
+  const conn = getConn();
+  await conn.unsafe(sql);
+}
 
 // ==================== Init ====================
 
 /**
- * Initialize the default database with WAL mode and foreign keys.
- * Kept async for backward-compatible `await initDb()` call sites.
+ * Initialize the database connection. Tests connectivity and logs success.
  */
 export async function initDb() {
-  if (db !== null) return db;
-
-  db = new Database(dbPath);
-  db.pragma('journal_mode = WAL');
-  db.pragma('foreign_keys = ON');
-  applySchema(db);
-  runMigrationsSync(db, 'default');
-
-  return db;
-}
-
-/**
- * Get the current database. Checks tenant context first (per-request),
- * falls back to the default singleton DB.
- */
-export function getDb() {
-  const store = tenantContext.getStore();
-  if (store?.db) return store.db;
-  if (!db) {
-    throw new Error('Database not initialized. Call initDb() first.');
+  try {
+    const result = await adminSql`SELECT 1 as connected`;
+    if (result[0]?.connected === 1) {
+      console.log('[DB] Postgres connection pools initialized');
+    }
+  } catch (err) {
+    console.error('[DB] Failed to connect to Postgres:', err.message);
+    throw err;
   }
-  return db;
 }
 
-/** No-op: better-sqlite3 writes are synchronous and durable. */
-export function saveDb() {}
-/** No-op: better-sqlite3 writes are synchronous and durable. */
-export function saveDbSync() {}
-
-// ==================== Query Helpers ====================
-
-/** Execute INSERT/UPDATE/DELETE and return { lastInsertRowid } */
-export function run(sql, params = []) {
-  const database = getDb();
-  const stmt = database.prepare(sql);
-  const result = stmt.run(...params);
-  return { lastInsertRowid: Number(result.lastInsertRowid) };
-}
-
-/** Execute a SELECT query and return a single row as an object (or undefined) */
-export function get(sql, params = []) {
-  const database = getDb();
-  const stmt = database.prepare(sql);
-  return stmt.get(...params);
-}
-
-/** Execute a SELECT query and return all rows as objects */
-export function all(sql, params = []) {
-  const database = getDb();
-  const stmt = database.prepare(sql);
-  return stmt.all(...params);
-}
-
-/** Execute raw SQL (multi-statement DDL/DML without parameters) */
-export function exec(sql) {
-  const database = getDb();
-  return database.exec(sql);
-}
+// ==================== Bound Helpers ====================
 
 /**
- * Create bound run/get/all/exec helpers for a specific database instance.
- * Used by tenant system when direct DB access is needed outside of request context.
+ * Create bound run/get/all/exec helpers for a specific connection.
+ * Used when you need to run queries on a specific connection outside
+ * of the AsyncLocalStorage context (e.g., admin operations).
  */
-export function createDbHelpers(database) {
+export function createDbHelpers(conn) {
   return {
-    run(sql, params = []) {
-      const result = database.prepare(sql).run(...params);
-      return { lastInsertRowid: Number(result.lastInsertRowid) };
+    async run(sql, params = []) {
+      const pgSql = convertParams(sql);
+      const isInsert = /^\s*INSERT\s/i.test(pgSql);
+      const hasReturning = /\bRETURNING\b/i.test(pgSql);
+      let finalSql = pgSql;
+      if (isInsert && !hasReturning) {
+        finalSql = pgSql.replace(/;?\s*$/, ' RETURNING id');
+      }
+      const rows = await conn.unsafe(finalSql, params);
+      if (isInsert && rows.length > 0 && rows[0].id != null) {
+        return { lastInsertRowid: Number(rows[0].id) };
+      }
+      return { lastInsertRowid: 0, changes: rows.count ?? 0 };
     },
-    get(sql, params = []) {
-      return database.prepare(sql).get(...params);
+    async get(sql, params = []) {
+      const pgSql = convertParams(sql);
+      const rows = await conn.unsafe(pgSql, params);
+      return rows[0] || undefined;
     },
-    all(sql, params = []) {
-      return database.prepare(sql).all(...params);
+    async all(sql, params = []) {
+      const pgSql = convertParams(sql);
+      const rows = await conn.unsafe(pgSql, params);
+      return Array.from(rows);
     },
-    exec(sql) {
-      return database.exec(sql);
+    async exec(sql) {
+      await conn.unsafe(sql);
     },
   };
 }
 
-// Graceful close on process exit
-function closeDb() {
-  if (db) {
-    db.close();
-    db = null;
-  }
+// ==================== Shutdown ====================
+
+async function shutdown() {
+  try {
+    await adminSql.end({ timeout: 5 });
+    await tenantSql.end({ timeout: 5 });
+  } catch {}
 }
 
-process.on('exit', closeDb);
-process.on('SIGINT', () => { closeDb(); process.exit(); });
-process.on('SIGTERM', () => { closeDb(); process.exit(); });
+process.on('SIGINT', async () => { await shutdown(); process.exit(); });
+process.on('SIGTERM', async () => { await shutdown(); process.exit(); });
 
-// Proxy object for backward compatibility
+// No-ops for backward compatibility
+export function saveDb() {}
+export function saveDbSync() {}
+
+// Proxy object for backward compatibility (now async — callers must await)
 const dbProxy = {
-  prepare: (sql) => ({
-    run: (...params) => run(sql, params),
-    get: (param) => get(sql, param !== undefined ? [param] : []),
-    all: (...params) => all(sql, params),
-  }),
-  exec: (sql) => exec(sql),
   run: (sql, params) => run(sql, params),
   get: (sql, params) => get(sql, params),
   all: (sql, params) => all(sql, params),
+  exec: (sql) => exec(sql),
 };
 
 export default dbProxy;

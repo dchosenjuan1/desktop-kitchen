@@ -2,8 +2,8 @@ import { Router } from 'express';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import rateLimit from 'express-rate-limit';
-import { getMasterDb, createTenant, getTenantByEmail, openTenantDb } from '../tenants.js';
-import { applySchema } from '../db/index.js';
+import { createTenant, getTenantByEmail } from '../tenants.js';
+import { adminSql } from '../db/index.js';
 import { sendPinEmail } from '../helpers/email.js';
 
 const router = Router();
@@ -53,7 +53,7 @@ router.post('/register', registerLimiter, async (req, res) => {
     }
 
     // Check email uniqueness
-    const existing = getTenantByEmail(email);
+    const existing = await getTenantByEmail(email);
     if (existing) {
       return res.status(409).json({ error: 'An account with this email already exists' });
     }
@@ -66,9 +66,8 @@ router.post('/register', registerLimiter, async (req, res) => {
       .slice(0, 40);
 
     // Ensure slug uniqueness
-    const db = getMasterDb();
-    const existingSlug = db.prepare('SELECT id FROM tenants WHERE id = ? OR subdomain = ?').get(slug, slug);
-    if (existingSlug) {
+    const existingSlug = await adminSql`SELECT id FROM tenants WHERE id = ${slug} OR subdomain = ${slug}`;
+    if (existingSlug.length > 0) {
       return res.status(409).json({ error: `Subdomain '${slug}' is already taken` });
     }
 
@@ -82,7 +81,7 @@ router.post('/register', registerLimiter, async (req, res) => {
     const branding_json = Object.keys(branding).length > 0 ? JSON.stringify(branding) : null;
 
     // Create tenant
-    const tenant = createTenant({
+    const tenant = await createTenant({
       id: slug,
       name: restaurant_name,
       subdomain: slug,
@@ -95,10 +94,11 @@ router.post('/register', registerLimiter, async (req, res) => {
     // Generate random 4-digit PIN for the admin employee
     const pin = String(Math.floor(1000 + Math.random() * 9000));
 
-    // Create a default admin employee in the tenant DB (use email as name)
-    const tenantDb = openTenantDb(slug);
-    tenantDb.prepare('INSERT INTO employees (name, pin, role, active) VALUES (?, ?, ?, 1)')
-      .run(email, pin, 'admin');
+    // Create a default admin employee in the tenant DB (use adminSql with tenant_id)
+    await adminSql`
+      INSERT INTO employees (tenant_id, name, pin, role, active)
+      VALUES (${slug}, ${email}, ${pin}, 'admin', true)
+    `;
 
     // Fire-and-forget email with PIN
     sendPinEmail(email, pin, restaurant_name).catch(() => {});
@@ -140,7 +140,7 @@ router.post('/login', loginLimiter, async (req, res) => {
       return res.status(400).json({ error: 'Required: email, password' });
     }
 
-    const tenant = getTenantByEmail(email);
+    const tenant = await getTenantByEmail(email);
     if (!tenant) {
       return res.status(401).json({ error: 'Invalid email or password' });
     }

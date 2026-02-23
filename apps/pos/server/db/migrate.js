@@ -1,18 +1,16 @@
 /**
- * Lightweight migration runner for better-sqlite3.
+ * Lightweight migration runner for Postgres (postgres.js).
  *
  * - No external dependencies, no CLI, no down migrations.
  * - Migrations are loaded once at startup via initMigrations() (async import).
- * - runMigrationsSync(db, label) is called after applySchema() for every DB
- *   (default + every tenant). It uses the cached migration list so there is
- *   zero disk overhead per tenant open.
- * - Each migration runs inside a SQLite transaction — if up() throws the
- *   version is not recorded and it will retry on next startup.
+ * - runMigrations() uses adminSql.begin() for atomic transactions.
+ * - Each migration's up(sql) receives the postgres.js transaction scope.
  */
 
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { adminSql } from './index.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const migrationsDir = path.join(__dirname, 'migrations');
@@ -22,7 +20,7 @@ let migrationCache = null;
 
 /**
  * Load all migration files from disk (async dynamic import).
- * Must be called once at startup before any runMigrationsSync() call.
+ * Must be called once at startup before any runMigrations() call.
  */
 export async function initMigrations() {
   if (migrationCache) return;
@@ -47,35 +45,29 @@ export async function initMigrations() {
 }
 
 /**
- * Ensure the schema_version table exists.
+ * Run all pending migrations (async).
+ * Uses adminSql (bypasses RLS) for schema operations.
+ *
+ * @param {string} [label='db'] — label for log messages
  */
-function ensureVersionTable(db) {
-  db.exec(`
+export async function runMigrations(label = 'db') {
+  if (!migrationCache) {
+    throw new Error('[Migrate] initMigrations() must be called before runMigrations()');
+  }
+
+  // Ensure schema_version table exists
+  await adminSql`
     CREATE TABLE IF NOT EXISTS schema_version (
       version INTEGER PRIMARY KEY,
       name TEXT NOT NULL,
-      applied_at TEXT NOT NULL DEFAULT (datetime('now','localtime'))
+      applied_at TIMESTAMPTZ DEFAULT NOW()
     )
-  `);
-}
+  `;
 
-/**
- * Run all pending migrations on the given database (synchronous).
- * Safe to call on every DB open — skips already-applied versions.
- *
- * @param {import('better-sqlite3').Database} db
- * @param {string} [label='db'] — label for log messages (e.g. tenant id)
- */
-export function runMigrationsSync(db, label = 'db') {
-  if (!migrationCache) {
-    throw new Error('[Migrate] initMigrations() must be called before runMigrationsSync()');
-  }
-
-  ensureVersionTable(db);
-
-  const currentVersion = db.prepare(
-    'SELECT COALESCE(MAX(version), 0) AS v FROM schema_version'
-  ).get().v;
+  const result = await adminSql`
+    SELECT COALESCE(MAX(version), 0) AS v FROM schema_version
+  `;
+  const currentVersion = result[0].v;
 
   const pending = migrationCache.filter(m => m.version > currentVersion);
 
@@ -84,15 +76,13 @@ export function runMigrationsSync(db, label = 'db') {
   console.log(`[Migrate] ${label}: ${pending.length} pending migration(s) from v${currentVersion}`);
 
   for (const migration of pending) {
-    const runInTransaction = db.transaction(() => {
-      migration.up(db);
-      db.prepare(
-        'INSERT INTO schema_version (version, name) VALUES (?, ?)'
-      ).run(migration.version, migration.name);
-    });
-
     try {
-      runInTransaction();
+      await adminSql.begin(async (sql) => {
+        await migration.up(sql);
+        await sql`
+          INSERT INTO schema_version (version, name) VALUES (${migration.version}, ${migration.name})
+        `;
+      });
       console.log(`[Migrate] ${label}: applied v${migration.version} (${migration.name})`);
     } catch (err) {
       console.error(`[Migrate] ${label}: FAILED v${migration.version} (${migration.name}):`, err.message);

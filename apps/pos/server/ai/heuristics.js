@@ -9,13 +9,13 @@ import { getTopItemPairs } from './data-pipeline.js';
  * Run all heuristic rules and update the suggestion cache.
  * Called periodically by the scheduler.
  */
-export function refreshAllHeuristics() {
-  const ttl = getConfigNumber('suggestion_cache_ttl_minutes') || 5;
+export async function refreshAllHeuristics() {
+  const ttl = (await getConfigNumber('suggestion_cache_ttl_minutes')) || 5;
 
   // Refresh inventory push suggestions
-  if (getConfigBool('inventory_push_enabled')) {
+  if (await getConfigBool('inventory_push_enabled')) {
     try {
-      const { pushItems, avoidItems } = generateInventoryPushSuggestions();
+      const { pushItems, avoidItems } = await generateInventoryPushSuggestions();
 
       const inventorySuggestions = [];
 
@@ -52,21 +52,21 @@ export function refreshAllHeuristics() {
         });
       }
 
-      refreshSuggestions('inventory-push', inventorySuggestions, ttl);
+      await refreshSuggestions('inventory-push', inventorySuggestions, ttl);
     } catch (error) {
       console.error('[AI] Error refreshing inventory push:', error.message);
     }
   }
 
   // Grok-enhanced upsell suggestions (async, fire-and-forget)
-  if (getConfigBool('grok_api_enabled') && process.env.XAI_API_KEY) {
-    const topPairs = getTopItemPairs(10);
+  if ((await getConfigBool('grok_api_enabled')) && process.env.XAI_API_KEY) {
+    const topPairs = await getTopItemPairs(10);
     if (topPairs.length > 0) {
       analyzeUpsellPatterns(topPairs)
-        .then(claudeResults => {
+        .then(async (claudeResults) => {
           if (claudeResults && Array.isArray(claudeResults)) {
             for (const result of claudeResults) {
-              writeSuggestion({
+              await writeSuggestion({
                 type: 'claude-upsell',
                 context: 'claude-enhanced',
                 data: {
@@ -92,13 +92,13 @@ export function refreshAllHeuristics() {
 /**
  * Get real-time cart suggestions (computed on demand, but fast since it's pure SQL).
  */
-export function getCartSuggestions(cartItemIds, currentHour) {
-  return generateCartUpsellSuggestions(cartItemIds, currentHour);
+export async function getCartSuggestions(cartItemIds, currentHour) {
+  return await generateCartUpsellSuggestions(cartItemIds, currentHour);
 }
 
 /**
  * Get current inventory push data from cache or compute fresh.
  */
-export function getInventoryPush() {
-  return generateInventoryPushSuggestions();
+export async function getInventoryPush() {
+  return await generateInventoryPushSuggestions();
 }

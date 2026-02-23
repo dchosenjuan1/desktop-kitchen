@@ -1,7 +1,8 @@
 import { Router } from 'express';
 import Stripe from 'stripe';
 import { requireOwner } from '../middleware/ownerAuth.js';
-import { getTenant, updateTenant, getMasterDb } from '../tenants.js';
+import { getTenant, updateTenant } from '../tenants.js';
+import { adminSql } from '../db/index.js';
 
 const router = Router();
 
@@ -17,9 +18,9 @@ const BASE_URL = process.env.APP_URL || 'https://pos.desktop.kitchen';
 /**
  * GET /api/billing — current subscription status
  */
-router.get('/', requireOwner, (req, res) => {
+router.get('/', requireOwner, async (req, res) => {
   try {
-    const tenant = getTenant(req.owner.tenantId);
+    const tenant = await getTenant(req.owner.tenantId);
     if (!tenant) return res.status(404).json({ error: 'Tenant not found' });
 
     res.json({
@@ -46,7 +47,7 @@ router.post('/checkout', requireOwner, async (req, res) => {
       return res.status(400).json({ error: `Invalid plan or price not configured: ${plan}` });
     }
 
-    const tenant = getTenant(req.owner.tenantId);
+    const tenant = await getTenant(req.owner.tenantId);
     if (!tenant) return res.status(404).json({ error: 'Tenant not found' });
 
     // Create or reuse Stripe customer
@@ -58,7 +59,7 @@ router.post('/checkout', requireOwner, async (req, res) => {
         metadata: { tenant_id: tenant.id },
       });
       customerId = customer.id;
-      updateTenant(tenant.id, { stripe_customer_id: customerId });
+      await updateTenant(tenant.id, { stripe_customer_id: customerId });
     }
 
     // Create checkout session
@@ -83,7 +84,7 @@ router.post('/checkout', requireOwner, async (req, res) => {
  */
 router.post('/portal', requireOwner, async (req, res) => {
   try {
-    const tenant = getTenant(req.owner.tenantId);
+    const tenant = await getTenant(req.owner.tenantId);
     if (!tenant?.stripe_customer_id) {
       return res.status(400).json({ error: 'No billing account. Subscribe to a plan first.' });
     }
@@ -110,7 +111,7 @@ export default router;
  *   import { stripeWebhook } from './routes/billing.js';
  *   app.post('/api/billing/webhook', express.raw({ type: 'application/json' }), stripeWebhook);
  */
-export function stripeWebhook(req, res) {
+export async function stripeWebhook(req, res) {
   const sig = req.headers['stripe-signature'];
   const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
 
@@ -127,9 +128,9 @@ export function stripeWebhook(req, res) {
     return res.status(400).json({ error: 'Invalid signature' });
   }
 
-  function findTenantByCustomer(customerId) {
-    const db = getMasterDb();
-    return db.prepare('SELECT * FROM tenants WHERE stripe_customer_id = ?').get(customerId);
+  async function findTenantByCustomer(customerId) {
+    const rows = await adminSql`SELECT * FROM tenants WHERE stripe_customer_id = ${customerId}`;
+    return rows[0] || undefined;
   }
 
   try {
@@ -139,7 +140,7 @@ export function stripeWebhook(req, res) {
         const tenantId = session.metadata?.tenant_id;
         const plan = session.metadata?.plan;
         if (tenantId && plan) {
-          updateTenant(tenantId, {
+          await updateTenant(tenantId, {
             plan,
             stripe_subscription_id: session.subscription,
             subscription_status: 'active',
@@ -151,9 +152,9 @@ export function stripeWebhook(req, res) {
 
       case 'customer.subscription.updated': {
         const sub = event.data.object;
-        const tenant = findTenantByCustomer(sub.customer);
+        const tenant = await findTenantByCustomer(sub.customer);
         if (tenant) {
-          updateTenant(tenant.id, {
+          await updateTenant(tenant.id, {
             subscription_status: sub.status === 'active' ? 'active' : sub.status,
             stripe_subscription_id: sub.id,
           });
@@ -164,9 +165,9 @@ export function stripeWebhook(req, res) {
 
       case 'customer.subscription.deleted': {
         const sub = event.data.object;
-        const tenant = findTenantByCustomer(sub.customer);
+        const tenant = await findTenantByCustomer(sub.customer);
         if (tenant) {
-          updateTenant(tenant.id, {
+          await updateTenant(tenant.id, {
             plan: 'trial',
             subscription_status: 'cancelled',
             stripe_subscription_id: null,
@@ -178,9 +179,9 @@ export function stripeWebhook(req, res) {
 
       case 'invoice.payment_failed': {
         const invoice = event.data.object;
-        const tenant = findTenantByCustomer(invoice.customer);
+        const tenant = await findTenantByCustomer(invoice.customer);
         if (tenant) {
-          updateTenant(tenant.id, { subscription_status: 'past_due' });
+          await updateTenant(tenant.id, { subscription_status: 'past_due' });
           console.log(`[Billing] Tenant ${tenant.id} payment failed — marked past_due`);
         }
         break;

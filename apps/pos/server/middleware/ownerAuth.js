@@ -8,7 +8,7 @@ const JWT_SECRET = process.env.JWT_SECRET || 'dev-jwt-secret-change-me';
  * Validates JWT, ensures tenant is active and subscription not expired.
  * Attaches req.owner = { tenantId, email, role } for downstream use.
  */
-export function requireOwner(req, res, next) {
+export async function requireOwner(req, res, next) {
   const authHeader = req.headers.authorization;
   if (!authHeader?.startsWith('Bearer ')) {
     return res.status(401).json({ error: 'Authentication required' });
@@ -18,7 +18,7 @@ export function requireOwner(req, res, next) {
     const decoded = jwt.verify(authHeader.slice(7), JWT_SECRET);
 
     // Verify tenant still exists and is active
-    const tenant = getTenant(decoded.tenantId);
+    const tenant = await getTenant(decoded.tenantId);
     if (!tenant) {
       return res.status(401).json({ error: 'Tenant not found' });
     }

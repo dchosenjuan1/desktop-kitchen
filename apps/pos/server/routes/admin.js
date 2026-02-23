@@ -1,6 +1,6 @@
 import { Router } from 'express';
-import { createTenant, getTenant, listTenants, updateTenant, openTenantDb } from '../tenants.js';
-import { applySchema, createDbHelpers } from '../db/index.js';
+import { createTenant, getTenant, listTenants, updateTenant } from '../tenants.js';
+import { run, adminSql } from '../db/index.js';
 
 const router = Router();
 
@@ -21,7 +21,7 @@ function requireAdmin(req, res, next) {
 router.use(requireAdmin);
 
 // POST /admin/tenants — create new tenant
-router.post('/tenants', (req, res) => {
+router.post('/tenants', async (req, res) => {
   try {
     const { id, name, owner_email, owner_password_hash, subdomain, plan, branding_json } = req.body;
 
@@ -35,11 +35,11 @@ router.post('/tenants', (req, res) => {
     }
 
     // Check uniqueness
-    if (getTenant(id)) {
+    if (await getTenant(id)) {
       return res.status(409).json({ error: `Tenant '${id}' already exists` });
     }
 
-    const tenant = createTenant({
+    const tenant = await createTenant({
       id,
       name,
       subdomain: subdomain || id,
@@ -57,9 +57,9 @@ router.post('/tenants', (req, res) => {
 });
 
 // GET /admin/tenants — list all tenants with stats
-router.get('/tenants', (req, res) => {
+router.get('/tenants', async (req, res) => {
   try {
-    const tenants = listTenants();
+    const tenants = await listTenants();
     res.json(tenants);
   } catch (error) {
     console.error('Error listing tenants:', error);
@@ -68,9 +68,9 @@ router.get('/tenants', (req, res) => {
 });
 
 // GET /admin/tenants/:id — get single tenant
-router.get('/tenants/:id', (req, res) => {
+router.get('/tenants/:id', async (req, res) => {
   try {
-    const tenant = getTenant(req.params.id);
+    const tenant = await getTenant(req.params.id);
     if (!tenant) return res.status(404).json({ error: 'Tenant not found' });
     res.json(tenant);
   } catch (error) {
@@ -79,9 +79,9 @@ router.get('/tenants/:id', (req, res) => {
 });
 
 // PATCH /admin/tenants/:id — update plan/status/branding
-router.patch('/tenants/:id', (req, res) => {
+router.patch('/tenants/:id', async (req, res) => {
   try {
-    const tenant = getTenant(req.params.id);
+    const tenant = await getTenant(req.params.id);
     if (!tenant) return res.status(404).json({ error: 'Tenant not found' });
 
     const allowed = ['name', 'plan', 'active', 'subscription_status', 'stripe_customer_id',
@@ -99,8 +99,8 @@ router.patch('/tenants/:id', (req, res) => {
       return res.status(400).json({ error: 'No valid fields to update' });
     }
 
-    updateTenant(req.params.id, updates);
-    res.json(getTenant(req.params.id));
+    await updateTenant(req.params.id, updates);
+    res.json(await getTenant(req.params.id));
   } catch (error) {
     console.error('Error updating tenant:', error);
     res.status(500).json({ error: 'Failed to update tenant' });
@@ -110,21 +110,24 @@ router.patch('/tenants/:id', (req, res) => {
 // POST /admin/tenants/:id/seed — seed demo data for a tenant
 router.post('/tenants/:id/seed', async (req, res) => {
   try {
-    const tenant = getTenant(req.params.id);
+    const tenant = await getTenant(req.params.id);
     if (!tenant) return res.status(404).json({ error: 'Tenant not found' });
 
-    const tdb = openTenantDb(tenant.id);
-    const db = createDbHelpers(tdb);
-
-    // Seed a default admin employee
-    db.run('INSERT OR IGNORE INTO employees (name, pin, role, active) VALUES (?, ?, ?, 1)',
-      ['Manager', '1234', 'admin']);
+    // Seed a default admin employee (uses adminSql since we need to specify tenant_id)
+    await adminSql`
+      INSERT INTO employees (tenant_id, name, pin, role, active)
+      VALUES (${tenant.id}, 'Manager', '1234', 'admin', true)
+      ON CONFLICT DO NOTHING
+    `;
 
     // Seed basic menu categories
     const categories = ['Main Dishes', 'Sides', 'Drinks'];
     for (let i = 0; i < categories.length; i++) {
-      db.run('INSERT OR IGNORE INTO menu_categories (name, sort_order, active) VALUES (?, ?, 1)',
-        [categories[i], i + 1]);
+      await adminSql`
+        INSERT INTO menu_categories (tenant_id, name, sort_order, active)
+        VALUES (${tenant.id}, ${categories[i]}, ${i + 1}, true)
+        ON CONFLICT DO NOTHING
+      `;
     }
 
     res.json({ message: `Seeded demo data for tenant '${tenant.id}'` });

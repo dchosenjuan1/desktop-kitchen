@@ -4,8 +4,7 @@ import cors from 'cors';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { initDb } from './db/index.js';
-import { initMigrations } from './db/migrate.js';
-import { initMasterDb } from './tenants.js';
+import { initMigrations, runMigrations } from './db/migrate.js';
 import { tenantMiddleware } from './middleware/tenant.js';
 
 // Import routes
@@ -76,10 +75,10 @@ app.get('/api/health', (req, res) => {
   res.json({ ok: true });
 });
 
-// Admin routes (uses master DB, not tenant-scoped)
+// Admin routes (uses admin pool, not tenant-scoped)
 app.use('/admin', adminRoutes);
 
-// Auth routes (uses master DB for registration/login, not tenant-scoped)
+// Auth routes (uses admin pool for registration/login, not tenant-scoped)
 app.use('/api/auth', authRoutes);
 
 // Menu board (public, no auth required)
@@ -124,19 +123,19 @@ if (process.env.NODE_ENV === 'production' && !process.env.JWT_SECRET) {
   process.exit(1);
 }
 
-// Start server (async IIFE to handle initDb)
+// Start server (async IIFE)
 (async () => {
   try {
-    await initMigrations();
     await initDb();
-    initMasterDb();
-    initAI();
+    await initMigrations();
+    await runMigrations('default');
+    await initAI();
     app.listen(PORT, () => {
       console.log(`Desktop Kitchen POS server running on port ${PORT}`);
-      console.log(`Database: ${path.join(__dirname, '../data/desktop-kitchen.db')}`);
+      console.log(`Database: Neon Postgres`);
     });
   } catch (error) {
-    console.error('Failed to initialize database:', error);
+    console.error('Failed to initialize:', error);
     process.exit(1);
   }
 })();
