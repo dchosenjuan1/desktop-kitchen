@@ -50,11 +50,11 @@ app.use(cors({
   credentials: true,
 }));
 
-// Legacy redirect: pos.juanbertos.com → juanbertos.desktop.kitchen
+// Legacy redirect: pos.juanbertos.com → pos.desktop.kitchen
 app.use((req, res, next) => {
   const host = req.hostname || req.headers.host?.split(':')[0];
   if (host === 'pos.juanbertos.com') {
-    return res.redirect(301, `https://juanbertos.desktop.kitchen${req.originalUrl}`);
+    return res.redirect(301, `https://pos.desktop.kitchen${req.originalUrl}`);
   }
   next();
 });
