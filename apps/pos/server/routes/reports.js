@@ -201,6 +201,73 @@ router.get('/cash-card-breakdown', async (req, res) => {
   }
 });
 
+// GET /api/reports/cogs-summary - high-level COGS + waste + margin for a period
+router.get('/cogs-summary', async (req, res) => {
+  try {
+    const { period = 'today', start_date, end_date } = req.query;
+    const startDate = start_date || getDateRange(period);
+    const endDate = end_date || new Date().toISOString().split('T')[0];
+
+    // Revenue
+    const revRow = await get(`
+      SELECT COALESCE(SUM(subtotal), 0) as revenue
+      FROM orders
+      WHERE created_at::date >= $1 AND created_at::date <= $2
+        AND payment_status = 'paid'
+    `, [startDate, endDate]);
+    const revenue = Number(revRow?.revenue || 0);
+
+    // COGS from order deductions
+    const cogsRow = await get(`
+      SELECT COALESCE(SUM(mii.quantity_used * oi.quantity * ii.cost_price), 0) as cogs
+      FROM order_items oi
+      JOIN menu_item_ingredients mii ON oi.menu_item_id = mii.menu_item_id
+      JOIN inventory_items ii ON mii.inventory_item_id = ii.id
+      JOIN orders o ON oi.order_id = o.id
+      WHERE o.created_at::date >= $1 AND o.created_at::date <= $2
+        AND o.payment_status = 'paid'
+    `, [startDate, endDate]);
+    const cogs = Number(cogsRow?.cogs || 0);
+
+    // Waste cost
+    let wasteCost = 0;
+    try {
+      const wasteRow = await get(`
+        SELECT COALESCE(SUM(cost_at_time), 0) as waste_cost
+        FROM waste_log
+        WHERE created_at::date >= $1 AND created_at::date <= $2
+      `, [startDate, endDate]);
+      wasteCost = Number(wasteRow?.waste_cost || 0);
+    } catch {
+      // waste_log table may not exist yet
+    }
+
+    const totalFoodCost = Math.round((cogs + wasteCost) * 100) / 100;
+    const foodCostPercent = revenue > 0
+      ? Math.round(((cogs + wasteCost) / revenue) * 1000) / 10
+      : 0;
+    const grossProfit = Math.round((revenue - cogs - wasteCost) * 100) / 100;
+    const grossMarginPercent = revenue > 0
+      ? Math.round(((revenue - cogs - wasteCost) / revenue) * 1000) / 10
+      : 0;
+
+    res.json({
+      period,
+      start_date: startDate,
+      revenue: Math.round(revenue * 100) / 100,
+      cogs: Math.round(cogs * 100) / 100,
+      waste_cost: Math.round(wasteCost * 100) / 100,
+      total_food_cost: totalFoodCost,
+      food_cost_percent: foodCostPercent,
+      gross_profit: grossProfit,
+      gross_margin_percent: grossMarginPercent,
+    });
+  } catch (error) {
+    console.error('Error fetching COGS summary:', error);
+    res.status(500).json({ error: 'Failed to fetch COGS summary' });
+  }
+});
+
 // GET /api/reports/cogs - per-item COGS and margin
 router.get('/cogs', async (req, res) => {
   try {

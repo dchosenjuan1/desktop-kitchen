@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
@@ -15,6 +15,11 @@ import {
   BarChart3,
   AlertTriangle,
   CheckCircle,
+  ScanLine,
+  Trash2,
+  Camera,
+  CameraOff,
+  DollarSign,
 } from 'lucide-react';
 import {
   getInventory,
@@ -26,6 +31,12 @@ import {
   getVarianceReport,
   getShrinkageAlerts,
   acknowledgeShrinkageAlert,
+  lookupInventoryItem,
+  scanRestock,
+  logWaste,
+  getWasteLog,
+  getWasteReport,
+  getCOGSSummary,
 } from '../api';
 import {
   InventoryItem,
@@ -33,12 +44,16 @@ import {
   InventoryCount,
   ShrinkageAlert,
   VarianceReport,
+  WasteLogEntry,
+  WasteReport,
+  COGSSummary,
+  ScanSession,
 } from '../types';
 import { formatDate, formatDateTime } from '../utils/dateFormat';
 import BrandLogo from '../components/BrandLogo';
 import { usePlan } from '../context/PlanContext';
 
-type Tab = 'stock' | 'count' | 'variance' | 'alerts';
+type Tab = 'stock' | 'scan' | 'waste' | 'count' | 'variance' | 'alerts';
 type SortField = 'name' | 'quantity' | 'status';
 
 export default function InventoryScreen() {
@@ -61,6 +76,33 @@ export default function InventoryScreen() {
   const [actionLoading, setActionLoading] = useState(false);
   const [forecasts, setForecasts] = useState<InventoryForecast[]>([]);
   const [showForecasts, setShowForecasts] = useState(false);
+
+  // COGS widget state
+  const [cogsSummary, setCogsSummary] = useState<COGSSummary | null>(null);
+  const [cogsLoading, setCogsLoading] = useState(false);
+
+  // Scan tab state
+  const [scanInput, setScanInput] = useState('');
+  const [scanLoading, setScanLoading] = useState(false);
+  const [scannedItem, setScannedItem] = useState<InventoryItem | null>(null);
+  const [scanRestockQty, setScanRestockQty] = useState('');
+  const [scanCostPrice, setScanCostPrice] = useState('');
+  const [scanSession, setScanSession] = useState<ScanSession[]>([]);
+  const [cameraActive, setCameraActive] = useState(false);
+  const [cameraSupported, setCameraSupported] = useState(false);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const scanInputRef = useRef<HTMLInputElement>(null);
+
+  // Waste tab state
+  const [wasteItemId, setWasteItemId] = useState('');
+  const [wasteQty, setWasteQty] = useState('');
+  const [wasteReason, setWasteReason] = useState<string>('spoilage');
+  const [wasteNotes, setWasteNotes] = useState('');
+  const [wasteLoading, setWasteLoading] = useState(false);
+  const [wasteEntries, setWasteEntries] = useState<WasteLogEntry[]>([]);
+  const [wasteReport, setWasteReport] = useState<WasteReport | null>(null);
+  const [wasteReportLoading, setWasteReportLoading] = useState(false);
+  const [wasteAlerts, setWasteAlerts] = useState<any[]>([]);
 
   // Count tab state
   const [countItemId, setCountItemId] = useState<string>('');
@@ -89,13 +131,25 @@ export default function InventoryScreen() {
   }, [items, searchTerm, sortBy, selectedCategory]);
 
   useEffect(() => {
-    if (activeTab === 'count') {
+    if (activeTab === 'stock') {
+      loadCOGS();
+    } else if (activeTab === 'count') {
       loadCountHistory();
     } else if (activeTab === 'variance') {
       loadVarianceReport();
     } else if (activeTab === 'alerts') {
       loadAlerts();
+    } else if (activeTab === 'waste') {
+      loadWasteData();
+    } else if (activeTab === 'scan') {
+      checkCameraSupport();
+      scanInputRef.current?.focus();
     }
+  }, [activeTab]);
+
+  // Cleanup camera on unmount or tab change
+  useEffect(() => {
+    return () => { stopCamera(); };
   }, [activeTab]);
 
   const fetchItems = async () => {
@@ -115,8 +169,11 @@ export default function InventoryScreen() {
     let filtered = items;
 
     if (searchTerm) {
+      const term = searchTerm.toLowerCase();
       filtered = filtered.filter((item) =>
-        item.name.toLowerCase().includes(searchTerm.toLowerCase())
+        item.name.toLowerCase().includes(term) ||
+        item.sku?.toLowerCase().includes(term) ||
+        item.barcode?.toLowerCase().includes(term)
       );
     }
 
@@ -192,6 +249,179 @@ export default function InventoryScreen() {
     return <span className="px-3 py-1 bg-green-600/20 text-green-400 rounded-full text-xs font-medium border border-green-800">{t('inventory.status.inStock')}</span>;
   };
 
+  const getExpiryBadge = (expiryDate?: string) => {
+    if (!expiryDate) return null;
+    const now = new Date();
+    const exp = new Date(expiryDate);
+    const daysUntil = Math.ceil((exp.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+    if (daysUntil < 0) {
+      return <span className="px-2 py-0.5 bg-red-900/30 text-red-400 rounded text-xs font-medium">{t('inventory.expired')}</span>;
+    }
+    if (daysUntil <= 7) {
+      return <span className="px-2 py-0.5 bg-amber-900/30 text-amber-400 rounded text-xs font-medium">{t('inventory.expiresSoon')}</span>;
+    }
+    return null;
+  };
+
+  // COGS functions
+  const loadCOGS = async () => {
+    try {
+      setCogsLoading(true);
+      const data = await getCOGSSummary('30d');
+      setCogsSummary(data);
+    } catch {
+      // Silently fail — widget is informational
+    } finally {
+      setCogsLoading(false);
+    }
+  };
+
+  // Scan tab functions
+  const checkCameraSupport = () => {
+    setCameraSupported('BarcodeDetector' in window);
+  };
+
+  const handleScanLookup = async (value?: string) => {
+    const input = value || scanInput.trim();
+    if (!input) return;
+
+    try {
+      setScanLoading(true);
+      setError(null);
+      const item = await lookupInventoryItem(input);
+      setScannedItem(item);
+      setScanRestockQty('1');
+      setScanCostPrice(item.cost_price ? String(item.cost_price) : '');
+      setScanInput('');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t('scan.notFound'));
+      setScannedItem(null);
+    } finally {
+      setScanLoading(false);
+    }
+  };
+
+  const handleScanRestock = async () => {
+    if (!scannedItem || !scanRestockQty) return;
+    const qty = parseFloat(scanRestockQty);
+    if (isNaN(qty) || qty <= 0) return;
+
+    try {
+      setActionLoading(true);
+      setError(null);
+      const barcode = scannedItem.barcode || scannedItem.sku || '';
+      const cost = scanCostPrice ? parseFloat(scanCostPrice) : undefined;
+      const result = await scanRestock({ barcode, quantity: qty, cost_price: cost });
+
+      // Add to session
+      setScanSession(prev => [{
+        item: scannedItem,
+        quantity: qty,
+        scanned_at: new Date().toISOString(),
+      }, ...prev]);
+
+      setError(null);
+      setScannedItem(null);
+      setScanRestockQty('');
+      setScanCostPrice('');
+      // Refresh inventory in background
+      fetchItems();
+      scanInputRef.current?.focus();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t('scan.failedRestock'));
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const startCamera = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        await videoRef.current.play();
+        setCameraActive(true);
+        detectBarcode();
+      }
+    } catch {
+      setError(t('scan.cameraNotSupported'));
+    }
+  };
+
+  const stopCamera = () => {
+    if (videoRef.current?.srcObject) {
+      const stream = videoRef.current.srcObject as MediaStream;
+      stream.getTracks().forEach(track => track.stop());
+      videoRef.current.srcObject = null;
+    }
+    setCameraActive(false);
+  };
+
+  const detectBarcode = async () => {
+    if (!('BarcodeDetector' in window) || !videoRef.current) return;
+    const BarcodeDetectorAPI = (window as any).BarcodeDetector;
+    const detector = new BarcodeDetectorAPI({ formats: ['ean_13', 'ean_8', 'upc_a', 'upc_e', 'code_128', 'code_39'] });
+
+    const scan = async () => {
+      if (!videoRef.current || !cameraActive) return;
+      try {
+        const barcodes = await detector.detect(videoRef.current);
+        if (barcodes.length > 0) {
+          const code = barcodes[0].rawValue;
+          stopCamera();
+          setScanInput(code);
+          handleScanLookup(code);
+          return;
+        }
+      } catch { /* ignore detection errors */ }
+      if (cameraActive) requestAnimationFrame(scan);
+    };
+    requestAnimationFrame(scan);
+  };
+
+  // Waste tab functions
+  const loadWasteData = async () => {
+    try {
+      setWasteReportLoading(true);
+      const [entries, report] = await Promise.all([
+        getWasteLog(),
+        getWasteReport(),
+      ]);
+      setWasteEntries(entries);
+      setWasteReport(report);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t('waste.failedLoadReport'));
+    } finally {
+      setWasteReportLoading(false);
+    }
+  };
+
+  const handleLogWaste = async () => {
+    if (!wasteItemId || !wasteQty || !wasteReason) return;
+    const qty = parseFloat(wasteQty);
+    if (isNaN(qty) || qty <= 0) return;
+
+    try {
+      setWasteLoading(true);
+      setError(null);
+      await logWaste({
+        inventory_item_id: parseInt(wasteItemId),
+        quantity: qty,
+        reason: wasteReason,
+        notes: wasteNotes || undefined,
+      });
+      setWasteItemId('');
+      setWasteQty('');
+      setWasteReason('spoilage');
+      setWasteNotes('');
+      await Promise.all([loadWasteData(), fetchItems()]);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t('waste.failedLog'));
+    } finally {
+      setWasteLoading(false);
+    }
+  };
+
   // Count tab functions
   const loadCountHistory = async () => {
     try {
@@ -261,10 +491,14 @@ export default function InventoryScreen() {
     }
   };
 
-  const categories = ['all', ...new Set(items.map((item) => item.category))];
+  const categories = ['all', ...Array.from(new Set(items.map((item) => item.category)))];
+
+  const wasteReasons = ['spoilage', 'prep_error', 'dropped', 'expired', 'other'] as const;
 
   const tabs: { key: Tab; label: string; icon: React.ReactNode }[] = [
     { key: 'stock', label: t('inventory.tabs.stock'), icon: <ClipboardList size={18} /> },
+    { key: 'scan', label: t('inventory.tabs.scan'), icon: <ScanLine size={18} /> },
+    { key: 'waste', label: t('inventory.tabs.waste'), icon: <Trash2 size={18} /> },
     { key: 'count', label: t('inventory.tabs.count'), icon: <Check size={18} /> },
     { key: 'variance', label: t('inventory.tabs.variance'), icon: <BarChart3 size={18} /> },
     { key: 'alerts', label: t('inventory.tabs.alerts'), icon: <AlertTriangle size={18} /> },
@@ -306,12 +540,12 @@ export default function InventoryScreen() {
         )}
 
         {/* Tabs */}
-        <div className="flex gap-2 mb-6 border-b border-neutral-800 pb-4">
+        <div className="flex gap-2 mb-6 border-b border-neutral-800 pb-4 overflow-x-auto">
           {tabs.map((tab) => (
             <button
               key={tab.key}
               onClick={() => setActiveTab(tab.key)}
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${
                 activeTab === tab.key
                   ? 'bg-brand-600 text-white'
                   : 'bg-neutral-800 text-neutral-400 hover:text-white hover:bg-neutral-700'
@@ -326,6 +560,37 @@ export default function InventoryScreen() {
         {/* ========== STOCK TAB ========== */}
         {activeTab === 'stock' && (
           <>
+            {/* COGS Widget */}
+            {cogsSummary && cogsSummary.revenue > 0 && (
+              <div className="bg-neutral-900 p-6 rounded-lg border border-neutral-800 mb-6">
+                <div className="flex items-center gap-2 mb-4">
+                  <DollarSign className="text-brand-500" size={20} />
+                  <h3 className="font-semibold text-white">{t('cogs.title')}</h3>
+                  <span className="text-xs text-neutral-500 ml-auto">30 days</span>
+                </div>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div className="p-3 bg-neutral-800 rounded-lg">
+                    <p className="text-neutral-400 text-xs">{t('cogs.revenue')}</p>
+                    <p className="text-lg font-bold text-white">${cogsSummary.revenue.toLocaleString()}</p>
+                  </div>
+                  <div className="p-3 bg-neutral-800 rounded-lg">
+                    <p className="text-neutral-400 text-xs">{t('cogs.foodCostPercent')}</p>
+                    <p className={`text-lg font-bold ${cogsSummary.food_cost_percent > 35 ? 'text-red-400' : cogsSummary.food_cost_percent > 30 ? 'text-amber-400' : 'text-green-400'}`}>
+                      {cogsSummary.food_cost_percent.toFixed(1)}%
+                    </p>
+                  </div>
+                  <div className="p-3 bg-neutral-800 rounded-lg">
+                    <p className="text-neutral-400 text-xs">{t('cogs.wasteCost')}</p>
+                    <p className="text-lg font-bold text-red-400">${cogsSummary.waste_cost.toLocaleString()}</p>
+                  </div>
+                  <div className="p-3 bg-neutral-800 rounded-lg">
+                    <p className="text-neutral-400 text-xs">{t('cogs.grossMargin')}</p>
+                    <p className="text-lg font-bold text-green-400">{cogsSummary.gross_margin_percent.toFixed(1)}%</p>
+                  </div>
+                </div>
+              </div>
+            )}
+
             <div className="bg-neutral-900 p-6 rounded-lg border border-neutral-800 mb-6">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
                 <div className="relative">
@@ -388,7 +653,23 @@ export default function InventoryScreen() {
                     <tbody>
                       {filteredItems.map((item) => (
                         <tr key={item.id} className="border-b border-neutral-800 hover:bg-neutral-800/50">
-                          <td className="px-6 py-4 font-medium text-white">{item.name}</td>
+                          <td className="px-6 py-4">
+                            <div>
+                              <span className="font-medium text-white">{item.name}</span>
+                              <div className="flex items-center gap-2 mt-1 flex-wrap">
+                                {item.sku && (
+                                  <span className="text-xs text-neutral-500">{t('inventory.sku')}: {item.sku}</span>
+                                )}
+                                {item.barcode && (
+                                  <span className="text-xs text-neutral-500">{t('inventory.barcode')}: {item.barcode}</span>
+                                )}
+                                {item.cost_price != null && item.cost_price > 0 && (
+                                  <span className="text-xs text-neutral-500">${Number(item.cost_price).toFixed(2)}</span>
+                                )}
+                                {getExpiryBadge(item.expiry_date)}
+                              </div>
+                            </div>
+                          </td>
                           <td className="px-6 py-4">
                             <span className="text-neutral-300">
                               {item.quantity} {item.unit}
@@ -568,6 +849,329 @@ export default function InventoryScreen() {
                       {filteredItems.filter((i) => i.quantity === 0).length}
                     </p>
                   </div>
+                </div>
+              </div>
+            )}
+          </>
+        )}
+
+        {/* ========== SCAN TAB ========== */}
+        {activeTab === 'scan' && (
+          <>
+            <div className="bg-neutral-900 p-6 rounded-lg border border-neutral-800 mb-6">
+              <h3 className="text-lg font-bold text-white mb-4">{t('scan.title')}</h3>
+
+              {/* Scan input */}
+              <div className="flex gap-3 mb-6">
+                <div className="relative flex-1">
+                  <ScanLine className="absolute left-3 top-3 text-neutral-500" size={20} />
+                  <input
+                    ref={scanInputRef}
+                    type="text"
+                    value={scanInput}
+                    onChange={(e) => setScanInput(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && handleScanLookup()}
+                    placeholder={t('scan.inputPlaceholder')}
+                    className="w-full pl-10 pr-4 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white placeholder-neutral-500 focus:outline-none focus:border-brand-600"
+                    autoFocus
+                  />
+                </div>
+                <button
+                  onClick={() => handleScanLookup()}
+                  disabled={scanLoading || !scanInput.trim()}
+                  className="px-6 py-2 bg-brand-600 text-white rounded-lg hover:bg-brand-700 transition-colors disabled:opacity-50 font-medium"
+                >
+                  {scanLoading ? t('scan.scanning') : t('scan.lookup')}
+                </button>
+                {cameraSupported && (
+                  <button
+                    onClick={cameraActive ? stopCamera : startCamera}
+                    className={`px-4 py-2 rounded-lg transition-colors font-medium ${
+                      cameraActive
+                        ? 'bg-red-600 text-white hover:bg-red-700'
+                        : 'bg-neutral-700 text-neutral-300 hover:bg-neutral-600'
+                    }`}
+                  >
+                    {cameraActive ? <CameraOff size={20} /> : <Camera size={20} />}
+                  </button>
+                )}
+              </div>
+
+              {/* Camera view */}
+              {cameraActive && (
+                <div className="mb-6 rounded-lg overflow-hidden border border-neutral-700">
+                  <video ref={videoRef} className="w-full max-h-64 object-cover bg-black" />
+                </div>
+              )}
+
+              {/* Scanned item detail */}
+              {scannedItem && (
+                <div className="p-4 bg-neutral-800 rounded-lg border border-brand-700 mb-6">
+                  <div className="flex items-center gap-2 mb-3">
+                    <CheckCircle className="text-brand-400" size={20} />
+                    <h4 className="text-white font-semibold">{t('scan.itemFound')}</h4>
+                  </div>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+                    <div>
+                      <p className="text-neutral-400 text-xs">{t('inventory.columns.itemName')}</p>
+                      <p className="text-white font-medium">{scannedItem.name}</p>
+                    </div>
+                    <div>
+                      <p className="text-neutral-400 text-xs">{t('scan.currentStock')}</p>
+                      <p className="text-white">{scannedItem.quantity} {scannedItem.unit}</p>
+                    </div>
+                    {scannedItem.barcode && (
+                      <div>
+                        <p className="text-neutral-400 text-xs">{t('inventory.barcode')}</p>
+                        <p className="text-neutral-300 text-sm">{scannedItem.barcode}</p>
+                      </div>
+                    )}
+                    {scannedItem.sku && (
+                      <div>
+                        <p className="text-neutral-400 text-xs">{t('inventory.sku')}</p>
+                        <p className="text-neutral-300 text-sm">{scannedItem.sku}</p>
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex gap-3 items-end">
+                    <div>
+                      <label className="text-neutral-400 text-xs block mb-1">{t('scan.restockQty')}</label>
+                      <input
+                        type="number"
+                        value={scanRestockQty}
+                        onChange={(e) => setScanRestockQty(e.target.value)}
+                        className="w-24 px-3 py-2 bg-neutral-700 border border-neutral-600 rounded-lg text-white focus:outline-none focus:border-brand-600"
+                        min="0.1"
+                        step="0.1"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-neutral-400 text-xs block mb-1">{t('scan.costPrice')}</label>
+                      <input
+                        type="number"
+                        value={scanCostPrice}
+                        onChange={(e) => setScanCostPrice(e.target.value)}
+                        className="w-28 px-3 py-2 bg-neutral-700 border border-neutral-600 rounded-lg text-white focus:outline-none focus:border-brand-600"
+                        min="0"
+                        step="0.01"
+                        placeholder="$0.00"
+                      />
+                    </div>
+                    <button
+                      onClick={handleScanRestock}
+                      disabled={actionLoading || !scanRestockQty}
+                      className="px-6 py-2 bg-brand-600 text-white rounded-lg hover:bg-brand-700 transition-colors disabled:opacity-50 font-medium"
+                    >
+                      {actionLoading ? t('scan.restocking') : t('scan.confirmRestock')}
+                    </button>
+                    <button
+                      onClick={() => { setScannedItem(null); scanInputRef.current?.focus(); }}
+                      className="px-4 py-2 bg-neutral-700 text-neutral-300 rounded-lg hover:bg-neutral-600 transition-colors"
+                    >
+                      <X size={20} />
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Scan session */}
+            <div className="bg-neutral-900 p-6 rounded-lg border border-neutral-800">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-bold text-white">{t('scan.session')}</h3>
+                {scanSession.length > 0 && (
+                  <button
+                    onClick={() => setScanSession([])}
+                    className="text-sm text-neutral-400 hover:text-white transition-colors"
+                  >
+                    {t('scan.clearSession')}
+                  </button>
+                )}
+              </div>
+              {scanSession.length === 0 ? (
+                <div className="text-center py-12">
+                  <ScanLine className="mx-auto text-neutral-600 mb-3" size={40} />
+                  <p className="text-neutral-400">{t('scan.sessionEmpty')}</p>
+                  <p className="text-neutral-500 text-sm mt-1">{t('scan.sessionHint')}</p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {scanSession.map((entry, idx) => (
+                    <div key={idx} className="flex items-center justify-between p-3 bg-neutral-800 rounded-lg">
+                      <div>
+                        <p className="text-white font-medium">{entry.item.name}</p>
+                        <p className="text-neutral-500 text-xs">
+                          {entry.item.barcode || entry.item.sku || ''}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-4">
+                        <span className="text-brand-400 font-medium">+{entry.quantity} {entry.item.unit}</span>
+                        <span className="text-neutral-500 text-xs">
+                          {formatDateTime(new Date(entry.scanned_at))}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </>
+        )}
+
+        {/* ========== WASTE TAB ========== */}
+        {activeTab === 'waste' && (
+          <>
+            {/* Log waste form */}
+            <div className="bg-neutral-900 p-6 rounded-lg border border-neutral-800 mb-6">
+              <h3 className="text-lg font-bold text-white mb-4">{t('waste.logWaste')}</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+                <select
+                  value={wasteItemId}
+                  onChange={(e) => setWasteItemId(e.target.value)}
+                  className="px-4 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white focus:outline-none focus:border-brand-600"
+                >
+                  <option value="">{t('waste.selectItem')}</option>
+                  {items.map((item) => (
+                    <option key={item.id} value={item.id}>
+                      {item.name} ({item.quantity} {item.unit})
+                    </option>
+                  ))}
+                </select>
+                <input
+                  type="number"
+                  value={wasteQty}
+                  onChange={(e) => setWasteQty(e.target.value)}
+                  placeholder={t('waste.quantity')}
+                  className="px-4 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white placeholder-neutral-500 focus:outline-none focus:border-brand-600"
+                  min="0.1"
+                  step="0.1"
+                />
+                <select
+                  value={wasteReason}
+                  onChange={(e) => setWasteReason(e.target.value)}
+                  className="px-4 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white focus:outline-none focus:border-brand-600"
+                >
+                  {wasteReasons.map((r) => (
+                    <option key={r} value={r}>{t(`waste.reasons.${r}`)}</option>
+                  ))}
+                </select>
+                <input
+                  type="text"
+                  value={wasteNotes}
+                  onChange={(e) => setWasteNotes(e.target.value)}
+                  placeholder={t('waste.notes')}
+                  className="px-4 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white placeholder-neutral-500 focus:outline-none focus:border-brand-600"
+                />
+                <button
+                  onClick={handleLogWaste}
+                  disabled={wasteLoading || !wasteItemId || !wasteQty}
+                  className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 font-medium"
+                >
+                  {wasteLoading ? t('waste.submitting') : t('waste.submit')}
+                </button>
+              </div>
+            </div>
+
+            {/* Waste report summary */}
+            {wasteReportLoading ? (
+              <div className="space-y-3 mb-6">
+                {[...Array(3)].map((_, i) => (
+                  <div key={i} className="h-24 bg-neutral-800 rounded animate-pulse"></div>
+                ))}
+              </div>
+            ) : wasteReport && wasteReport.summary.total_entries > 0 ? (
+              <>
+                <div className="bg-neutral-900 p-6 rounded-lg border border-neutral-800 mb-6">
+                  <h3 className="text-lg font-bold text-white mb-4">{t('waste.report.title')}</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                    <div className="p-4 bg-neutral-800 rounded-lg">
+                      <p className="text-neutral-400 text-sm">{t('waste.report.totalCost')}</p>
+                      <p className="text-2xl font-bold text-red-400">
+                        ${wasteReport.summary.total_waste_cost.toLocaleString()}
+                      </p>
+                    </div>
+                    <div className="p-4 bg-neutral-800 rounded-lg">
+                      <p className="text-neutral-400 text-sm">{t('waste.report.totalEntries')}</p>
+                      <p className="text-2xl font-bold text-white">{wasteReport.summary.total_entries}</p>
+                    </div>
+                    <div className="p-4 bg-neutral-800 rounded-lg">
+                      <p className="text-neutral-400 text-sm">{t('waste.report.byReason')}</p>
+                      <div className="mt-2 space-y-1">
+                        {Object.entries(wasteReport.summary.by_reason).map(([reason, data]) => (
+                          <div key={reason} className="flex justify-between text-sm">
+                            <span className="text-neutral-300">{t(`waste.reasons.${reason}`)}</span>
+                            <span className="text-red-400">${data.cost.toLocaleString()} ({data.count})</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Top wasted items */}
+                  {wasteReport.by_item.length > 0 && (
+                    <div>
+                      <h4 className="text-white font-semibold mb-3">{t('waste.report.topItems')}</h4>
+                      <div className="space-y-2">
+                        {wasteReport.by_item.slice(0, 10).map((item) => (
+                          <div key={item.inventory_item_id} className="flex items-center justify-between p-3 bg-neutral-800 rounded-lg">
+                            <div>
+                              <p className="text-white font-medium">{item.name}</p>
+                              <p className="text-neutral-500 text-xs">
+                                {item.total_quantity} {item.unit} | {item.entry_count} entries | Top: {t(`waste.reasons.${item.top_reason}`)}
+                              </p>
+                            </div>
+                            <span className="text-red-400 font-medium">${item.total_cost.toLocaleString()}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </>
+            ) : (
+              <div className="bg-neutral-900 p-6 rounded-lg border border-neutral-800 mb-6">
+                <div className="text-center py-12">
+                  <Trash2 className="mx-auto text-neutral-600 mb-3" size={40} />
+                  <p className="text-neutral-400">{t('waste.report.noData')}</p>
+                </div>
+              </div>
+            )}
+
+            {/* Recent waste entries */}
+            {wasteEntries.length > 0 && (
+              <div className="bg-neutral-900 p-6 rounded-lg border border-neutral-800">
+                <h3 className="text-lg font-bold text-white mb-4">{t('waste.title')}</h3>
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead className="bg-neutral-800 border-b border-neutral-700">
+                      <tr>
+                        <th className="px-6 py-3 text-left text-sm font-semibold text-neutral-300">{t('count.columns.item')}</th>
+                        <th className="px-6 py-3 text-left text-sm font-semibold text-neutral-300">{t('waste.quantity')}</th>
+                        <th className="px-6 py-3 text-left text-sm font-semibold text-neutral-300">{t('waste.reason')}</th>
+                        <th className="px-6 py-3 text-left text-sm font-semibold text-neutral-300">{t('inventory.costPrice')}</th>
+                        <th className="px-6 py-3 text-left text-sm font-semibold text-neutral-300">{t('count.columns.notes')}</th>
+                        <th className="px-6 py-3 text-left text-sm font-semibold text-neutral-300">{t('count.columns.date')}</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {wasteEntries.slice(0, 50).map((entry) => (
+                        <tr key={entry.id} className="border-b border-neutral-800 hover:bg-neutral-800/50">
+                          <td className="px-6 py-4 font-medium text-white">{entry.item_name}</td>
+                          <td className="px-6 py-4 text-red-400">{entry.quantity} {entry.unit}</td>
+                          <td className="px-6 py-4">
+                            <span className="px-2 py-1 bg-red-900/20 text-red-400 rounded text-xs font-medium">
+                              {t(`waste.reasons.${entry.reason}`)}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 text-red-400">${Number(entry.cost_at_time).toFixed(2)}</td>
+                          <td className="px-6 py-4 text-neutral-500 text-sm">{entry.notes || '-'}</td>
+                          <td className="px-6 py-4 text-neutral-500 text-sm">
+                            {formatDateTime(new Date(entry.created_at))}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
               </div>
             )}

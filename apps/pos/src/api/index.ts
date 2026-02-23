@@ -53,6 +53,9 @@ import {
   ReferralEvent,
   PaginatedResponse,
   OrderTemplate,
+  WasteLogEntry,
+  WasteReport,
+  COGSSummary,
 } from '../types';
 
 // Employee ID for display/sync use - set after login
@@ -412,6 +415,84 @@ export async function deductInventory(orderId: number): Promise<any> {
     method: 'POST',
     body: JSON.stringify({ order_id: orderId }),
   });
+}
+
+export async function lookupInventoryItem(value: string): Promise<InventoryItem> {
+  return apiRequest<InventoryItem>(`/inventory/lookup?barcode=${encodeURIComponent(value)}`);
+}
+
+export async function scanRestock(data: {
+  barcode: string;
+  quantity: number;
+  cost_price?: number;
+}): Promise<{ item: InventoryItem; new_quantity: number }> {
+  return apiRequest('/inventory/scan-restock', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function createInventoryItem(data: {
+  name: string;
+  unit: string;
+  quantity?: number;
+  low_stock_threshold?: number;
+  cost_price?: number;
+  sku?: string;
+  barcode?: string;
+  expiry_date?: string;
+  lot_number?: string;
+  category?: string;
+}): Promise<InventoryItem> {
+  return apiRequest<InventoryItem>('/inventory', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+/* ==================== Waste Endpoints ==================== */
+
+export async function logWaste(data: {
+  inventory_item_id: number;
+  quantity: number;
+  reason: string;
+  notes?: string;
+}): Promise<WasteLogEntry> {
+  return apiRequest<WasteLogEntry>('/waste', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function getWasteLog(params?: {
+  start_date?: string;
+  end_date?: string;
+  item_id?: number;
+}): Promise<WasteLogEntry[]> {
+  const qs = new URLSearchParams();
+  if (params?.start_date) qs.append('start_date', params.start_date);
+  if (params?.end_date) qs.append('end_date', params.end_date);
+  if (params?.item_id) qs.append('item_id', String(params.item_id));
+  const s = qs.toString();
+  return apiRequest<WasteLogEntry[]>(`/waste${s ? `?${s}` : ''}`);
+}
+
+export async function getWasteReport(params?: {
+  start_date?: string;
+  end_date?: string;
+}): Promise<WasteReport> {
+  const qs = new URLSearchParams();
+  if (params?.start_date) qs.append('start_date', params.start_date);
+  if (params?.end_date) qs.append('end_date', params.end_date);
+  const s = qs.toString();
+  return apiRequest<WasteReport>(`/waste/report${s ? `?${s}` : ''}`);
+}
+
+/* ==================== COGS Summary ==================== */
+
+export async function getCOGSSummary(period?: string): Promise<COGSSummary> {
+  const p = period || '30d';
+  return apiRequest<COGSSummary>(`/reports/cogs-summary?period=${p}`);
 }
 
 /* ==================== Employee Endpoints ==================== */

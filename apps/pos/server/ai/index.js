@@ -7,6 +7,7 @@ import {
   updateInventoryVelocity,
   detectShrinkagePatterns,
 } from './data-pipeline.js';
+import { analyzeWastePatterns } from './suggestions/waste-patterns.js';
 import { registerJob, startScheduler, stopScheduler, getSchedulerStatus } from './scheduler.js';
 import { adminSql, tenantContext } from '../db/index.js';
 
@@ -53,6 +54,7 @@ export async function initAI() {
   registerJob('updateInventoryVelocity', updateInventoryVelocity, 24 * 60 * 60 * 1000); // Daily
   registerJob('cleanExpiredCache', cleanExpiredCache, 60 * 60 * 1000);                // Every hour
   registerJob('detectShrinkagePatterns', detectShrinkagePatterns, 24 * 60 * 60 * 1000); // Daily
+  registerJob('analyzeWastePatterns', analyzeWastePatterns, 24 * 60 * 60 * 1000);     // Daily
 
   // Start the scheduler
   startScheduler();

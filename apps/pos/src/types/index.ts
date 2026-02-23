@@ -102,6 +102,62 @@ export interface InventoryItem {
   unit: string;
   low_stock_threshold: number;
   category: string;
+  cost_price?: number;
+  sku?: string;
+  barcode?: string;
+  expiry_date?: string;
+  lot_number?: string;
+}
+
+/* Waste Types */
+export interface WasteLogEntry {
+  id: number;
+  inventory_item_id: number;
+  item_name: string;
+  quantity: number;
+  unit: string;
+  reason: 'spoilage' | 'prep_error' | 'dropped' | 'expired' | 'other';
+  cost_at_time: number;
+  notes?: string;
+  logged_by_name?: string;
+  created_at: string;
+}
+
+export interface WasteReport {
+  summary: {
+    total_waste_cost: number;
+    total_entries: number;
+    by_reason: Record<string, { count: number; cost: number }>;
+  };
+  by_item: Array<{
+    inventory_item_id: number;
+    name: string;
+    unit: string;
+    total_quantity: number;
+    total_cost: number;
+    entry_count: number;
+    top_reason: string;
+    waste_rate?: number;
+  }>;
+  daily_trend: Array<{ date: string; total_cost: number; entry_count: number }>;
+}
+
+export interface COGSSummary {
+  period: string;
+  start_date: string;
+  revenue: number;
+  cogs: number;
+  waste_cost: number;
+  total_food_cost: number;
+  food_cost_percent: number;
+  gross_profit: number;
+  gross_margin_percent: number;
+}
+
+export interface ScanSession {
+  item: InventoryItem;
+  quantity: number;
+  scanned_at: string;
 }
 
 /* Payment Types */

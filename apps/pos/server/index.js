@@ -29,6 +29,7 @@ import billingRoutes, { stripeWebhook } from './routes/billing.js';
 import deliveryIntelRoutes from './routes/delivery-intelligence.js';
 import menuBoardRoutes from './routes/menu-board.js';
 import accountRoutes from './routes/account.js';
+import wasteRoutes from './routes/waste.js';
 import { initAI } from './ai/index.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -103,6 +104,7 @@ app.use('/api/delivery', deliveryRoutes);
 app.use('/api/purchase-orders', purchaseOrdersRoutes);
 app.use('/api/loyalty', loyaltyRoutes);
 app.use('/api/order-templates', orderTemplatesRoutes);
+app.use('/api/waste', wasteRoutes);
 app.use('/api/branding', brandingRoutes);
 app.use('/api/billing', billingRoutes);
 app.use('/api/account', accountRoutes);

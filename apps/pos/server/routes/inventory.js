@@ -9,7 +9,8 @@ const router = Router();
 router.get('/', async (req, res) => {
   try {
     const items = await all(`
-      SELECT id, name, quantity, unit, low_stock_threshold, category, last_counted_at
+      SELECT id, name, quantity, unit, low_stock_threshold, category, cost_price,
+             last_counted_at, sku, barcode, expiry_date, lot_number
       FROM inventory_items
       ORDER BY category ASC, name ASC
     `);
@@ -18,6 +19,33 @@ router.get('/', async (req, res) => {
   } catch (error) {
     console.error('Error fetching inventory:', error);
     res.status(500).json({ error: 'Failed to fetch inventory' });
+  }
+});
+
+// GET /api/inventory/lookup - look up item by barcode or sku
+router.get('/lookup', async (req, res) => {
+  try {
+    const { barcode, sku } = req.query;
+    if (!barcode && !sku) {
+      return res.status(400).json({ error: 'barcode or sku query parameter required' });
+    }
+
+    const value = barcode || sku;
+    const item = await get(`
+      SELECT id, name, quantity, unit, cost_price, low_stock_threshold,
+             category, sku, barcode, expiry_date
+      FROM inventory_items
+      WHERE barcode = $1 OR sku = $1
+    `, [value]);
+
+    if (!item) {
+      return res.status(404).json({ error: 'Item not found' });
+    }
+
+    res.json(item);
+  } catch (error) {
+    console.error('Error looking up inventory item:', error);
+    res.status(500).json({ error: 'Failed to look up inventory item' });
   }
 });
 
@@ -147,6 +175,67 @@ router.put('/shrinkage-alerts/:id/acknowledge', requireAuth('manage_inventory'),
   }
 });
 
+// POST /api/inventory/scan-restock - restock by barcode/sku scan
+router.post('/scan-restock', requireAuth('manage_inventory'), async (req, res) => {
+  try {
+    const { barcode, sku, quantity, cost_price } = req.body;
+
+    if (!barcode && !sku) {
+      return res.status(400).json({ error: 'barcode or sku is required' });
+    }
+    if (!quantity || quantity <= 0) {
+      return res.status(400).json({ error: 'quantity must be greater than 0' });
+    }
+
+    const value = barcode || sku;
+    const item = await get(`
+      SELECT id, name, quantity, unit, cost_price
+      FROM inventory_items
+      WHERE barcode = $1 OR sku = $1
+    `, [value]);
+
+    if (!item) {
+      return res.status(404).json({ error: 'Item not found' });
+    }
+
+    const quantityBefore = item.quantity;
+    const newQuantity = quantityBefore + quantity;
+
+    // Update quantity and optionally cost_price
+    if (cost_price !== undefined && cost_price !== null) {
+      await run('UPDATE inventory_items SET quantity = $1, cost_price = $2 WHERE id = $3',
+        [newQuantity, cost_price, item.id]);
+    } else {
+      await run('UPDATE inventory_items SET quantity = $1 WHERE id = $2',
+        [newQuantity, item.id]);
+    }
+
+    // Log restock for AI
+    setImmediate(() => logRestockEvent(item.id, quantityBefore, quantity));
+
+    // Log to ai_restock_log with trigger = 'scan'
+    try {
+      await run(`
+        INSERT INTO ai_restock_log (inventory_item_id, quantity_before, quantity_added, quantity_after)
+        VALUES ($1, $2, $3, $4)
+      `, [item.id, quantityBefore, quantity, newQuantity]);
+    } catch (err) {
+      console.error('Error logging scan restock:', err.message);
+    }
+
+    res.json({
+      id: item.id,
+      name: item.name,
+      quantity_before: quantityBefore,
+      quantity_after: newQuantity,
+      restockAmount: quantity,
+    });
+  } catch (error) {
+    console.error('Error scan-restocking inventory:', error);
+    res.status(500).json({ error: 'Failed to restock inventory' });
+  }
+});
+
 // POST /api/inventory/:id/count - record physical count
 router.post('/:id/count', requireAuth('manage_inventory'), async (req, res) => {
   try {
@@ -203,31 +292,106 @@ router.post('/:id/count', requireAuth('manage_inventory'), async (req, res) => {
   }
 });
 
-// PUT /api/inventory/:id - update quantity
+// PUT /api/inventory/:id - update item fields
 router.put('/:id', requireAuth('manage_inventory'), async (req, res) => {
   try {
     const { id } = req.params;
-    const { quantity } = req.body;
-
-    if (quantity === undefined) {
-      return res.status(400).json({ error: 'Missing quantity' });
-    }
+    const { quantity, low_stock_threshold, sku, barcode, expiry_date, lot_number, cost_price } = req.body;
 
     const item = await get('SELECT id FROM inventory_items WHERE id = $1', [id]);
     if (!item) {
       return res.status(404).json({ error: 'Inventory item not found' });
     }
 
-    await run(`
-      UPDATE inventory_items
-      SET quantity = $1
-      WHERE id = $2
-    `, [quantity, id]);
+    // Build dynamic SET clause for provided fields only
+    const sets = [];
+    const params = [];
+    let paramIdx = 1;
 
-    res.json({ id, quantity });
+    if (quantity !== undefined) {
+      sets.push(`quantity = $${paramIdx++}`);
+      params.push(quantity);
+    }
+    if (low_stock_threshold !== undefined) {
+      sets.push(`low_stock_threshold = $${paramIdx++}`);
+      params.push(low_stock_threshold);
+    }
+    if (sku !== undefined) {
+      sets.push(`sku = $${paramIdx++}`);
+      params.push(sku || null);
+    }
+    if (barcode !== undefined) {
+      sets.push(`barcode = $${paramIdx++}`);
+      params.push(barcode || null);
+    }
+    if (expiry_date !== undefined) {
+      sets.push(`expiry_date = $${paramIdx++}`);
+      params.push(expiry_date || null);
+    }
+    if (lot_number !== undefined) {
+      sets.push(`lot_number = $${paramIdx++}`);
+      params.push(lot_number || null);
+    }
+    if (cost_price !== undefined) {
+      sets.push(`cost_price = $${paramIdx++}`);
+      params.push(cost_price);
+    }
+
+    if (sets.length === 0) {
+      return res.status(400).json({ error: 'No fields to update' });
+    }
+
+    params.push(id);
+    await run(`UPDATE inventory_items SET ${sets.join(', ')} WHERE id = $${paramIdx}`, params);
+
+    res.json({ id: parseInt(id), ...req.body });
   } catch (error) {
     console.error('Error updating inventory:', error);
     res.status(500).json({ error: 'Failed to update inventory' });
+  }
+});
+
+// POST /api/inventory - create inventory item
+router.post('/', requireAuth('manage_inventory'), async (req, res) => {
+  try {
+    const { name, quantity, unit, low_stock_threshold, category, cost_price, sku, barcode, expiry_date, lot_number } = req.body;
+
+    if (!name) {
+      return res.status(400).json({ error: 'name is required' });
+    }
+
+    const result = await run(`
+      INSERT INTO inventory_items (name, quantity, unit, low_stock_threshold, category, cost_price, sku, barcode, expiry_date, lot_number)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+    `, [
+      name,
+      quantity || 0,
+      unit || null,
+      low_stock_threshold || 0,
+      category || null,
+      cost_price || 0,
+      sku || null,
+      barcode || null,
+      expiry_date || null,
+      lot_number || null,
+    ]);
+
+    res.json({
+      id: result.lastInsertRowid,
+      name,
+      quantity: quantity || 0,
+      unit: unit || null,
+      low_stock_threshold: low_stock_threshold || 0,
+      category: category || null,
+      cost_price: cost_price || 0,
+      sku: sku || null,
+      barcode: barcode || null,
+      expiry_date: expiry_date || null,
+      lot_number: lot_number || null,
+    });
+  } catch (error) {
+    console.error('Error creating inventory item:', error);
+    res.status(500).json({ error: 'Failed to create inventory item' });
   }
 });
 
