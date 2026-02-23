@@ -7,7 +7,8 @@
       "waste": "Merma",
       "count": "Conteo",
       "variance": "Varianza",
-      "alerts": "Alertas"
+      "alerts": "Alertas",
+      "insights": "IA Insights"
     },
     "search": "Buscar productos...",
     "allCategories": "Todas las Categorías",
@@ -159,6 +160,67 @@
     "withinRanges": "Toda la varianza de inventario está dentro de rangos aceptables",
     "acknowledge": "Reconocer",
     "acknowledged": "Reconocida"
+  },
+  "insights": {
+    "tab": "IA Insights",
+    "loading": "Analizando datos de inventario...",
+    "empty": "Aún no hay datos de IA disponibles. Los insights aparecerán cuando el sistema recopile suficiente actividad de ventas e inventario.",
+    "failedLoad": "Error al cargar insights de IA",
+    "upgradeTitle": "IA Insights",
+    "upgradeMessage": "Actualiza a Pro para desbloquear inteligencia de inventario con IA, pronósticos de consumo y análisis de merma.",
+    "kpis": {
+      "itemsAtRisk": "Productos en Riesgo",
+      "criticalAndHigh": "{{critical}} críticos, {{high}} altos",
+      "prepActions": "Acciones de Prep",
+      "actionsNeeded": "acciones necesarias para mañana",
+      "wasteTrend": "Tendencia de Merma (30d)",
+      "vsLastPeriod": "vs. 30 días anteriores",
+      "acceptanceRate": "Tasa de Aceptación IA",
+      "ofSuggestions": "de sugerencias aceptadas"
+    },
+    "velocity": {
+      "title": "Velocidad de Consumo",
+      "subtitle": "Top 10 productos — últimos 14 días",
+      "noData": "Aún no hay datos de velocidad disponibles"
+    },
+    "reorder": {
+      "title": "Recomendaciones de Reorden",
+      "noData": "No hay recomendaciones de reorden en este momento",
+      "daysUntilStockout": "~{{days}} días hasta agotamiento",
+      "avgDaily": "{{usage}} {{unit}}/día",
+      "suggestedReorder": "Reordenar: {{qty}} {{unit}}",
+      "currentStock": "Actual: {{qty}} {{unit}}",
+      "items": "{{count}} productos"
+    },
+    "prep": {
+      "title": "Pronóstico de Preparación",
+      "subtitle": "Ingredientes a preparar para",
+      "estOrders": "Órdenes Est.: {{count}}",
+      "restockNeeded": "Necesita Reabasto",
+      "prepExtra": "Preparar Extra",
+      "deficit": "Déficit: {{qty}} {{unit}}",
+      "usedBy": "Usado por: {{items}}",
+      "noActions": "Todos los ingredientes son suficientes para mañana"
+    },
+    "waste": {
+      "title": "Inteligencia de Merma",
+      "chartTitle": "Costo Diario de Merma (30 días)",
+      "alertsTitle": "Alertas de Merma IA",
+      "noAlerts": "Sin alertas de merma del análisis de IA",
+      "noChartData": "Sin datos de merma para gráfica",
+      "wasteRate": "Tasa de merma: {{rate}}%",
+      "topReason": "Razón principal: {{reason}}",
+      "cost": "${{cost}}"
+    },
+    "push": {
+      "title": "Promover y Evitar",
+      "pushTitle": "Promover — Sugerir Estos",
+      "avoidTitle": "Evitar — Des-enfatizar",
+      "noPush": "No hay productos para promover ahora",
+      "noAvoid": "No hay productos para evitar ahora",
+      "reason": "Razón: {{reason}}",
+      "ingredient": "Ingrediente: {{name}}"
+    }
   },
   "menu": {
     "title": "Menú",

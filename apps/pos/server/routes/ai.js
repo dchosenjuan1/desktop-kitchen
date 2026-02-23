@@ -424,6 +424,115 @@ router.post('/analyze', requireAuth('manage_ai'), async (req, res) => {
   }
 });
 
+// ==================== Inventory Insights (aggregated) ====================
+
+// GET /api/ai/inventory-insights
+router.get('/inventory-insights', async (req, res) => {
+  try {
+    // 1. Forecasts
+    const forecasts = await generateInventoryForecast();
+    const criticalCount = forecasts.filter(f => f.risk_level === 'critical').length;
+    const highCount = forecasts.filter(f => f.risk_level === 'high').length;
+
+    // 2. Prep forecast (tomorrow)
+    const tomorrow = new Date(Date.now() + 86400000).toISOString().split('T')[0];
+    const prepForecast = await generatePrepForecast(tomorrow);
+    const prepActionsNeeded = prepForecast.items
+      ? prepForecast.items.filter(i => i.prep_action !== 'sufficient').length
+      : 0;
+
+    // 3. Waste trend (30d vs prior 30d)
+    const wasteTrend = await get(`
+      SELECT
+        COALESCE(SUM(CASE WHEN created_at >= NOW() - INTERVAL '30 days' THEN cost_at_time * quantity ELSE 0 END), 0) AS recent,
+        COALESCE(SUM(CASE WHEN created_at < NOW() - INTERVAL '30 days' AND created_at >= NOW() - INTERVAL '60 days' THEN cost_at_time * quantity ELSE 0 END), 0) AS prior
+      FROM waste_log
+      WHERE created_at >= NOW() - INTERVAL '60 days'
+    `);
+    const recentWaste = parseFloat(wasteTrend?.recent || 0);
+    const priorWaste = parseFloat(wasteTrend?.prior || 0);
+    const wasteTrendPercent = priorWaste > 0
+      ? Math.round(((recentWaste - priorWaste) / priorWaste) * 100)
+      : 0;
+
+    // 4. Suggestion acceptance rate
+    const totalSuggestions = (await get(`SELECT COUNT(*) as total FROM ai_suggestion_events`))?.total || 0;
+    const acceptedSuggestions = (await get(`SELECT COUNT(*) as total FROM ai_suggestion_events WHERE action = 'accepted'`))?.total || 0;
+    const acceptanceRate = totalSuggestions > 0
+      ? Math.round((acceptedSuggestions / totalSuggestions) * 100)
+      : 0;
+
+    // 5. Velocity chart — top 10 items, last 14 days
+    const velocityRaw = await all(`
+      SELECT iv.inventory_item_id, ii.name, iv.date::text as date,
+             iv.quantity_used, iv.orders_count
+      FROM ai_inventory_velocity iv
+      JOIN inventory_items ii ON iv.inventory_item_id = ii.id
+      WHERE iv.date >= CURRENT_DATE - INTERVAL '14 days'
+      ORDER BY iv.date
+    `);
+    // Group by item, pick top 10 by total usage
+    const byItem = {};
+    for (const row of velocityRaw) {
+      if (!byItem[row.inventory_item_id]) {
+        byItem[row.inventory_item_id] = { inventory_item_id: row.inventory_item_id, name: row.name, total_used: 0, daily: [] };
+      }
+      byItem[row.inventory_item_id].total_used += parseFloat(row.quantity_used || 0);
+      byItem[row.inventory_item_id].daily.push({
+        date: row.date,
+        quantity_used: parseFloat(row.quantity_used || 0),
+        orders_count: parseInt(row.orders_count || 0),
+      });
+    }
+    const velocityChart = Object.values(byItem)
+      .sort((a, b) => b.total_used - a.total_used)
+      .slice(0, 10);
+
+    // 6. Waste alerts from cache
+    let wasteAlerts = [];
+    try { wasteAlerts = await readSuggestions('waste_alert'); } catch {}
+
+    // 7. Push/avoid items
+    const pushData = await getInventoryPush();
+
+    // 8. Waste daily trend (last 30 days)
+    const wasteDailyTrend = await all(`
+      SELECT created_at::date::text as date,
+             COALESCE(SUM(cost_at_time * quantity), 0) as total_cost,
+             COUNT(*) as entry_count
+      FROM waste_log
+      WHERE created_at >= NOW() - INTERVAL '30 days'
+      GROUP BY created_at::date
+      ORDER BY date
+    `);
+
+    res.json({
+      kpis: {
+        itemsAtRisk: criticalCount + highCount,
+        criticalCount,
+        highCount,
+        prepActionsNeeded,
+        wasteTrendPercent,
+        acceptanceRate,
+      },
+      forecasts,
+      prepForecast,
+      velocityChart,
+      wasteAlerts,
+      pushItems: pushData.pushItems || [],
+      avoidItems: pushData.avoidItems || [],
+      wasteDailyTrend: wasteDailyTrend.map(r => ({
+        date: r.date,
+        total_cost: parseFloat(r.total_cost),
+        entry_count: parseInt(r.entry_count),
+      })),
+    });
+  } catch (error) {
+    console.error('Error getting inventory insights:', error);
+    res.status(500).json({ error: 'Failed to get inventory insights' });
+  }
+});
+
 // ==================== Prep Forecast ====================
 
 // GET /api/ai/prep-forecast?date=YYYY-MM-DD

@@ -7,7 +7,8 @@
       "waste": "Waste",
       "count": "Count",
       "variance": "Variance",
-      "alerts": "Alerts"
+      "alerts": "Alerts",
+      "insights": "AI Insights"
     },
     "search": "Search items...",
     "allCategories": "All Categories",
@@ -159,6 +160,67 @@
     "withinRanges": "All inventory variance is within acceptable ranges",
     "acknowledge": "Acknowledge",
     "acknowledged": "Acknowledged"
+  },
+  "insights": {
+    "tab": "AI Insights",
+    "loading": "Analyzing inventory data...",
+    "empty": "No AI data available yet. Insights will appear once the system collects enough sales and inventory activity.",
+    "failedLoad": "Failed to load AI insights",
+    "upgradeTitle": "AI Insights",
+    "upgradeMessage": "Upgrade to Pro to unlock AI-powered inventory intelligence, consumption forecasting, and waste analysis.",
+    "kpis": {
+      "itemsAtRisk": "Items at Risk",
+      "criticalAndHigh": "{{critical}} critical, {{high}} high",
+      "prepActions": "Prep Actions",
+      "actionsNeeded": "actions needed for tomorrow",
+      "wasteTrend": "Waste Trend (30d)",
+      "vsLastPeriod": "vs. prior 30 days",
+      "acceptanceRate": "AI Acceptance Rate",
+      "ofSuggestions": "of suggestions accepted"
+    },
+    "velocity": {
+      "title": "Consumption Velocity",
+      "subtitle": "Top 10 items — last 14 days",
+      "noData": "No velocity data available yet"
+    },
+    "reorder": {
+      "title": "Smart Reorder Recommendations",
+      "noData": "No reorder recommendations at this time",
+      "daysUntilStockout": "~{{days}} days until stockout",
+      "avgDaily": "{{usage}} {{unit}}/day",
+      "suggestedReorder": "Reorder: {{qty}} {{unit}}",
+      "currentStock": "Current: {{qty}} {{unit}}",
+      "items": "{{count}} items"
+    },
+    "prep": {
+      "title": "Prep Forecast",
+      "subtitle": "Ingredients to prepare for",
+      "estOrders": "Est. Orders: {{count}}",
+      "restockNeeded": "Restock Needed",
+      "prepExtra": "Prep Extra",
+      "deficit": "Deficit: {{qty}} {{unit}}",
+      "usedBy": "Used by: {{items}}",
+      "noActions": "All ingredients are sufficient for tomorrow"
+    },
+    "waste": {
+      "title": "Waste Intelligence",
+      "chartTitle": "Daily Waste Cost (30 days)",
+      "alertsTitle": "AI Waste Alerts",
+      "noAlerts": "No waste alerts from AI analysis",
+      "noChartData": "No waste data for chart",
+      "wasteRate": "Waste rate: {{rate}}%",
+      "topReason": "Top reason: {{reason}}",
+      "cost": "${{cost}}"
+    },
+    "push": {
+      "title": "Push & Avoid Items",
+      "pushTitle": "Push — Promote These",
+      "avoidTitle": "Avoid — De-emphasize",
+      "noPush": "No items to push right now",
+      "noAvoid": "No items to avoid right now",
+      "reason": "Reason: {{reason}}",
+      "ingredient": "Ingredient: {{name}}"
+    }
   },
   "menu": {
     "title": "Menu",

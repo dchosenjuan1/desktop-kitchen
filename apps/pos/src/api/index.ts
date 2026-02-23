@@ -44,6 +44,7 @@ import {
   Vendor,
   PurchaseOrder,
   PrepForecast,
+  InventoryInsights,
   FinancialProjection,
   LoyaltyCustomer,
   StampCard,
@@ -980,6 +981,10 @@ export async function cancelPurchaseOrder(id: number): Promise<any> {
 export async function getPrepForecast(date?: string): Promise<PrepForecast> {
   const endpoint = date ? `/ai/prep-forecast?date=${date}` : '/ai/prep-forecast';
   return apiRequest<PrepForecast>(endpoint);
+}
+
+export async function getInventoryInsights(): Promise<InventoryInsights> {
+  return apiRequest<InventoryInsights>('/ai/inventory-insights');
 }
 
 /* ==================== Permissions ==================== */

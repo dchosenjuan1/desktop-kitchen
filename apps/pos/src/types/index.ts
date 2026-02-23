@@ -345,6 +345,57 @@ export interface CategoryRole {
   category_name: string;
 }
 
+/* Inventory Insights Types */
+export interface InventoryInsightsKPIs {
+  itemsAtRisk: number;
+  criticalCount: number;
+  highCount: number;
+  prepActionsNeeded: number;
+  wasteTrendPercent: number;
+  acceptanceRate: number;
+}
+
+export interface VelocityDayData {
+  date: string;
+  quantity_used: number;
+  orders_count: number;
+}
+
+export interface VelocityChartItem {
+  inventory_item_id: number;
+  name: string;
+  total_used: number;
+  daily: VelocityDayData[];
+}
+
+export interface WasteAlertData {
+  inventory_item_id?: number;
+  item_name?: string;
+  waste_rate?: number;
+  total_waste_cost?: number;
+  top_reason?: string;
+  message?: string;
+  data?: Record<string, unknown>;
+  type?: string;
+}
+
+export interface WasteDailyTrend {
+  date: string;
+  total_cost: number;
+  entry_count: number;
+}
+
+export interface InventoryInsights {
+  kpis: InventoryInsightsKPIs;
+  forecasts: InventoryForecast[];
+  prepForecast: PrepForecast;
+  velocityChart: VelocityChartItem[];
+  wasteAlerts: WasteAlertData[];
+  pushItems: InventoryPushItem[];
+  avoidItems: InventoryPushItem[];
+  wasteDailyTrend: WasteDailyTrend[];
+}
+
 /* Financial Report Types */
 export interface CashCardBreakdown {
   period: string;
