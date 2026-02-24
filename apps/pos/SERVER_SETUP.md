@@ -4,7 +4,7 @@ All backend server files have been created successfully. Here's a summary:
 
 ## Directory Structure
 ```
-/sessions/amazing-gifted-archimedes/mnt/POS/juanbertos-pos/
+/sessions/amazing-gifted-archimedes/mnt/POS/desktop-kitchen/
 ├── server/
 │   ├── index.js           (Express server entry point)
 │   ├── db.js              (SQLite database setup)
@@ -33,7 +33,7 @@ All backend server files have been created successfully. Here's a summary:
 ### 2. server/db.js
 - better-sqlite3 database setup
 - Auto-creates data/ directory if missing
-- Database path: ../data/juanbertos.db
+- Database path: Neon Postgres (see DATABASE_URL env var)
 - Creates 8 tables with proper schema:
   - employees
   - menu_categories

@@ -17,7 +17,7 @@ struct LoginScreen: View {
                         .font(.system(size: 72))
                         .foregroundStyle(AppColors.accent)
 
-                    Text("Juanberto's POS")
+                    Text("Desktop Kitchen POS")
                         .font(AppFonts.largeTitle)
                         .foregroundStyle(.white)
 

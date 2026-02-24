@@ -39,7 +39,7 @@ export async function tenantMiddleware(req, res, next) {
       tenantId = tenant.id;
     }
 
-    // 2. Subdomain resolution (e.g., juanbertos.desktop.kitchen)
+    // 2. Subdomain resolution (e.g., acme.desktop.kitchen)
     if (!tenantId) {
       const host = req.hostname || req.headers.host?.split(':')[0];
       if (host && host !== 'localhost' && host !== '127.0.0.1') {

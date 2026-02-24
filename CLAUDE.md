@@ -9,7 +9,7 @@ desktop-kitchen/
 ├── apps/
 │   ├── pos/           # POS system (Vite + Express)
 │   ├── marketing/     # Desktop Kitchen marketing landing (Next.js + i18n)
-│   ├── landing/       # Juanbertos restaurant landing page (Next.js + i18n) — OFF LIMITS
+│   ├── landing/       # Legacy restaurant landing page (Next.js + i18n) — OFF LIMITS
 │   └── docs/          # Documentation site (Docusaurus 3)
 ├── assets/            # Brand assets (PDF, logo) — not in git
 ├── CLAUDE.md
@@ -54,7 +54,7 @@ npm run start            # Production mode
 
 ### Landing (`apps/landing/`)
 
-Juanbertos restaurant landing page with Next.js built-in i18n routing. **DO NOT MODIFY** — this is a separate brand.
+Restaurant landing page (legacy). **DO NOT MODIFY** — this is a separate brand.
 
 **Commands** (run from `apps/landing/`):
 ```bash

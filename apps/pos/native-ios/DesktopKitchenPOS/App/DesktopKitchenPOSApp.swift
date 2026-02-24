@@ -1,7 +1,7 @@
 import SwiftUI
 
 @main
-struct JuanbertosPOSApp: App {
+struct DesktopKitchenPOSApp: App {
     @State private var appState = AppState()
 
     var body: some Scene {

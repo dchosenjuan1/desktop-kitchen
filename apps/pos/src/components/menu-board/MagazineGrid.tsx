@@ -99,7 +99,7 @@ const StandardGrid: React.FC<MagazineGridProps> = ({ layout, categories }) => {
 };
 
 // ── Compact mode: category columns side-by-side ────────────────────────────
-// For >20 items (Juanberto's). Each category gets a vertical column strip
+// For >20 items (large menus). Each category gets a vertical column strip
 // with a colored header and compact item rows filling downward.
 
 const CompactGrid: React.FC<MagazineGridProps> = ({ layout, categories }) => {

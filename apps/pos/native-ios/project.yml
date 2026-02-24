@@ -1,6 +1,6 @@
-name: JuanbertosPOS
+name: DesktopKitchenPOS
 options:
-  bundleIdPrefix: com.juanbertos
+  bundleIdPrefix: com.desktopkitchen
   deploymentTarget:
     iOS: "17.0"
   xcodeVersion: "16.0"
@@ -20,22 +20,22 @@ settings:
     SWIFT_STRICT_CONCURRENCY: "complete"
 
 targets:
-  JuanbertosPOS:
+  DesktopKitchenPOS:
     type: application
     platform: iOS
     sources:
-      - path: JuanbertosPOS
+      - path: DesktopKitchenPOS
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.juanbertos.pos
-        INFOPLIST_KEY_CFBundleDisplayName: "Juanberto's POS"
-        PRODUCT_NAME: "JuanbertosPOS"
+        PRODUCT_BUNDLE_IDENTIFIER: com.desktopkitchen.pos
+        INFOPLIST_KEY_CFBundleDisplayName: "Desktop Kitchen POS"
+        PRODUCT_NAME: "DesktopKitchenPOS"
         DEVELOPMENT_TEAM: ""
         CODE_SIGN_STYLE: "Automatic"
         INFOPLIST_KEY_NSLocalNetworkUsageDescription: "Connect to POS server on local network"
         INFOPLIST_KEY_NSBonjourServices: "_http._tcp"
     info:
-      path: JuanbertosPOS/Info.plist
+      path: DesktopKitchenPOS/Info.plist
       properties:
         NSAppTransportSecurity:
           NSAllowsLocalNetworking: true

@@ -176,13 +176,13 @@
 
   <script>
     // ── Configuration ──────────────────────────────────────────
-    // Usage: menu-board.html?tenant=juanbertos&category=California+Burritos
+    // Usage: menu-board.html?tenant=demo&category=Tacos
     //   tenant   = tenant subdomain (required for cross-origin, optional if same-origin)
     //   category = filter to a specific category name (optional, shows all if omitted)
     //   refresh  = auto-refresh interval in seconds (default: 300 = 5 min)
 
     const params = new URLSearchParams(window.location.search);
-    const TENANT_ID = params.get('tenant') || 'juanbertos';
+    const TENANT_ID = params.get('tenant') || 'demo';
     const CATEGORY_FILTER = params.get('category') || null;
     const REFRESH_INTERVAL = parseInt(params.get('refresh') || '300', 10) * 1000;
     const API_BASE = params.get('api') || 'https://pos.desktop.kitchen';

@@ -387,14 +387,14 @@ const BRANDING = {
 
     await adminSql.end();
 
-    console.log(`\nJuanberto's tenant seeded successfully!`);
+    console.log(`\nDemo tenant seeded successfully!`);
     console.log(`   Tenant ID:  ${TENANT_ID}`);
     console.log(`   Subdomain:  ${TENANT_SUBDOMAIN}.desktop.kitchen`);
     console.log(`   Owner:      ${OWNER_EMAIL}`);
     console.log(`   Plan:       ${PLAN}`);
     console.log(`   Branding:   Red (#dc2626)`);
   } catch (error) {
-    console.error('Error seeding Juanberto\'s tenant:', error);
+    console.error('Error seeding demo tenant:', error);
     process.exit(1);
   }
 })();

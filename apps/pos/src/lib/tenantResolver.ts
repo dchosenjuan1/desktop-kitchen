@@ -20,7 +20,7 @@ export interface TenantInfo {
 /**
  * Resolve the current tenant context from the URL / environment.
  *
- * - Production subdomain (e.g. juanbertos.desktop.kitchen): mode='tenant'
+ * - Production subdomain (e.g. acme.desktop.kitchen): mode='tenant'
  * - Platform host (pos.desktop.kitchen): mode='platform'
  * - Localhost / Capacitor: mode='local' or 'tenant' based on localStorage
  */
@@ -44,7 +44,7 @@ export function resolveTenant(): TenantInfo {
       // pos.desktop.kitchen, www.desktop.kitchen, etc.
       return { mode: 'platform', tenantSlug: null, isPlatformHost: true };
     }
-    // juanbertos.desktop.kitchen
+    // acme.desktop.kitchen
     return { mode: 'tenant', tenantSlug: subdomain, isPlatformHost: false };
   }
 

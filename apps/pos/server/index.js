@@ -44,8 +44,8 @@ const PORT = process.env.PORT || 3001;
 // Without this, req.hostname won't reflect the actual Host header.
 app.set('trust proxy', 1);
 
-// CORS — allow *.desktop.kitchen, legacy pos.juanbertos.com, and localhost dev
-const CORS_ORIGIN_REGEX = /^https?:\/\/(.*\.desktop\.kitchen|pos\.juanbertos\.com|localhost(:\d+)?)$/;
+// CORS — allow *.desktop.kitchen and localhost dev
+const CORS_ORIGIN_REGEX = /^https?:\/\/(.*\.desktop\.kitchen|localhost(:\d+)?)$/;
 app.use(cors({
   origin(origin, cb) {
     // Allow requests with no Origin header (curl, server-to-server, same-origin)
@@ -54,15 +54,6 @@ app.use(cors({
   },
   credentials: true,
 }));
-
-// Legacy redirect: pos.juanbertos.com → pos.desktop.kitchen
-app.use((req, res, next) => {
-  const host = req.hostname || req.headers.host?.split(':')[0];
-  if (host === 'pos.juanbertos.com') {
-    return res.redirect(301, `https://pos.desktop.kitchen${req.originalUrl}`);
-  }
-  next();
-});
 
 // Stripe webhook needs raw body (before express.json)
 app.post('/api/billing/webhook', express.raw({ type: 'application/json' }), stripeWebhook);
