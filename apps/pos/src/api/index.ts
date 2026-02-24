@@ -32,6 +32,12 @@ import {
   PricingSuggestion,
   InventoryForecast,
   CategoryRole,
+  PricingDashboard,
+  PricingRule,
+  PriceHistoryEntry,
+  PricingGuardrails,
+  PricingExperiment,
+  GrokPricingSuggestion,
   Refund,
   CryptoPayment,
   CryptoEstimate,
@@ -255,12 +261,14 @@ export async function getPosBrands(): Promise<VirtualBrand[]> {
 interface OrderFilters {
   status?: string;
   date?: string;
+  payment_status?: string;
 }
 
 export async function getOrders(filters?: OrderFilters): Promise<Order[]> {
   const queryParams = new URLSearchParams();
   if (filters?.status) queryParams.append('status', filters.status);
   if (filters?.date) queryParams.append('date', filters.date);
+  if (filters?.payment_status) queryParams.append('payment_status', filters.payment_status);
 
   const endpoint = `/orders${queryParams.toString() ? `?${queryParams}` : ''}`;
   return apiRequest<Order[]>(endpoint);
@@ -301,6 +309,17 @@ export async function updateOrderStatus(
 
 export async function getKitchenOrders(): Promise<Order[]> {
   return apiRequest<Order[]>('/orders/kitchen/active');
+}
+
+export async function confirmOrderPayment(
+  orderId: number,
+  payment_method: 'cash' | 'card' | 'transfer',
+  reference?: string
+): Promise<{ success: boolean; order: Order }> {
+  return apiRequest(`/orders/${orderId}/payment`, {
+    method: 'PATCH',
+    body: JSON.stringify({ payment_method, reference }),
+  });
 }
 
 /* ==================== Payment Endpoints ==================== */
@@ -849,6 +868,96 @@ export async function runGrokAnalysis(type?: string): Promise<any> {
     method: 'POST',
     body: JSON.stringify({ type: type || 'all' }),
   });
+}
+
+/* ==================== Dynamic Pricing Endpoints ==================== */
+
+export async function getPricingDashboard(): Promise<PricingDashboard> {
+  return apiRequest<PricingDashboard>('/pricing/dashboard');
+}
+
+export async function getEnhancedPricingSuggestions(): Promise<{ heuristic: GrokPricingSuggestion[]; grok: GrokPricingSuggestion[] }> {
+  return apiRequest('/pricing/suggestions');
+}
+
+export async function triggerPricingAnalysis(): Promise<{ suggestions: GrokPricingSuggestion[]; cached: boolean }> {
+  return apiRequest('/pricing/analyze', { method: 'POST' });
+}
+
+export async function applyEnhancedPricingSuggestion(id: string, menuItemId: number, newPrice: number): Promise<any> {
+  return apiRequest(`/pricing/suggestions/${id}/apply`, {
+    method: 'POST',
+    body: JSON.stringify({ menu_item_id: menuItemId, new_price: newPrice }),
+  });
+}
+
+export async function dismissPricingSuggestion(id: string): Promise<any> {
+  return apiRequest(`/pricing/suggestions/${id}/dismiss`, { method: 'POST' });
+}
+
+export async function getPricingRules(): Promise<PricingRule[]> {
+  return apiRequest<PricingRule[]>('/pricing/rules');
+}
+
+export async function createPricingRule(data: Partial<PricingRule>): Promise<{ success: boolean; id: number }> {
+  return apiRequest('/pricing/rules', { method: 'POST', body: JSON.stringify(data) });
+}
+
+export async function updatePricingRule(id: number, data: Partial<PricingRule>): Promise<any> {
+  return apiRequest(`/pricing/rules/${id}`, { method: 'PUT', body: JSON.stringify(data) });
+}
+
+export async function deletePricingRule(id: number): Promise<any> {
+  return apiRequest(`/pricing/rules/${id}`, { method: 'DELETE' });
+}
+
+export async function previewPricingRule(id: number): Promise<Array<{ menu_item_id: number; item_name: string; current_price: number; projected_price: number; change_percent: number }>> {
+  return apiRequest(`/pricing/rules/${id}/preview`, { method: 'POST' });
+}
+
+export async function getPricingGuardrails(): Promise<PricingGuardrails> {
+  return apiRequest<PricingGuardrails>('/pricing/guardrails');
+}
+
+export async function updatePricingGuardrails(data: Partial<PricingGuardrails>): Promise<any> {
+  return apiRequest('/pricing/guardrails', { method: 'PUT', body: JSON.stringify(data) });
+}
+
+export async function getPriceHistory(params?: { item_id?: number; source?: string; from?: string; to?: string; page?: number; limit?: number }): Promise<{ data: PriceHistoryEntry[]; total: number; page: number; limit: number }> {
+  const qs = new URLSearchParams();
+  if (params?.item_id) qs.append('item_id', String(params.item_id));
+  if (params?.source) qs.append('source', params.source);
+  if (params?.from) qs.append('from', params.from);
+  if (params?.to) qs.append('to', params.to);
+  if (params?.page) qs.append('page', String(params.page));
+  if (params?.limit) qs.append('limit', String(params.limit));
+  const s = qs.toString();
+  return apiRequest(`/pricing/history${s ? `?${s}` : ''}`);
+}
+
+export async function revertPriceChange(historyId: number): Promise<any> {
+  return apiRequest(`/pricing/history/${historyId}/revert`, { method: 'POST' });
+}
+
+export async function getPricingImpact(itemId?: number): Promise<any[]> {
+  const endpoint = itemId ? `/pricing/impact?item_id=${itemId}` : '/pricing/impact';
+  return apiRequest(endpoint);
+}
+
+export async function getPricingExperiments(): Promise<PricingExperiment[]> {
+  return apiRequest<PricingExperiment[]>('/pricing/experiments');
+}
+
+export async function createPricingExperiment(data: Partial<PricingExperiment>): Promise<{ success: boolean; id: number }> {
+  return apiRequest('/pricing/experiments', { method: 'POST', body: JSON.stringify(data) });
+}
+
+export async function updatePricingExperiment(id: number, data: Partial<PricingExperiment> & { status?: string }): Promise<any> {
+  return apiRequest(`/pricing/experiments/${id}`, { method: 'PUT', body: JSON.stringify(data) });
+}
+
+export async function applyExperimentWinner(id: number): Promise<any> {
+  return apiRequest(`/pricing/experiments/${id}/apply-winner`, { method: 'POST' });
 }
 
 /* ==================== Reports - Reconciliation, Fees, Refunds ==================== */

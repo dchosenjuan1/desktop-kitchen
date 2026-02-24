@@ -69,6 +69,12 @@ const AIConfigScreen = React.lazy(() =>
   }))
 );
 
+const DynamicPricingScreen = React.lazy(() =>
+  import('./screens/DynamicPricingScreen').then((module) => ({
+    default: module.default || (() => <div>Dynamic Pricing</div>),
+  }))
+);
+
 const LiveDashboardScreen = React.lazy(() =>
   import('./screens/LiveDashboardScreen').then((module) => ({
     default: module.default || (() => <div>Live Dashboard</div>),
@@ -384,6 +390,17 @@ const TenantRoutes: React.FC = () => {
         element={
           <ProtectedRoute
             element={<AIConfigScreen />}
+            requiredRole={['manager', 'admin']}
+          />
+        }
+      />
+
+      {/* Dynamic Pricing - requires manager/admin role */}
+      <Route
+        path="/admin/pricing"
+        element={
+          <ProtectedRoute
+            element={<DynamicPricingScreen />}
             requiredRole={['manager', 'admin']}
           />
         }

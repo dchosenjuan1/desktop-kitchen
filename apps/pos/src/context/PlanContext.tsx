@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 
-export type PlanTier = 'trial' | 'starter' | 'pro';
+export type PlanTier = 'trial' | 'starter' | 'pro' | 'ghost_kitchen';
 
 export interface PlanLimits {
   menuItems: number;
@@ -17,6 +17,7 @@ export interface PlanLimits {
   branding: { canRename: boolean };
   prepForecast: { locked: boolean };
   menuBoard: { canRenameBrands: boolean };
+  dynamicPricing: { aiSuggestions: boolean; scheduledRules: boolean; priceHistory: boolean; guardrails: boolean; abTesting: boolean; deliveryIntegration: boolean };
 }
 
 interface PlanContextType {
@@ -41,6 +42,7 @@ const DEFAULT_LIMITS: PlanLimits = {
   branding: { canRename: false },
   prepForecast: { locked: true },
   menuBoard: { canRenameBrands: false },
+  dynamicPricing: { aiSuggestions: false, scheduledRules: false, priceHistory: false, guardrails: false, abTesting: false, deliveryIntegration: false },
 };
 
 const PlanContext = createContext<PlanContextType | undefined>(undefined);
@@ -69,7 +71,7 @@ export const PlanProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   useEffect(() => { fetchPlan(); }, [fetchPlan]);
 
-  const isPaid = plan === 'starter' || plan === 'pro';
+  const isPaid = plan === 'starter' || plan === 'pro' || plan === 'ghost_kitchen';
 
   const isAtLimit = useCallback((resource: string, currentCount: number) => {
     const max = (limits as unknown as Record<string, unknown>)[resource];

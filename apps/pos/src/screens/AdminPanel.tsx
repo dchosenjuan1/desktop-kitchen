@@ -24,6 +24,7 @@ import {
   X,
   UserCog,
   Receipt,
+  TrendingUp,
 } from 'lucide-react';
 import { getSalesReport, getLowStock, createCheckoutSession, createPortalSession } from '../api';
 import { SalesReport, InventoryItem } from '../types';
@@ -313,6 +314,16 @@ export default function AdminPanel() {
               </div>
               <h2 className="text-xl font-bold text-white mb-2">{t('cards.aiIntelligence')}</h2>
               <p className="text-neutral-400 text-sm">{t('cards.aiDesc')}</p>
+            </div>
+          </Link>
+
+          <Link to="/admin/pricing">
+            <div className="bg-neutral-900 p-8 rounded-lg border border-neutral-800 hover:border-brand-600 transition-all cursor-pointer h-full">
+              <div className="flex items-center justify-center w-12 h-12 bg-brand-600/10 rounded-lg mb-4">
+                <TrendingUp className="text-brand-500" size={28} />
+              </div>
+              <h2 className="text-xl font-bold text-white mb-2">Dynamic Pricing</h2>
+              <p className="text-neutral-400 text-sm">AI-powered price optimization</p>
             </div>
           </Link>
 

@@ -8,6 +8,7 @@ import {
   detectShrinkagePatterns,
 } from './data-pipeline.js';
 import { analyzeWastePatterns } from './suggestions/waste-patterns.js';
+import { evaluateActiveRules, backfillRevenueAfter } from './pricing-engine.js';
 import { registerJob, startScheduler, stopScheduler, getSchedulerStatus } from './scheduler.js';
 import { adminSql, tenantContext } from '../db/index.js';
 
@@ -55,6 +56,8 @@ export async function initAI() {
   registerJob('cleanExpiredCache', cleanExpiredCache, 60 * 60 * 1000);                // Every hour
   registerJob('detectShrinkagePatterns', detectShrinkagePatterns, 24 * 60 * 60 * 1000); // Daily
   registerJob('analyzeWastePatterns', analyzeWastePatterns, 24 * 60 * 60 * 1000);     // Daily
+  registerJob('evaluatePricingRules', evaluateActiveRules, 15 * 60 * 1000);          // Every 15 min
+  registerJob('backfillRevenueAfter', backfillRevenueAfter, 6 * 60 * 60 * 1000);     // Every 6 hours
 
   // Start the scheduler
   startScheduler();

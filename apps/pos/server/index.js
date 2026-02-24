@@ -27,6 +27,7 @@ import authRoutes from './routes/auth.js';
 import brandingRoutes from './routes/branding.js';
 import billingRoutes, { stripeWebhook } from './routes/billing.js';
 import deliveryIntelRoutes from './routes/delivery-intelligence.js';
+import pricingRoutes from './routes/pricing.js';
 import menuBoardRoutes from './routes/menu-board.js';
 import cfdiPublicRoutes from './routes/cfdi-public.js';
 import accountRoutes from './routes/account.js';
@@ -114,6 +115,7 @@ app.use('/api/branding', brandingRoutes);
 app.use('/api/billing', billingRoutes);
 app.use('/api/account', accountRoutes);
 app.use('/api/delivery', deliveryIntelRoutes);
+app.use('/api/pricing', pricingRoutes);
 app.use('/api/cfdi', cfdiRoutes);
 
 // Serve index.html for all other routes (SPA)

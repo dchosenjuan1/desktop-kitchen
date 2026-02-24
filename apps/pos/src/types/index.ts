@@ -87,10 +87,11 @@ export interface Order {
   total: number;
   payment_intent_id?: string;
   payment_status: 'unpaid' | 'processing' | 'paid' | 'completed' | 'failed' | 'refunded';
-  payment_method?: 'card' | 'cash' | 'split' | 'crypto' | null;
+  payment_method?: 'card' | 'cash' | 'split' | 'crypto' | 'transfer' | null;
   source?: 'pos' | 'uber_eats' | 'rappi' | 'didi_food';
   invoice_token?: string;
   cfdi_invoice_id?: number;
+  paid_at?: string;
   created_at: string;
   completed_at?: string;
   items?: OrderItem[];
@@ -345,6 +346,114 @@ export interface CategoryRole {
   category_id: number;
   role: string;
   category_name: string;
+}
+
+/* Dynamic Pricing Types */
+export interface PricingRule {
+  id: number;
+  name: string;
+  rule_type: 'happy_hour' | 'day_of_week' | 'seasonal' | 'demand_based' | 'custom';
+  description?: string;
+  conditions: Record<string, any>;
+  adjustment_type: 'percent' | 'fixed';
+  adjustment_value: number;
+  applies_to: { scope: 'all' | 'categories' | 'items'; ids?: number[] };
+  priority: number;
+  max_stack: boolean;
+  active: boolean;
+  auto_apply: boolean;
+  created_by?: number;
+  created_by_name?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PriceHistoryEntry {
+  id: number;
+  menu_item_id: number;
+  item_name?: string;
+  old_price: number;
+  new_price: number;
+  change_percent: number;
+  reason?: string;
+  source: 'manual' | 'ai_suggestion' | 'scheduled_rule' | 'ab_test' | 'delivery_sync' | 'revert';
+  pricing_rule_id?: number;
+  experiment_id?: number;
+  created_by?: number;
+  created_by_name?: string;
+  reverted_at?: string;
+  reverted_by?: number;
+  revenue_before_daily?: number;
+  revenue_after_daily?: number;
+  created_at: string;
+}
+
+export interface PricingExperiment {
+  id: number;
+  name: string;
+  description?: string;
+  menu_item_id: number;
+  item_name?: string;
+  variant_a_price: number;
+  variant_b_price: number;
+  split_percent: number;
+  status: 'draft' | 'running' | 'paused' | 'completed' | 'cancelled';
+  start_date?: string;
+  end_date?: string;
+  results: {
+    variant_a?: { orders: number; revenue: number; avg_quantity: number };
+    variant_b?: { orders: number; revenue: number; avg_quantity: number };
+    winner?: 'a' | 'b' | null;
+    confidence?: number;
+  };
+  created_at: string;
+}
+
+export interface PricingGuardrails {
+  id: number;
+  min_change_percent: number;
+  max_change_percent: number;
+  max_daily_changes: number;
+  require_approval_above: number;
+  protected_item_ids: number[];
+  notification_email?: string;
+  cooldown_hours: number;
+  today_changes?: number;
+}
+
+export interface GrokPricingSuggestion {
+  id: string;
+  type: 'markup' | 'discount';
+  menu_item_id: number;
+  item_name: string;
+  current_price: number;
+  suggested_price: number;
+  change_percent: number;
+  confidence: number;
+  reasoning?: string;
+  reason?: string;
+  projected_weekly_revenue_change: number;
+  elasticity_estimate?: number;
+  source: 'heuristic' | 'grok';
+  requires_approval: boolean;
+}
+
+export interface PricingDashboard {
+  activeRulesCount: number;
+  recentChanges: PriceHistoryEntry[];
+  totalRevenueImpact: number;
+  runningExperiments: number;
+  pendingSuggestions: number;
+  chartData: Array<{ date: string; revenue: number; changes: number }>;
+}
+
+export interface DynamicPricingLimits {
+  aiSuggestions: boolean;
+  scheduledRules: boolean;
+  priceHistory: boolean;
+  guardrails: boolean;
+  abTesting: boolean;
+  deliveryIntegration: boolean;
 }
 
 /* Inventory Insights Types */

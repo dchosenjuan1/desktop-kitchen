@@ -6,7 +6,6 @@ import {
   Sparkles,
   BarChart3,
   Package,
-  DollarSign,
   Settings,
   Download,
   Upload,
@@ -17,11 +16,9 @@ import {
   getAIAnalytics,
   getAIConfig,
   updateAIConfig,
-  getPricingSuggestions,
   getInventoryForecast,
   getCategoryRoles,
   updateCategoryRole,
-  applyPricingSuggestion,
   exportAIConfig,
   importAIConfig,
   runGrokAnalysis,
@@ -30,7 +27,6 @@ import {
   AIInsights,
   AIAnalytics,
   AIConfig,
-  PricingSuggestion,
   InventoryForecast,
   CategoryRole,
 } from '../types';
@@ -39,7 +35,7 @@ import { formatDateTime } from '../utils/dateFormat';
 import { usePlan } from '../context/PlanContext';
 import UpgradePrompt from '../components/UpgradePrompt';
 
-type Tab = 'dashboard' | 'upsell' | 'inventory' | 'pricing' | 'config';
+type Tab = 'dashboard' | 'upsell' | 'inventory' | 'config';
 
 export default function AIConfigScreen() {
   const { t } = useTranslation('reports');
@@ -49,7 +45,6 @@ export default function AIConfigScreen() {
   const [insights, setInsights] = useState<AIInsights | null>(null);
   const [analytics, setAnalytics] = useState<AIAnalytics | null>(null);
   const [config, setConfig] = useState<AIConfig | null>(null);
-  const [pricingSuggestions, setPricingSuggestions] = useState<PricingSuggestion[]>([]);
   const [forecasts, setForecasts] = useState<InventoryForecast[]>([]);
   const [categoryRoles, setCategoryRoles] = useState<CategoryRole[]>([]);
   const [loading, setLoading] = useState(true);
@@ -74,9 +69,6 @@ export default function AIConfigScreen() {
         ]);
         setInsights(insightsData);
         setAnalytics(analyticsData);
-      } else if (activeTab === 'pricing') {
-        const data = await getPricingSuggestions();
-        setPricingSuggestions(data);
       } else if (activeTab === 'inventory') {
         const data = await getInventoryForecast();
         setForecasts(data);
@@ -109,15 +101,6 @@ export default function AIConfigScreen() {
       setError(t('errors.updateConfig'));
     } finally {
       setSaving(false);
-    }
-  };
-
-  const handleApplyPricing = async (suggestion: PricingSuggestion) => {
-    try {
-      await applyPricingSuggestion(suggestion.id, suggestion.menu_item_id, suggestion.suggested_price);
-      setPricingSuggestions((prev) => prev.filter((s) => s.id !== suggestion.id));
-    } catch (err) {
-      setError(t('errors.applyPricing'));
     }
   };
 
@@ -183,7 +166,6 @@ export default function AIConfigScreen() {
     { id: 'dashboard', label: t('ai.tabs.dashboard'), icon: <Sparkles size={18} /> },
     { id: 'upsell', label: t('ai.tabs.upsell'), icon: <BarChart3 size={18} /> },
     { id: 'inventory', label: t('ai.tabs.inventoryAi'), icon: <Package size={18} /> },
-    { id: 'pricing', label: t('ai.tabs.pricing'), icon: <DollarSign size={18} /> },
     { id: 'config', label: t('ai.tabs.config'), icon: <Settings size={18} /> },
   ];
 
@@ -561,49 +543,6 @@ export default function AIConfigScreen() {
                     </div>
                   ) : (
                     <p className="text-neutral-500 text-center py-8">{t('ai.inventoryAi.noDataYet')}</p>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {/* Pricing Tab */}
-            {activeTab === 'pricing' && (
-              <div className="space-y-6">
-                <div className="bg-neutral-900 p-6 rounded-lg border border-neutral-800">
-                  <h3 className="text-lg font-bold text-white mb-4">{t('ai.pricing.dynamicPricing')}</h3>
-                  {pricingSuggestions.length > 0 ? (
-                    <div className="space-y-3">
-                      {pricingSuggestions.map((s) => (
-                        <div key={s.id} className="p-4 bg-neutral-800 rounded-lg border border-neutral-700">
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <p className="font-bold text-white">{s.item_name}</p>
-                              <p className="text-sm text-neutral-400">{s.reason}</p>
-                              <p className="text-sm mt-1">
-                                <span className="text-neutral-500">{formatPrice(s.current_price)}</span>
-                                <span className="mx-2 text-neutral-600">&rarr;</span>
-                                <span className={s.type === 'markup' ? 'text-amber-400' : 'text-green-400'}>
-                                  {formatPrice(s.suggested_price)}
-                                </span>
-                                <span className={`ml-2 text-xs ${s.change_percent > 0 ? 'text-amber-400' : 'text-green-400'}`}>
-                                  ({s.change_percent > 0 ? '+' : ''}{s.change_percent}%)
-                                </span>
-                              </p>
-                            </div>
-                            <button
-                              onClick={() => handleApplyPricing(s)}
-                              className="px-4 py-2 bg-brand-600 text-white rounded-lg hover:bg-brand-700 transition-colors text-sm font-medium"
-                            >
-                              {t('ai.pricing.approve')}
-                            </button>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="text-neutral-500 text-center py-8">
-                      {t('ai.pricing.noPricing')}
-                    </p>
                   )}
                 </div>
               </div>
