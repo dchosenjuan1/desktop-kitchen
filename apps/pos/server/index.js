@@ -28,6 +28,7 @@ import brandingRoutes from './routes/branding.js';
 import billingRoutes, { stripeWebhook, promoValidateHandler } from './routes/billing.js';
 import deliveryIntelRoutes from './routes/delivery-intelligence.js';
 import pricingRoutes from './routes/pricing.js';
+import leadsRoutes, { adminLeadsHandler } from './routes/leads.js';
 import menuBoardRoutes from './routes/menu-board.js';
 import cfdiPublicRoutes from './routes/cfdi-public.js';
 import accountRoutes from './routes/account.js';
@@ -97,6 +98,18 @@ app.post('/api/payments/mp/webhook', mpWebhook);
 
 // Promo code validation (public, no tenant context needed)
 app.get('/api/billing/promo/validate', promoValidateHandler);
+
+// Lead capture (public, no tenant context needed)
+app.use('/api/leads', leadsRoutes);
+
+// Admin leads endpoint (under /admin, protected by requireAdmin in admin routes)
+app.get('/admin/leads', (req, res, next) => {
+  const secret = req.headers['x-admin-secret'] || req.headers['authorization']?.replace('Bearer ', '');
+  if (!process.env.ADMIN_SECRET || secret !== process.env.ADMIN_SECRET) {
+    return res.status(401).json({ error: 'Invalid admin secret' });
+  }
+  adminLeadsHandler(req, res);
+});
 
 // Tenant resolution middleware — all /api routes below use the resolved tenant DB
 app.use('/api', tenantMiddleware);

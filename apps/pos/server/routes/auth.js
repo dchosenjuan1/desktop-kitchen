@@ -119,6 +119,13 @@ router.post('/register', registerLimiter, async (req, res) => {
     // Fire-and-forget email with PIN (include tenant subdomain for login URL)
     sendPinEmail(email, pin, restaurant_name, slug).catch(() => {});
 
+    // Convert any matching lead (fire-and-forget)
+    adminSql`
+      UPDATE leads
+      SET tenant_id = ${slug}, converted_at = NOW()
+      WHERE email = ${email.trim().toLowerCase()} AND tenant_id IS NULL
+    `.catch(() => {});
+
     // Sign JWT
     const token = signToken({
       tenantId: tenant.id,

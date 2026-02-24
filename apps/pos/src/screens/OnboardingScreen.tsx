@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { ChevronRight, ChevronLeft, Check, Store, Palette, CreditCard, X, Loader2 } from 'lucide-react';
 import { useBranding } from '../context/BrandingContext';
 import { redirectToTenant, tenantUrl } from '../lib/tenantResolver';
@@ -31,6 +31,7 @@ const COLOR_PRESETS = [
 
 const OnboardingScreen: React.FC = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { refresh: refreshBranding } = useBranding();
   const [step, setStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -53,6 +54,25 @@ const OnboardingScreen: React.FC = () => {
   const [promoCode, setPromoCode] = useState(''); // validated code string
   const [promoDescription, setPromoDescription] = useState('');
   const [promoError, setPromoError] = useState('');
+
+  // Pre-fill from URL query params (e.g. ?promo_code=MEXICO50&restaurant_name=...)
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const urlPromo = params.get('promo_code');
+    const urlName = params.get('restaurant_name');
+    const urlEmail = params.get('email');
+
+    if (urlName) setData(prev => ({ ...prev, restaurant_name: urlName }));
+    if (urlEmail) setData(prev => ({ ...prev, email: urlEmail }));
+
+    if (urlPromo) {
+      const code = urlPromo.trim().toUpperCase();
+      setPromoInput(code);
+      setPromoCode(code);
+      setPromoState('valid');
+      setPromoDescription('Descuento aplicado desde enlace de campaña');
+    }
+  }, []);
 
   const handleValidatePromo = async () => {
     const code = promoInput.trim().toUpperCase();
