@@ -10,13 +10,13 @@ const RESERVED_SUBDOMAINS = new Set([
  * Tenant resolution middleware (async, Postgres + RLS).
  *
  * Resolution order:
- *   1. X-Tenant-ID header (for dev/testing)
+ *   1. X-Tenant-ID header (dev: unrestricted, production: requires admin secret)
  *   2. Subdomain from Host header (production)
  *   3. Default tenant from DEFAULT_TENANT_ID env var
- *   4. No tenant — uses adminSql (backward compat)
+ *   4. No tenant — REJECT in production, warn in dev
  *
  * When a tenant is resolved:
- *   - Reserves a dedicated connection from tenantSql pool
+ *   - Reserves a dedicated connection from tenantSql pool (with timeout)
  *   - Sets `app.tenant_id` session variable for RLS
  *   - Stores connection in AsyncLocalStorage so run/get/all/exec auto-use it
  *   - Releases connection on response finish
@@ -26,9 +26,16 @@ export async function tenantMiddleware(req, res, next) {
   let tenant = null;
 
   try {
-    // 1. Explicit header (for dev / cross-origin API calls)
+    // 1. Explicit header (dev: unrestricted, production: requires admin secret)
     const headerTenantId = req.headers['x-tenant-id'];
     if (headerTenantId) {
+      // In production, X-Tenant-ID requires admin secret to prevent tenant impersonation
+      if (process.env.NODE_ENV === 'production') {
+        const adminSecret = req.headers['x-admin-secret'];
+        if (!process.env.ADMIN_SECRET || adminSecret !== process.env.ADMIN_SECRET) {
+          return res.status(403).json({ error: 'X-Tenant-ID header requires admin authorization in production' });
+        }
+      }
       tenant = await getTenant(headerTenantId);
       if (!tenant) {
         return res.status(404).json({ error: `Tenant '${headerTenantId}' not found` });
@@ -67,14 +74,29 @@ export async function tenantMiddleware(req, res, next) {
       }
     }
 
-    // 4. No tenant resolved — use default admin pool (backward compatibility)
+    // 4. No tenant resolved — REJECT in production, warn in dev
     if (!tenantId) {
-      req.tenant = null;
-      return next();
+      if (process.env.NODE_ENV !== 'production') {
+        console.warn('[Tenant] No tenant resolved — request proceeding without tenant scope (dev mode)');
+        req.tenant = null;
+        return next();
+      }
+      return res.status(401).json({ error: 'Could not resolve tenant. Check your subdomain or X-Tenant-ID header.' });
     }
 
-    // Reserve a dedicated connection from the tenant pool
-    const conn = await tenantSql.reserve();
+    // Reserve a dedicated connection from the tenant pool (with timeout)
+    let conn;
+    try {
+      conn = await Promise.race([
+        tenantSql.reserve(),
+        new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('Connection pool exhausted')), 5000)
+        ),
+      ]);
+    } catch (poolErr) {
+      console.error('[Tenant] Connection pool exhausted:', poolErr.message);
+      return res.status(503).json({ error: 'Service temporarily unavailable. Please try again.' });
+    }
 
     // Set the RLS session variable
     await conn`SELECT set_config('app.tenant_id', ${tenantId}, false)`;

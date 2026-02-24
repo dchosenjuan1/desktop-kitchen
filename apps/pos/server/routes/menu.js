@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { all, get, run } from '../db/index.js';
 import { requireAuth } from '../middleware/auth.js';
 import { checkLimit } from '../planLimits.js';
+import { audit } from '../lib/auditLog.js';
 
 const router = Router();
 
@@ -38,6 +39,16 @@ router.post('/categories', requireAuth('manage_menu'), async (req, res) => {
       INSERT INTO menu_categories (name, sort_order, active)
       VALUES ($1, $2, true)
     `, [name.trim(), order]);
+
+    audit({
+      tenantId: req.tenant?.id || 'default',
+      actorType: 'employee',
+      actorId: req.headers['x-employee-id'] || 'unknown',
+      action: 'create',
+      resource: 'menu_category',
+      resourceId: String(result.lastInsertRowid),
+      ip: req.ip,
+    });
 
     res.status(201).json({
       id: result.lastInsertRowid,
@@ -81,6 +92,16 @@ router.put('/categories/:id', requireAuth('manage_menu'), async (req, res) => {
 
     values.push(id);
     await run(`UPDATE menu_categories SET ${updates.join(', ')} WHERE id = $${values.length}`, values);
+
+    audit({
+      tenantId: req.tenant?.id || 'default',
+      actorType: 'employee',
+      actorId: req.headers['x-employee-id'] || 'unknown',
+      action: 'update',
+      resource: 'menu_category',
+      resourceId: String(id),
+      ip: req.ip,
+    });
 
     res.json({ message: 'Category updated successfully' });
   } catch (error) {
@@ -226,6 +247,16 @@ router.post('/items', requireAuth('manage_menu'), async (req, res) => {
       VALUES ($1, $2, $3, $4, $5, true)
     `, [category_id, name, price, description || null, image_url || null]);
 
+    audit({
+      tenantId: req.tenant?.id || 'default',
+      actorType: 'employee',
+      actorId: req.headers['x-employee-id'] || 'unknown',
+      action: 'create',
+      resource: 'menu_item',
+      resourceId: String(result.lastInsertRowid),
+      ip: req.ip,
+    });
+
     res.status(201).json({
       id: result.lastInsertRowid,
       category_id,
@@ -287,6 +318,16 @@ router.put('/items/:id', requireAuth('manage_menu'), async (req, res) => {
       SET ${updates.join(', ')}
       WHERE id = $${values.length}
     `, values);
+
+    audit({
+      tenantId: req.tenant?.id || 'default',
+      actorType: 'employee',
+      actorId: req.headers['x-employee-id'] || 'unknown',
+      action: 'update',
+      resource: 'menu_item',
+      resourceId: String(id),
+      ip: req.ip,
+    });
 
     res.json({ message: 'Item updated successfully' });
   } catch (error) {

@@ -12,7 +12,7 @@ import {
   getLoyaltyConfig,
   updateLoyaltyConfig,
 } from '../helpers/loyalty.js';
-import { getPlanLimits } from '../planLimits.js';
+import { getPlanLimits, requirePlanFeature } from '../planLimits.js';
 
 const router = Router();
 
@@ -80,7 +80,7 @@ router.get('/customers/phone/:phone', requireAuth('pos_access'), async (req, res
 });
 
 // POST /customers — Register new customer
-router.post('/customers', requireAuth('pos_access'), async (req, res) => {
+router.post('/customers', requireAuth('pos_access'), requirePlanFeature('loyalty'), async (req, res) => {
   try {
     const { phone, name, referral_code_used, sms_opt_in } = req.body;
     if (!phone || !name) return res.status(400).json({ error: 'Phone and name are required' });
@@ -124,7 +124,7 @@ router.put('/customers/:id', requireAuth('manage_loyalty'), async (req, res) => 
 /* ==================== Stamp Operations ==================== */
 
 // POST /customers/:id/stamps — Add stamp after payment
-router.post('/customers/:id/stamps', requireAuth('pos_access'), async (req, res) => {
+router.post('/customers/:id/stamps', requireAuth('pos_access'), requirePlanFeature('loyalty'), async (req, res) => {
   try {
     const { order_id } = req.body;
     const customerId = parseInt(req.params.id);
@@ -149,7 +149,7 @@ router.post('/customers/:id/stamps', requireAuth('pos_access'), async (req, res)
 });
 
 // POST /customers/:id/stamps/manual — Manager manual stamp add
-router.post('/customers/:id/stamps/manual', requireAuth('manage_loyalty'), async (req, res) => {
+router.post('/customers/:id/stamps/manual', requireAuth('manage_loyalty'), requirePlanFeature('loyalty'), async (req, res) => {
   try {
     const { count = 1 } = req.body;
     const customerId = parseInt(req.params.id);
@@ -167,7 +167,7 @@ router.post('/customers/:id/stamps/manual', requireAuth('manage_loyalty'), async
 });
 
 // POST /customers/:id/redeem — Redeem completed card
-router.post('/customers/:id/redeem', requireAuth('pos_access'), async (req, res) => {
+router.post('/customers/:id/redeem', requireAuth('pos_access'), requirePlanFeature('loyalty'), async (req, res) => {
   try {
     const customerId = parseInt(req.params.id);
     const customer = await get('SELECT * FROM loyalty_customers WHERE id = $1', [customerId]);
@@ -288,13 +288,8 @@ router.get('/config', requireAuth('manage_loyalty'), async (req, res) => {
 });
 
 // PUT /config — Update loyalty settings
-router.put('/config', requireAuth('manage_loyalty'), async (req, res) => {
+router.put('/config', requireAuth('manage_loyalty'), requirePlanFeature('loyalty'), async (req, res) => {
   try {
-    const plan = req.tenant?.plan || 'trial';
-    if (getPlanLimits(plan).loyalty.locked) {
-      return res.status(403).json({ error: 'Loyalty program requires a paid plan', upgrade: true });
-    }
-
     const { key, value } = req.body;
     if (!key || value === undefined) return res.status(400).json({ error: 'Key and value are required' });
 

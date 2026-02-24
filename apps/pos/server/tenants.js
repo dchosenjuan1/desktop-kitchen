@@ -1,19 +1,30 @@
 import { adminSql } from './db/index.js';
+import { tenantCache } from './lib/tenantCache.js';
 
 // ==================== Tenant CRUD ====================
 // All operations use adminSql (neondb_owner, bypasses RLS).
 // No more file management — everything is in Postgres.
 
-/** Look up a tenant by ID */
+/** Look up a tenant by ID (cached, 60s TTL) */
 export async function getTenant(tenantId) {
+  const cached = tenantCache.getById(tenantId);
+  if (cached) return cached;
+
   const rows = await adminSql`SELECT * FROM tenants WHERE id = ${tenantId}`;
-  return rows[0] || undefined;
+  const tenant = rows[0] || undefined;
+  if (tenant) tenantCache.set(tenant);
+  return tenant;
 }
 
-/** Look up a tenant by subdomain */
+/** Look up a tenant by subdomain (cached, 60s TTL) */
 export async function getTenantBySubdomain(subdomain) {
+  const cached = tenantCache.getBySubdomain(subdomain);
+  if (cached) return cached;
+
   const rows = await adminSql`SELECT * FROM tenants WHERE subdomain = ${subdomain} AND active = true`;
-  return rows[0] || undefined;
+  const tenant = rows[0] || undefined;
+  if (tenant) tenantCache.set(tenant);
+  return tenant;
 }
 
 /** Look up a tenant by email */
@@ -47,6 +58,7 @@ export async function updateTenant(tenantId, updates) {
     `UPDATE tenants SET ${setClauses} WHERE id = $${values.length}`,
     values
   );
+  tenantCache.invalidate(tenantId);
 }
 
 /** List all tenants with stats (uses admin pool, cross-tenant subqueries) */

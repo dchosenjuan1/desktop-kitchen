@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { all, get, run } from '../db/index.js';
 import { requireAuth } from '../middleware/auth.js';
-import { getPlanLimits } from '../planLimits.js';
+import { getPlanLimits, requirePlanFeature } from '../planLimits.js';
 
 const router = Router();
 
@@ -17,13 +17,8 @@ router.get('/platforms', async (req, res) => {
 });
 
 // PUT /api/delivery/platforms/:id - update delivery platform
-router.put('/platforms/:id', requireAuth('manage_delivery'), async (req, res) => {
+router.put('/platforms/:id', requireAuth('manage_delivery'), requirePlanFeature('delivery'), async (req, res) => {
   try {
-    const plan = req.tenant?.plan || 'trial';
-    if (!getPlanLimits(plan).delivery.functional) {
-      return res.status(403).json({ error: 'Delivery management requires a paid plan', upgrade: true });
-    }
-
     const { id } = req.params;
     const { display_name, commission_percent, active, webhook_secret } = req.body;
 
@@ -77,7 +72,7 @@ router.get('/orders', async (req, res) => {
 });
 
 // PUT /api/delivery/orders/:id/status - update delivery order status
-router.put('/orders/:id/status', requireAuth('manage_delivery'), async (req, res) => {
+router.put('/orders/:id/status', requireAuth('manage_delivery'), requirePlanFeature('delivery'), async (req, res) => {
   try {
     const { id } = req.params;
     const { status } = req.body;

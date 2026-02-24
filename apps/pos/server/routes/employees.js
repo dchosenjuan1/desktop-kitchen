@@ -4,6 +4,7 @@ import bcrypt from 'bcrypt';
 import { all, get, run } from '../db/index.js';
 import { requireAuth } from '../middleware/auth.js';
 import { checkLimit } from '../planLimits.js';
+import { audit } from '../lib/auditLog.js';
 
 const BCRYPT_ROUNDS = 12;
 
@@ -55,6 +56,16 @@ router.post('/', async (req, res) => {
       INSERT INTO employees (name, pin, role, active)
       VALUES ($1, $2, $3, true)
     `, [name, hashedPin, role]);
+
+    audit({
+      tenantId: req.tenant?.id || 'default',
+      actorType: 'employee',
+      actorId: req.headers['x-employee-id'] || 'unknown',
+      action: 'create',
+      resource: 'employee',
+      resourceId: String(result.lastInsertRowid),
+      ip: req.ip,
+    });
 
     res.status(201).json({
       id: result.lastInsertRowid,
@@ -228,6 +239,16 @@ router.put('/:id', async (req, res) => {
       SET ${updates.join(', ')}
       WHERE id = $${values.length}
     `, values);
+
+    audit({
+      tenantId: req.tenant?.id || 'default',
+      actorType: 'employee',
+      actorId: req.headers['x-employee-id'] || 'unknown',
+      action: 'update',
+      resource: 'employee',
+      resourceId: String(id),
+      ip: req.ip,
+    });
 
     res.json({ message: 'Employee updated successfully' });
   } catch (error) {

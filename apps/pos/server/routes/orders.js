@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { all, get, run, getConn } from '../db/index.js';
 import { recordOrderItemPairs } from '../ai/data-pipeline.js';
 import { requireAuth } from '../middleware/auth.js';
+import { audit } from '../lib/auditLog.js';
 
 const router = Router();
 
@@ -231,6 +232,16 @@ router.post('/', requireAuth('pos_access'), async (req, res) => {
 
     // Fire-and-forget: record item pairs for AI analysis
     setImmediate(() => recordOrderItemPairs(orderId));
+
+    audit({
+      tenantId: req.tenant?.id || 'default',
+      actorType: 'employee',
+      actorId: String(employee_id),
+      action: 'create',
+      resource: 'order',
+      resourceId: String(orderId),
+      ip: req.ip,
+    });
 
     res.status(201).json({
       id: orderId,

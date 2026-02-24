@@ -80,3 +80,24 @@ export function checkLimit(plan, resource, currentCount) {
     ? { allowed: false, limit: max, current: currentCount, plan }
     : { allowed: true, limit: max, current: currentCount };
 }
+
+/**
+ * Middleware factory: blocks the request if the feature is locked on the tenant's plan.
+ * Usage: router.post('/some-pro-feature', requirePlanFeature('delivery'), handler)
+ */
+export function requirePlanFeature(feature) {
+  return (req, res, next) => {
+    const plan = req.tenant?.plan || 'trial';
+    const limits = getPlanLimits(plan);
+    const featureLimits = limits[feature];
+
+    if (featureLimits && (featureLimits.locked === true || featureLimits.functional === false)) {
+      return res.status(403).json({
+        error: `This feature requires a higher plan. Current plan: ${plan}`,
+        upgrade_required: true,
+        feature,
+      });
+    }
+    next();
+  };
+}

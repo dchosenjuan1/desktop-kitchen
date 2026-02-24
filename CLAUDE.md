@@ -115,9 +115,11 @@ React + TypeScript frontend, Express.js backend, Neon Postgres database (shared 
 - Entry: `server/index.js` — mounts all route files under `/api/*`
 - Database: `server/db/index.js` — two Postgres connection pools (`adminSql` as neondb_owner, `tenantSql` as app_user with RLS), helpers (`run`, `get`, `all`, `exec`), tenant context via AsyncLocalStorage
 - Multi-tenancy: `AsyncLocalStorage` in `server/db/index.js` — tenant middleware reserves a connection with `set_config('app.tenant_id', ...)` for RLS
-- Tenant registry: `server/tenants.js` — all tenants in single `tenants` table in Neon Postgres, CRUD via `adminSql`
-- Tenant middleware: `server/middleware/tenant.js` — resolves via X-Tenant-ID header → subdomain → DEFAULT_TENANT_ID env → default DB
+- Tenant registry: `server/tenants.js` — all tenants in single `tenants` table in Neon Postgres, CRUD via `adminSql`, cached via `server/lib/tenantCache.js`
+- Tenant middleware: `server/middleware/tenant.js` — resolves via X-Tenant-ID header (requires admin secret in prod) → subdomain → DEFAULT_TENANT_ID env → hard 401 in production
 - Owner auth: `server/middleware/ownerAuth.js` — JWT validation for tenant owners (separate from employee PIN auth)
+- Plan enforcement: `server/planLimits.js` — `checkLimit` for numeric caps, `requirePlanFeature` middleware for feature gating on downgrade
+- Audit logging: `server/lib/auditLog.js` — fire-and-forget writes to `audit_log` table (orders, employees, menu, tenant CRUD)
 - Routes: 18 files in `server/routes/` (menu, orders, payments, inventory, employees, reports, modifiers, combos, printers, delivery, delivery-intelligence, ai, auth, admin, branding, billing, loyalty, order-templates)
 - Payments: Stripe integration (PaymentIntents, refunds, split payments, subscriptions, billing portal, webhooks)
 - Tax rate: 16% IVA (Mexican tax, hardcoded in order creation)
@@ -129,9 +131,15 @@ React + TypeScript frontend, Express.js backend, Neon Postgres database (shared 
 - Row Level Security (RLS) enforced via `app_user` role; policies use `current_setting('app.tenant_id')`
 - `adminSql` pool (neondb_owner) bypasses RLS for admin routes, auth, AI scheduler, tenant CRUD
 - `tenantSql` pool (app_user) enforces RLS for all tenant-scoped `/api/*` routes
-- Tenant resolution order: `X-Tenant-ID` header → subdomain → `DEFAULT_TENANT_ID` env → default (backward compatible)
+- Tenant resolution order: `X-Tenant-ID` header (requires `X-Admin-Secret` in production) → subdomain → `DEFAULT_TENANT_ID` env → hard 401 in production (dev-only fallback)
 - Auth routes (`/api/auth/*`) and admin routes (`/admin/*`) are mounted BEFORE tenant middleware (they use `adminSql`)
 - AI scheduled jobs run outside request context and use `adminSql`
+- Tenant lookups cached in-memory (60s TTL) via `server/lib/tenantCache.js` — invalidated on mutation
+- Connection pool: 30 connections with 5s reserve timeout → returns 503 on exhaustion
+
+#### Critical Constraint: Connection Reservation
+
+Tenant isolation depends on `set_config('app.tenant_id', ..., false)` (session-scoped). This requires that each request gets a **dedicated reserved connection** via `tenantSql.reserve()`. Never use a shared connection pool (like PgBouncer in transaction mode) without switching to transaction-scoped config (`set_config(..., true)`) and wrapping all queries in explicit transactions. Violating this constraint causes **cross-tenant data leaks**.
 
 ### Branding System
 
@@ -189,6 +197,7 @@ Background scheduler runs 6 jobs (suggestion cache refresh, hourly snapshots, it
 - **Loyalty**: loyalty_customers, stamp_cards, stamp_events, loyalty_config, loyalty_messages, referral_events
 - **Financial**: financial_targets, financial_actuals
 - **Infrastructure**: printers, category_printer_routes, role_permissions, purchase_orders, purchase_order_items, vendors, vendor_items, order_templates
+- **Audit**: audit_log (tenant_id, actor_type, actor_id, action, resource, resource_id, details JSONB, ip_address) — no RLS, written via `server/lib/auditLog.js` (fire-and-forget)
 - **Platform**: tenants (id, name, subdomain, plan, stripe fields, branding_json, owner credentials)
 
 Schema managed via SQL migrations in Neon. `schema_version` table tracks applied versions.

@@ -3,6 +3,7 @@ import bcrypt from 'bcrypt';
 import { createTenant, getTenant, listTenants, updateTenant } from '../tenants.js';
 import { run, adminSql } from '../db/index.js';
 import { sendPinEmail } from '../helpers/email.js';
+import { audit } from '../lib/auditLog.js';
 import os from 'os';
 
 const BCRYPT_ROUNDS = 12;
@@ -294,6 +295,17 @@ router.post('/tenants', async (req, res) => {
     // Fire-and-forget email with PIN
     sendPinEmail(owner_email, pin, name).catch(() => {});
 
+    audit({
+      tenantId: id,
+      actorType: 'admin',
+      actorId: 'super-admin',
+      action: 'create',
+      resource: 'tenant',
+      resourceId: id,
+      details: { name, owner_email, plan: plan || 'trial' },
+      ip: req.ip,
+    });
+
     // Strip sensitive field from response
     const { owner_password_hash: _, ...safeTenant } = tenant;
 
@@ -384,6 +396,18 @@ router.patch('/tenants/:id', async (req, res) => {
     }
 
     await updateTenant(req.params.id, updates);
+
+    audit({
+      tenantId: req.params.id,
+      actorType: 'admin',
+      actorId: 'super-admin',
+      action: 'update',
+      resource: 'tenant',
+      resourceId: req.params.id,
+      details: { fields: Object.keys(updates) },
+      ip: req.ip,
+    });
+
     res.json(await getTenant(req.params.id));
   } catch (error) {
     console.error('Error updating tenant:', error);
@@ -529,6 +553,17 @@ router.delete('/tenants/:id', async (req, res) => {
 
       // Finally delete the tenant record
       await sql`DELETE FROM tenants WHERE id = ${tid}`;
+    });
+
+    audit({
+      tenantId: tid,
+      actorType: 'admin',
+      actorId: 'super-admin',
+      action: 'delete',
+      resource: 'tenant',
+      resourceId: tid,
+      details: { reason: 'admin action' },
+      ip: req.ip,
     });
 
     res.json({ message: `Tenant '${tid}' and all associated data deleted permanently` });

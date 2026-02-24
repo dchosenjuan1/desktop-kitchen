@@ -25,6 +25,15 @@ export const adminSql = postgres(DATABASE_URL, {
 /**
  * Tenant pool — connects as app_user (RLS enforced).
  * Used by: all /api/* tenant-scoped routes via reserve() + set_config.
+ *
+ * CRITICAL ARCHITECTURAL CONSTRAINT:
+ * Tenant isolation relies on set_config('app.tenant_id', ..., false) which sets
+ * a session-scoped variable. This REQUIRES that each HTTP request reserves a
+ * DEDICATED connection (via tenantSql.reserve()) that is not shared with other
+ * requests. If you ever introduce PgBouncer (transaction mode) or switch to a
+ * shared connection model, you MUST change to set_config(..., true) for
+ * transaction-scoped variables and wrap all queries in explicit transactions.
+ * Failure to do so will cause cross-tenant data leaks.
  */
 const PG_APP_USER = process.env.PG_APP_USER || 'app_user';
 const PG_APP_PASSWORD = process.env.PG_APP_PASSWORD || '';
@@ -38,7 +47,7 @@ function buildTenantUrl() {
 }
 
 export const tenantSql = postgres(buildTenantUrl(), {
-  max: 20,
+  max: 30,
   idle_timeout: 20,
   connect_timeout: 10,
 });
