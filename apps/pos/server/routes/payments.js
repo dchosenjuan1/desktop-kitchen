@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import crypto from 'crypto';
 import { all, get, run, adminSql } from '../db/index.js';
 import { createPaymentIntent, createRefund, getPaymentIntent } from '../stripe.js';
 import {
@@ -870,12 +871,47 @@ export async function mpOAuthCallback(req, res) {
 
 // ==================== MP Webhook (mounted before tenant middleware) ====================
 export async function mpWebhook(req, res) {
-  // Always respond 200 immediately
+  // Always respond 200 immediately (MP requires fast acknowledgement)
   res.sendStatus(200);
 
   try {
     const { action, data } = req.body || {};
     if (!action || !data) return;
+
+    // Verify webhook signature if MP_WEBHOOK_SECRET is configured
+    const webhookSecret = process.env.MP_WEBHOOK_SECRET;
+    if (webhookSecret) {
+      const xSignature = req.headers['x-signature'];
+      const xRequestId = req.headers['x-request-id'];
+      if (!xSignature || !xRequestId) {
+        console.warn('MP webhook: missing x-signature or x-request-id header');
+        return;
+      }
+
+      const parts = xSignature.split(',');
+      let ts, hash;
+      for (const part of parts) {
+        const [key, ...rest] = part.split('=');
+        const value = rest.join('=');
+        if (key.trim() === 'ts') ts = value.trim();
+        if (key.trim() === 'v1') hash = value.trim();
+      }
+
+      if (!ts || !hash) {
+        console.warn('MP webhook: malformed x-signature header');
+        return;
+      }
+
+      const template = `id:${data.id};request-id:${xRequestId};ts:${ts};`;
+      const expected = crypto.createHmac('sha256', webhookSecret).update(template).digest('hex');
+
+      if (expected !== hash) {
+        console.warn('MP webhook: signature verification failed');
+        return;
+      }
+    } else {
+      console.warn('MP webhook: MP_WEBHOOK_SECRET not set — skipping signature verification');
+    }
 
     if (action === 'payment.updated' || action === 'payment') {
       // MP Point webhook: look up by payment intent ID or external_reference
