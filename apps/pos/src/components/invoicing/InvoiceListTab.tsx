@@ -10,7 +10,7 @@ import {
   Loader2,
   Eye,
 } from 'lucide-react';
-import { getCfdiInvoices } from '../../api';
+import { getCfdiInvoices, cancelCfdiInvoice } from '../../api';
 import type { CfdiInvoice, CfdiCatalogs } from '../../types';
 import { formatPrice } from '../../utils/currency';
 
@@ -97,12 +97,21 @@ export default function InvoiceListTab({ catalogs, onError, onSuccess }: Invoice
     fetchInvoices();
   };
 
-  const handleCancelComplete = (updatedInvoice: CfdiInvoice) => {
-    setInvoices((prev) =>
-      prev.map((inv) => (inv.id === updatedInvoice.id ? updatedInvoice : inv))
-    );
-    setCancellingInvoice(null);
-    onSuccess('Factura cancelada correctamente');
+  const handleCancelComplete = async (motive: string, substituteUUID?: string) => {
+    if (!cancellingInvoice) return;
+    try {
+      const updatedInvoice = await cancelCfdiInvoice(cancellingInvoice.id, {
+        motive,
+        substitute_uuid: substituteUUID,
+      });
+      setInvoices((prev) =>
+        prev.map((inv) => (inv.id === updatedInvoice.id ? updatedInvoice : inv))
+      );
+      setCancellingInvoice(null);
+      onSuccess('Factura cancelada correctamente');
+    } catch (err) {
+      onError(err instanceof Error ? err.message : 'Error al cancelar factura');
+    }
   };
 
   const totalPages = Math.ceil(invoiceTotal / INVOICES_PER_PAGE);

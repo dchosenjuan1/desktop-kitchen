@@ -53,7 +53,7 @@ interface MenuItemRow {
   name: string;
   price: number;
   category_id: number;
-  active: number;
+  active: boolean;
 }
 
 interface CategoryRow {
