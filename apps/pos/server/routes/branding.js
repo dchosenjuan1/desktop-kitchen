@@ -72,6 +72,8 @@ router.get('/', (req, res) => {
     plan,
     limits: getPlanLimits(plan),
     ownerEmail: tenant.owner_email || null,
+    mpUserId: tenant.mp_user_id || null,
+    mpDefaultTerminalId: tenant.mp_default_terminal_id || null,
   });
 });
 

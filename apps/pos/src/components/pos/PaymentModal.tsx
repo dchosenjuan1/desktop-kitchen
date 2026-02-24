@@ -1,12 +1,16 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { formatPrice } from '../../utils/currency';
+import { usePlan } from '../../context/PlanContext';
+import { mpCharge, mpCancelCharge, getPaymentStatus } from '../../api';
 
 export interface PaymentModalProps {
   orderTotal: number;
+  orderId?: number;
   onCardPayment: (tip: number) => void;
   onCashPayment: (tip: number, amountReceived: number) => void;
   onCryptoPayment: (tip: number) => void;
+  onTerminalPaymentSuccess?: () => void;
   onCancel: () => void;
   isProcessing: boolean;
   isOnline: boolean;
@@ -14,19 +18,29 @@ export interface PaymentModalProps {
 
 const PaymentModal: React.FC<PaymentModalProps> = ({
   orderTotal,
+  orderId,
   onCardPayment,
   onCashPayment,
   onCryptoPayment,
+  onTerminalPaymentSuccess,
   onCancel,
   isProcessing,
   isOnline,
 }) => {
   const { t } = useTranslation('pos');
+  const { isMpConnected } = usePlan();
   const [tip, setTip] = useState(0);
   const [customTip, setCustomTip] = useState('');
   const [showCustomInput, setShowCustomInput] = useState(false);
   const [showCashInput, setShowCashInput] = useState(false);
   const [amountReceived, setAmountReceived] = useState('');
+
+  // Terminal payment state
+  const [terminalPending, setTerminalPending] = useState(false);
+  const [terminalSuccess, setTerminalSuccess] = useState(false);
+  const [terminalError, setTerminalError] = useState('');
+  const [terminalOrderId, setTerminalOrderId] = useState<number | null>(null);
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const handleTipSelect = (percentage: number) => {
     const tipAmount = Math.round((orderTotal * percentage) / 100 * 100) / 100;
@@ -44,9 +58,85 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
   const receivedNum = parseFloat(amountReceived) || 0;
   const changeDue = Math.max(0, receivedNum - finalTotal);
 
+  // Poll for terminal payment completion
+  const startPolling = useCallback((oid: number) => {
+    if (pollRef.current) clearInterval(pollRef.current);
+    pollRef.current = setInterval(async () => {
+      try {
+        const status = await getPaymentStatus(oid);
+        if (status.payment_status === 'paid') {
+          if (pollRef.current) clearInterval(pollRef.current);
+          pollRef.current = null;
+          setTerminalSuccess(true);
+          setTimeout(() => {
+            if (onTerminalPaymentSuccess) {
+              onTerminalPaymentSuccess();
+            }
+            onCancel();
+          }, 1200);
+        } else if (status.payment_status === 'failed') {
+          if (pollRef.current) clearInterval(pollRef.current);
+          pollRef.current = null;
+          setTerminalPending(false);
+          setTerminalError('Pago rechazado en terminal');
+        }
+      } catch {
+        // Keep polling on network errors
+      }
+    }, 2000);
+  }, [onTerminalPaymentSuccess, onCancel]);
+
+  // Cleanup polling on unmount
+  useEffect(() => {
+    return () => {
+      if (pollRef.current) clearInterval(pollRef.current);
+    };
+  }, []);
+
+  const handleTerminalPayment = async () => {
+    if (!orderId) return;
+    setTerminalPending(true);
+    setTerminalError('');
+    try {
+      await mpCharge(orderId);
+      setTerminalOrderId(orderId);
+      startPolling(orderId);
+    } catch (err) {
+      setTerminalPending(false);
+      setTerminalError(err instanceof Error ? err.message : 'Error al enviar a terminal');
+    }
+  };
+
+  const handleCancelTerminal = async () => {
+    if (pollRef.current) clearInterval(pollRef.current);
+    pollRef.current = null;
+    if (terminalOrderId) {
+      try {
+        await mpCancelCharge(terminalOrderId);
+      } catch {
+        // Best effort
+      }
+    }
+    setTerminalPending(false);
+    setTerminalOrderId(null);
+    setTerminalError('');
+  };
+
   return (
     <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
-      <div className="bg-neutral-900 rounded-2xl shadow-2xl w-full max-w-md border border-neutral-800 max-h-[90vh] overflow-y-auto">
+      <div className="bg-neutral-900 rounded-2xl shadow-2xl w-full max-w-md border border-neutral-800 max-h-[90vh] overflow-y-auto relative">
+        {/* Terminal success overlay */}
+        {terminalSuccess && (
+          <div className="absolute inset-0 bg-neutral-900/95 z-10 flex flex-col items-center justify-center rounded-2xl">
+            <div className="w-20 h-20 rounded-full bg-green-600 flex items-center justify-center mb-4 animate-pulse">
+              <svg className="w-10 h-10 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+              </svg>
+            </div>
+            <p className="text-white text-xl font-bold">Pago confirmado</p>
+          </div>
+        )}
+
         <div className="bg-brand-600 text-white p-6 rounded-t-2xl text-center">
           <h2 className="text-3xl font-bold mb-2">{t('payment.title')}</h2>
           <p className="text-2xl">{t('payment.total', { amount: formatPrice(orderTotal) })}</p>
@@ -168,49 +258,85 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
             </div>
           )}
 
+          {/* Terminal Waiting State */}
+          {terminalPending && (
+            <div className="bg-[#009ee3]/10 border border-[#009ee3]/30 rounded-lg p-5 text-center space-y-3">
+              <div className="flex items-center justify-center gap-2">
+                <div className="w-3 h-3 bg-[#009ee3] rounded-full animate-pulse" />
+                <p className="text-[#009ee3] font-bold text-lg">Esperando pago en terminal...</p>
+              </div>
+              <p className="text-neutral-400 text-sm">
+                El cobro fue enviado al lector. Pide al cliente que acerque o inserte su tarjeta.
+              </p>
+              <button
+                onClick={handleCancelTerminal}
+                className="text-red-400 text-sm font-semibold hover:text-red-300 transition-colors"
+              >
+                Cancelar cobro
+              </button>
+            </div>
+          )}
+
+          {terminalError && (
+            <p className="text-red-400 text-sm text-center font-medium">{terminalError}</p>
+          )}
+
           {/* Payment Buttons */}
-          <div className="space-y-3">
-            <button
-              onClick={() => onCardPayment(tip)}
-              disabled={isProcessing || !isOnline}
-              className="w-full py-4 bg-brand-600 text-white text-xl font-bold rounded-lg hover:bg-brand-700 disabled:bg-neutral-700 disabled:text-neutral-400 transition-all touch-manipulation"
-              title={!isOnline ? t('offline.cardUnavailable') : undefined}
-            >
-              {!isOnline ? t('offline.cardUnavailable') : isProcessing ? t('payment.processing') : t('payment.payWithCard')}
-            </button>
-            <button
-              onClick={() => onCryptoPayment(tip)}
-              disabled={isProcessing || !isOnline}
-              className="w-full py-4 bg-orange-600 text-white text-xl font-bold rounded-lg hover:bg-orange-700 disabled:bg-neutral-700 disabled:text-neutral-400 transition-all touch-manipulation"
-              title={!isOnline ? t('offline.cardUnavailable') : undefined}
-            >
-              {!isOnline ? t('offline.cardUnavailable') : t('payment.payWithCrypto')}
-            </button>
-            {showCashInput ? (
+          {!terminalPending && (
+            <div className="space-y-3">
+              {/* Mercado Pago Terminal — only for Pro+ with MP connected */}
+              {isMpConnected && orderId && (
+                <button
+                  onClick={handleTerminalPayment}
+                  disabled={isProcessing || !isOnline}
+                  className="w-full py-4 bg-[#009ee3] text-white text-xl font-bold rounded-lg hover:bg-[#0082c0] disabled:bg-neutral-700 disabled:text-neutral-400 transition-all touch-manipulation"
+                  title={!isOnline ? t('offline.cardUnavailable') : undefined}
+                >
+                  {!isOnline ? t('offline.cardUnavailable') : 'Enviar a Terminal MP'}
+                </button>
+              )}
               <button
-                onClick={() => onCashPayment(tip, receivedNum)}
-                disabled={isProcessing || receivedNum < finalTotal}
-                className="w-full py-4 bg-green-600 text-white text-xl font-bold rounded-lg hover:bg-green-700 disabled:bg-neutral-700 transition-all touch-manipulation"
+                onClick={() => onCardPayment(tip)}
+                disabled={isProcessing || !isOnline}
+                className="w-full py-4 bg-brand-600 text-white text-xl font-bold rounded-lg hover:bg-brand-700 disabled:bg-neutral-700 disabled:text-neutral-400 transition-all touch-manipulation"
+                title={!isOnline ? t('offline.cardUnavailable') : undefined}
               >
-                {isProcessing ? t('payment.processing') : t('payment.confirmCash', { change: formatPrice(changeDue) })}
+                {!isOnline ? t('offline.cardUnavailable') : isProcessing ? t('payment.processing') : t('payment.payWithCard')}
               </button>
-            ) : (
               <button
-                onClick={() => setShowCashInput(true)}
+                onClick={() => onCryptoPayment(tip)}
+                disabled={isProcessing || !isOnline}
+                className="w-full py-4 bg-orange-600 text-white text-xl font-bold rounded-lg hover:bg-orange-700 disabled:bg-neutral-700 disabled:text-neutral-400 transition-all touch-manipulation"
+                title={!isOnline ? t('offline.cardUnavailable') : undefined}
+              >
+                {!isOnline ? t('offline.cardUnavailable') : t('payment.payWithCrypto')}
+              </button>
+              {showCashInput ? (
+                <button
+                  onClick={() => onCashPayment(tip, receivedNum)}
+                  disabled={isProcessing || receivedNum < finalTotal}
+                  className="w-full py-4 bg-green-600 text-white text-xl font-bold rounded-lg hover:bg-green-700 disabled:bg-neutral-700 transition-all touch-manipulation"
+                >
+                  {isProcessing ? t('payment.processing') : t('payment.confirmCash', { change: formatPrice(changeDue) })}
+                </button>
+              ) : (
+                <button
+                  onClick={() => setShowCashInput(true)}
+                  disabled={isProcessing}
+                  className="w-full py-4 bg-neutral-700 text-white text-xl font-bold rounded-lg hover:bg-neutral-600 disabled:bg-neutral-800 transition-all touch-manipulation"
+                >
+                  {t('payment.cashPayment')}
+                </button>
+              )}
+              <button
+                onClick={onCancel}
                 disabled={isProcessing}
-                className="w-full py-4 bg-neutral-700 text-white text-xl font-bold rounded-lg hover:bg-neutral-600 disabled:bg-neutral-800 transition-all touch-manipulation"
+                className="w-full py-4 bg-neutral-800 text-neutral-400 text-lg font-bold rounded-lg hover:bg-neutral-700 disabled:bg-neutral-900 transition-all"
               >
-                {t('payment.cashPayment')}
+                {t('common:buttons.cancel')}
               </button>
-            )}
-            <button
-              onClick={onCancel}
-              disabled={isProcessing}
-              className="w-full py-4 bg-neutral-800 text-neutral-400 text-lg font-bold rounded-lg hover:bg-neutral-700 disabled:bg-neutral-900 transition-all"
-            >
-              {t('common:buttons.cancel')}
-            </button>
-          </div>
+            </div>
+          )}
         </div>
       </div>
     </div>

@@ -30,7 +30,6 @@ import NotesModal from '../components/pos/NotesModal';
 import PaymentModal from '../components/pos/PaymentModal';
 import ReceiptModal from '../components/pos/ReceiptModal';
 import { formatPrice, TAX_RATE, TAX_LABEL } from '../utils/currency';
-import { formatTime, formatDateTime } from '../utils/dateFormat';
 import { useAISuggestions } from '../hooks/useAISuggestions';
 import AISuggestionBanner from '../components/AISuggestionBanner';
 import ModifierModal from '../components/ModifierModal';
@@ -38,19 +37,23 @@ import ComboBuilder from '../components/ComboBuilder';
 import SplitPaymentModal from '../components/SplitPaymentModal';
 import CryptoPaymentModal from '../components/CryptoPaymentModal';
 import CustomerLookupModal from '../components/CustomerLookupModal';
-import LanguageSwitcher from '../components/LanguageSwitcher';
 import BrandLogo from '../components/BrandLogo';
-import MenuItemImage from '../components/MenuItemImage';
 import { usePlan } from '../context/PlanContext';
-import { SlidersHorizontal, Star, X, Search, ClipboardList, WifiOff, Wifi, Menu } from 'lucide-react';
 import { useNetworkStatus } from '../hooks/useNetworkStatus';
 import { useDeviceType } from '../hooks/useDeviceType';
-import { createOfflineOrder, toReceiptOrder, calculateOrderTotals } from '../lib/offlineOrderQueue';
+import { createOfflineOrder, toReceiptOrder } from '../lib/offlineOrderQueue';
 import { offlineDb } from '../lib/offlineDb';
 import CategoryBar from '../components/CategoryBar';
 import CartDrawer from '../components/CartDrawer';
 import MiniCartButton from '../components/MiniCartButton';
 import PaymentConfirmationModal from '../components/PaymentConfirmationModal';
+
+// Sub-components
+import CategorySidebar from '../components/pos/CategorySidebar';
+import POSHeaderBar from '../components/pos/POSHeaderBar';
+import MenuGrid from '../components/pos/MenuGrid';
+import CartPanel from '../components/pos/CartPanel';
+import QuickOrdersModal from '../components/pos/QuickOrdersModal';
 
 /* ==================== Toast Notification ==================== */
 
@@ -69,7 +72,7 @@ const POSScreen: React.FC = () => {
   const { isOnline, pendingSyncCount } = useNetworkStatus();
   const { isTablet, isPortrait } = useDeviceType();
   const showDrawerCart = isTablet && isPortrait;
-  const { plan, ownerEmail } = usePlan();
+  const { plan, ownerEmail, isMpConnected } = usePlan();
 
   // State Management
   const [cart, setCart] = useState<CartItem[]>([]);
@@ -109,6 +112,9 @@ const POSScreen: React.FC = () => {
   const [showNavMenu, setShowNavMenu] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
+  // Pre-created order for terminal payments (MP Point)
+  const [preCreatedOrderId, setPreCreatedOrderId] = useState<number | null>(null);
+
   // Unpaid orders (for Cobrar flow)
   const [unpaidOrders, setUnpaidOrders] = useState<Order[]>([]);
   const [showUnpaidOrders, setShowUnpaidOrders] = useState(false);
@@ -140,13 +146,13 @@ const POSScreen: React.FC = () => {
     acceptSuggestion(suggestion);
   };
 
-  // Update time every minute
+  // ==================== Effects ====================
+
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 60000);
     return () => clearInterval(timer);
   }, []);
 
-  // Fetch unpaid orders for the Cobrar flow (every 30s)
   useEffect(() => {
     const fetchUnpaid = async () => {
       try {
@@ -164,7 +170,6 @@ const POSScreen: React.FC = () => {
     return () => clearInterval(timer);
   }, []);
 
-  // Keyboard shortcut: Cmd/Ctrl+K to focus search, Escape to clear
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
@@ -180,7 +185,6 @@ const POSScreen: React.FC = () => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [searchQuery]);
 
-  // Load data on mount
   useEffect(() => {
     const loadData = async () => {
       try {
@@ -197,7 +201,6 @@ const POSScreen: React.FC = () => {
         ]);
         setCategories(categoriesData);
         setMenuItems(itemsData);
-        // Pre-warm modifier cache
         const cache: Record<number, boolean> = {};
         for (const id of modifierItemsData.itemIds) {
           cache[id] = true;
@@ -208,7 +211,6 @@ const POSScreen: React.FC = () => {
         setComboDefinitions(combosData);
         setTemplates(templatesData);
         setPosBrands(brandsData);
-        // Auto-select top-ranked category if we have suggestion data
         if (categoryOrderData.length > 0) {
           setSelectedCategory(categoryOrderData[0]);
         }
@@ -218,10 +220,7 @@ const POSScreen: React.FC = () => {
         setLoading(false);
       }
     };
-
     loadData();
-
-    // Restore cart from IndexedDB (crash recovery)
     offlineDb.cart.get(1).then((saved) => {
       if (saved && saved.items.length > 0) {
         setCart(saved.items);
@@ -229,7 +228,6 @@ const POSScreen: React.FC = () => {
     }).catch(() => {});
   }, []);
 
-  // Persist cart to IndexedDB (debounced 300ms)
   useEffect(() => {
     const timer = setTimeout(() => {
       if (cart.length > 0) {
@@ -241,7 +239,8 @@ const POSScreen: React.FC = () => {
     return () => clearTimeout(timer);
   }, [cart]);
 
-  // Helper Functions
+  // ==================== Helpers ====================
+
   const addToast = (message: string, type: 'success' | 'error' | 'info' = 'info') => {
     const id = Date.now().toString();
     setToasts((prev) => [...prev, { id, message, type }]);
@@ -250,7 +249,10 @@ const POSScreen: React.FC = () => {
     }, 3000);
   };
 
-  // Sort categories by time-based popularity
+  const generateCartId = () => `cart_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+  // ==================== Derived Data ====================
+
   const sortedCategories = useMemo(() => {
     if (categorySuggestedOrder.length === 0) return categories;
     const orderMap = new Map(categorySuggestedOrder.map((id, idx) => [id, idx]));
@@ -261,28 +263,23 @@ const POSScreen: React.FC = () => {
     });
   }, [categories, categorySuggestedOrder]);
 
-  // Smart combo detection: check if cart items qualify for a combo
   const comboSuggestion = useMemo(() => {
     if (cart.length === 0 || comboDefinitions.length === 0) return null;
-    // Only check non-combo cart items
     const nonComboItems = cart.filter(ci => !ci.combo_instance_id);
     if (nonComboItems.length === 0) return null;
 
     for (const combo of comboDefinitions) {
       if (!combo.active || !combo.slots || combo.slots.length === 0) continue;
-
-      // Try to match each slot
       const matchedItems: CartItem[] = [];
       const usedCartIds = new Set<string>();
-
       let allSlotsMatched = true;
+
       for (const slot of combo.slots) {
         let found = false;
         for (const ci of nonComboItems) {
           if (usedCartIds.has(ci.cart_id)) continue;
           const menuItem = ci.menuItem || menuItems.find(mi => mi.id === ci.menu_item_id);
           if (!menuItem) continue;
-
           if (slot.specific_item_id && menuItem.id === slot.specific_item_id) {
             matchedItems.push(ci);
             usedCartIds.add(ci.cart_id);
@@ -296,85 +293,23 @@ const POSScreen: React.FC = () => {
             break;
           }
         }
-        if (!found) {
-          allSlotsMatched = false;
-          break;
-        }
+        if (!found) { allSlotsMatched = false; break; }
       }
 
       if (allSlotsMatched) {
         const individualTotal = matchedItems.reduce((sum, ci) => sum + ci.unit_price, 0);
         const savings = individualTotal - combo.combo_price;
-        if (savings > 0) {
-          return { combo, matchedItems, savings };
-        }
+        if (savings > 0) return { combo, matchedItems, savings };
       }
     }
     return null;
   }, [cart, comboDefinitions, menuItems]);
 
-  // Convert matched cart items to combo
-  const convertToCombo = useCallback(() => {
-    if (!comboSuggestion) return;
-    const { combo, matchedItems } = comboSuggestion;
-    const comboInstanceId = `combo_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-
-    setCart(prev => {
-      // Remove matched individual items
-      const matchedIds = new Set(matchedItems.map(ci => ci.cart_id));
-      const remaining = prev.filter(ci => !matchedIds.has(ci.cart_id));
-
-      // Add as combo group
-      const comboCartItems: CartItem[] = matchedItems.map((ci, idx) => ({
-        ...ci,
-        cart_id: generateCartId(),
-        unit_price: idx === 0 ? combo.combo_price : 0,
-        combo_instance_id: comboInstanceId,
-      }));
-
-      return [...remaining, ...comboCartItems];
-    });
-    addToast(t('comboDetection.converted', { name: combo.name }), 'success');
-  }, [comboSuggestion]);
-
-  // Apply a template to the cart
-  const applyTemplate = useCallback((template: OrderTemplate) => {
-    for (const item of template.items) {
-      const menuItem = menuItems.find(mi => mi.id === item.menu_item_id);
-      if (menuItem) {
-        for (let i = 0; i < (item.quantity || 1); i++) {
-          addItemToCartDirect(menuItem);
-        }
-      }
-    }
-    setShowTemplates(false);
-    addToast(t('quickOrders.applied', { name: template.name }), 'success');
-  }, [menuItems]);
-
-  // Save current cart as template
-  const saveCartAsTemplate = useCallback(async () => {
-    if (!templateName.trim() || cart.length === 0) return;
-    try {
-      const items = cart
-        .filter(ci => !ci.combo_instance_id)
-        .map(ci => ({ menu_item_id: ci.menu_item_id, quantity: ci.quantity }));
-      const newTemplate = await createOrderTemplate({ name: templateName.trim(), items });
-      setTemplates(prev => [...prev, newTemplate]);
-      setTemplateName('');
-      setShowSaveTemplate(false);
-      addToast(t('quickOrders.saved', { name: templateName.trim() }), 'success');
-    } catch {
-      addToast('Failed to save template', 'error');
-    }
-  }, [templateName, cart]);
-
-  // Get the active brand object (if any)
   const activeBrand = useMemo(() => {
     if (selectedBrand === 'all') return null;
     return posBrands.find(b => b.id === selectedBrand) || null;
   }, [selectedBrand, posBrands]);
 
-  // Build a map of brand item overrides for the active brand
   const brandItemMap = useMemo(() => {
     if (!activeBrand) return null;
     const map = new Map<number, { custom_name: string | null; custom_price: number | null }>();
@@ -384,19 +319,14 @@ const POSScreen: React.FC = () => {
     return map;
   }, [activeBrand]);
 
-  // Filter items based on brand, category and search
   const filteredItems = useMemo(() => {
     let items = menuItems;
-
-    // Brand filter: only show items in the brand's item list
     if (brandItemMap) {
       items = items.filter((item) => brandItemMap.has(item.id));
     }
-
     if (selectedCategory !== 'all') {
       items = items.filter((item) => item.category_id === selectedCategory);
     }
-
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
       items = items.filter((item) => {
@@ -408,11 +338,9 @@ const POSScreen: React.FC = () => {
         );
       });
     }
-
     return items;
   }, [menuItems, selectedCategory, searchQuery, brandItemMap]);
 
-  // Categories with items in the active brand
   const visibleCategories = useMemo(() => {
     if (!brandItemMap) return sortedCategories;
     const categoryIdsWithItems = new Set(
@@ -421,31 +349,19 @@ const POSScreen: React.FC = () => {
     return sortedCategories.filter(cat => categoryIdsWithItems.has(cat.id));
   }, [sortedCategories, brandItemMap, menuItems]);
 
-  // Popular items filtered by brand
   const filteredPopularItems = useMemo(() => {
     if (!brandItemMap) return popularItems;
     return popularItems.filter(item => brandItemMap.has(item.id));
   }, [popularItems, brandItemMap]);
 
-  // Generate unique cart ID
-  const generateCartId = () => `cart_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  const total = parseFloat(
+    cart.reduce((sum, item) => sum + item.unit_price * item.quantity, 0).toFixed(2)
+  );
+  const tax = parseFloat((total - total / (1 + TAX_RATE)).toFixed(2));
+  const subtotal = parseFloat((total - tax).toFixed(2));
+  const todayOrderCount = 1;
 
-  // Check if item has modifier groups (pre-warmed cache)
-  const checkItemHasModifiers = (item: MenuItem): boolean => {
-    return !!itemModifierCache[item.id];
-  };
-
-  const handleItemTap = (item: MenuItem) => {
-    // Block sold-out items
-    if (soldOutItemIds.has(item.id)) return;
-
-    const hasModifiers = checkItemHasModifiers(item);
-    if (hasModifiers) {
-      setModifierItem(item);
-    } else {
-      addItemToCartDirect(item);
-    }
-  };
+  // ==================== Cart Operations ====================
 
   const addItemToCartDirect = (item: MenuItem) => {
     const brandOverride = brandItemMap?.get(item.id);
@@ -498,6 +414,15 @@ const POSScreen: React.FC = () => {
         virtual_brand_id: brandId,
       },
     ]);
+  };
+
+  const handleItemTap = (item: MenuItem) => {
+    if (soldOutItemIds.has(item.id)) return;
+    if (itemModifierCache[item.id]) {
+      setModifierItem(item);
+    } else {
+      addItemToCartDirect(item);
+    }
   };
 
   const handleAddCombo = (items: Array<{ menu_item_id: number; combo_instance_id: string }>, comboPrice: number) => {
@@ -553,6 +478,55 @@ const POSScreen: React.FC = () => {
     setLinkedCustomer(null);
   };
 
+  const convertToCombo = useCallback(() => {
+    if (!comboSuggestion) return;
+    const { combo, matchedItems } = comboSuggestion;
+    const comboInstanceId = `combo_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    setCart(prev => {
+      const matchedIds = new Set(matchedItems.map(ci => ci.cart_id));
+      const remaining = prev.filter(ci => !matchedIds.has(ci.cart_id));
+      const comboCartItems: CartItem[] = matchedItems.map((ci, idx) => ({
+        ...ci,
+        cart_id: generateCartId(),
+        unit_price: idx === 0 ? combo.combo_price : 0,
+        combo_instance_id: comboInstanceId,
+      }));
+      return [...remaining, ...comboCartItems];
+    });
+    addToast(t('comboDetection.converted', { name: combo.name }), 'success');
+  }, [comboSuggestion]);
+
+  const applyTemplate = useCallback((template: OrderTemplate) => {
+    for (const item of template.items) {
+      const menuItem = menuItems.find(mi => mi.id === item.menu_item_id);
+      if (menuItem) {
+        for (let i = 0; i < (item.quantity || 1); i++) {
+          addItemToCartDirect(menuItem);
+        }
+      }
+    }
+    setShowTemplates(false);
+    addToast(t('quickOrders.applied', { name: template.name }), 'success');
+  }, [menuItems]);
+
+  const saveCartAsTemplate = useCallback(async () => {
+    if (!templateName.trim() || cart.length === 0) return;
+    try {
+      const items = cart
+        .filter(ci => !ci.combo_instance_id)
+        .map(ci => ({ menu_item_id: ci.menu_item_id, quantity: ci.quantity }));
+      const newTemplate = await createOrderTemplate({ name: templateName.trim(), items });
+      setTemplates(prev => [...prev, newTemplate]);
+      setTemplateName('');
+      setShowSaveTemplate(false);
+      addToast(t('quickOrders.saved', { name: templateName.trim() }), 'success');
+    } catch {
+      addToast('Failed to save template', 'error');
+    }
+  }, [templateName, cart]);
+
+  // ==================== Payment Handlers ====================
+
   const handleLoyaltyStamp = async (order: Order) => {
     if (!linkedCustomer) return;
     try {
@@ -571,46 +545,38 @@ const POSScreen: React.FC = () => {
     setLinkedCustomer(null);
   };
 
-  const total = parseFloat(
-    cart.reduce((sum, item) => sum + item.unit_price * item.quantity, 0).toFixed(2)
-  );
-  const tax = parseFloat((total - total / (1 + TAX_RATE)).toFixed(2));
-  const subtotal = parseFloat((total - tax).toFixed(2));
+  const buildOrderItems = () => cart.map((item) => ({
+    menu_item_id: item.menu_item_id,
+    quantity: item.quantity,
+    notes: item.notes,
+    modifiers: item.selectedModifierIds || [],
+    combo_instance_id: item.combo_instance_id || null,
+    virtual_brand_id: item.virtual_brand_id || null,
+  }));
 
-  const todayOrderCount = 1;
+  const openPaymentModal = async () => {
+    if (isMpConnected && cart.length > 0) {
+      try {
+        const order = await createOrder({ employee_id: currentEmployee!.id, items: buildOrderItems() });
+        setPreCreatedOrderId(order.id);
+      } catch (err) {
+        addToast(err instanceof Error ? err.message : 'Error al crear orden', 'error');
+        return;
+      }
+    } else {
+      setPreCreatedOrderId(null);
+    }
+    setShowPaymentModal(true);
+  };
 
   const handleCardPayment = async (tip: number) => {
-    if (cart.length === 0) {
-      addToast(t('toast.cartEmpty'), 'error');
-      return;
-    }
-
+    if (cart.length === 0) { addToast(t('toast.cartEmpty'), 'error'); return; }
     setIsProcessingPayment(true);
     try {
-      const orderData = {
-        employee_id: currentEmployee!.id,
-        items: cart.map((item) => ({
-          menu_item_id: item.menu_item_id,
-          quantity: item.quantity,
-          notes: item.notes,
-          modifiers: item.selectedModifierIds || [],
-          combo_instance_id: item.combo_instance_id || null,
-          virtual_brand_id: item.virtual_brand_id || null,
-        })),
-      };
-
-      const order = await createOrder(orderData);
+      const order = await createOrder({ employee_id: currentEmployee!.id, items: buildOrderItems() });
       const paymentIntent = await createPaymentIntent({ order_id: order.id, tip });
       await confirmPayment({ order_id: order.id, payment_intent_id: paymentIntent.payment_intent_id });
-
-      const finalOrder: Order = {
-        ...order,
-        tip,
-        total: order.total + tip,
-        payment_method: 'card',
-        employee_name: currentEmployee?.name,
-      };
-
+      const finalOrder: Order = { ...order, tip, total: order.total + tip, payment_method: 'card', employee_name: currentEmployee?.name };
       await handleLoyaltyStamp(order);
       setCompletedOrder(finalOrder);
       setShowPaymentModal(false);
@@ -618,30 +584,18 @@ const POSScreen: React.FC = () => {
       clearCart();
       addToast(t('toast.cardDone'), 'success');
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : t('toast.cardFailed');
-      addToast(errorMessage, 'error');
+      addToast(error instanceof Error ? error.message : t('toast.cardFailed'), 'error');
     } finally {
       setIsProcessingPayment(false);
     }
   };
 
   const handleCashPayment = async (tip: number, amountReceived: number) => {
-    if (cart.length === 0) {
-      addToast(t('toast.cartEmpty'), 'error');
-      return;
-    }
-
+    if (cart.length === 0) { addToast(t('toast.cartEmpty'), 'error'); return; }
     setIsProcessingPayment(true);
     try {
       if (!isOnline) {
-        // OFFLINE: save to IndexedDB queue
-        const offlineOrder = await createOfflineOrder(
-          currentEmployee!.id,
-          currentEmployee!.name,
-          cart,
-          tip,
-          amountReceived,
-        );
+        const offlineOrder = await createOfflineOrder(currentEmployee!.id, currentEmployee!.name, cart, tip, amountReceived);
         const receiptOrder = toReceiptOrder(offlineOrder);
         setCompletedOrder(receiptOrder);
         setShowPaymentModal(false);
@@ -649,30 +603,9 @@ const POSScreen: React.FC = () => {
         clearCart();
         addToast(t('offline.orderSaved', { number: offlineOrder.offlineOrderNumber }), 'success');
       } else {
-        // ONLINE: existing flow
-        const orderData = {
-          employee_id: currentEmployee!.id,
-          items: cart.map((item) => ({
-            menu_item_id: item.menu_item_id,
-            quantity: item.quantity,
-            notes: item.notes,
-            modifiers: item.selectedModifierIds || [],
-            combo_instance_id: item.combo_instance_id || null,
-            virtual_brand_id: item.virtual_brand_id || null,
-          })),
-        };
-
-        const order = await createOrder(orderData);
+        const order = await createOrder({ employee_id: currentEmployee!.id, items: buildOrderItems() });
         const result = await cashPayment({ order_id: order.id, tip, amount_received: amountReceived });
-
-        const finalOrder: Order = {
-          ...order,
-          tip,
-          total: order.total + tip,
-          payment_method: 'cash',
-          employee_name: currentEmployee?.name,
-        };
-
+        const finalOrder: Order = { ...order, tip, total: order.total + tip, payment_method: 'cash', employee_name: currentEmployee?.name };
         await handleLoyaltyStamp(order);
         setCompletedOrder(finalOrder);
         setShowPaymentModal(false);
@@ -681,45 +614,20 @@ const POSScreen: React.FC = () => {
         addToast(t('toast.cashDone', { change: formatPrice(result.change_due) }), 'success');
       }
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : t('toast.cashFailed');
-      addToast(errorMessage, 'error');
+      addToast(error instanceof Error ? error.message : t('toast.cashFailed'), 'error');
     } finally {
       setIsProcessingPayment(false);
     }
   };
 
   const handleSplitPayment = async (splits: Array<{ payment_method: 'card' | 'cash'; amount: number; tip: number }>) => {
-    if (cart.length === 0) {
-      addToast(t('toast.cartEmpty'), 'error');
-      return;
-    }
-
+    if (cart.length === 0) { addToast(t('toast.cartEmpty'), 'error'); return; }
     setIsProcessingPayment(true);
     try {
-      const orderData = {
-        employee_id: currentEmployee!.id,
-        items: cart.map((item) => ({
-          menu_item_id: item.menu_item_id,
-          quantity: item.quantity,
-          notes: item.notes,
-          modifiers: item.selectedModifierIds || [],
-          combo_instance_id: item.combo_instance_id || null,
-          virtual_brand_id: item.virtual_brand_id || null,
-        })),
-      };
-
-      const order = await createOrder(orderData);
+      const order = await createOrder({ employee_id: currentEmployee!.id, items: buildOrderItems() });
       await splitPayment({ order_id: order.id, split_type: 'by_amount', splits });
-
       const totalTip = splits.reduce((sum, s) => sum + s.tip, 0);
-      const finalOrder: Order = {
-        ...order,
-        tip: totalTip,
-        total: order.subtotal + order.tax + totalTip,
-        payment_method: 'split',
-        employee_name: currentEmployee?.name,
-      };
-
+      const finalOrder: Order = { ...order, tip: totalTip, total: order.subtotal + order.tax + totalTip, payment_method: 'split', employee_name: currentEmployee?.name };
       await handleLoyaltyStamp(order);
       setCompletedOrder(finalOrder);
       setShowSplitPayment(false);
@@ -727,40 +635,22 @@ const POSScreen: React.FC = () => {
       clearCart();
       addToast(t('toast.splitDone'), 'success');
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : t('toast.splitFailed');
-      addToast(errorMessage, 'error');
+      addToast(error instanceof Error ? error.message : t('toast.splitFailed'), 'error');
     } finally {
       setIsProcessingPayment(false);
     }
   };
 
   const handleCryptoPayment = async (tip: number) => {
-    if (cart.length === 0) {
-      addToast(t('toast.cartEmpty'), 'error');
-      return;
-    }
-
+    if (cart.length === 0) { addToast(t('toast.cartEmpty'), 'error'); return; }
     try {
-      const orderData = {
-        employee_id: currentEmployee!.id,
-        items: cart.map((item) => ({
-          menu_item_id: item.menu_item_id,
-          quantity: item.quantity,
-          notes: item.notes,
-          modifiers: item.selectedModifierIds || [],
-          combo_instance_id: item.combo_instance_id || null,
-          virtual_brand_id: item.virtual_brand_id || null,
-        })),
-      };
-
-      const order = await createOrder(orderData);
+      const order = await createOrder({ employee_id: currentEmployee!.id, items: buildOrderItems() });
       setCryptoOrderId(order.id);
       setCryptoTip(tip);
       setShowPaymentModal(false);
       setShowCryptoModal(true);
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : t('toast.orderCreateFailed');
-      addToast(errorMessage, 'error');
+      addToast(error instanceof Error ? error.message : t('toast.orderCreateFailed'), 'error');
     }
   };
 
@@ -781,21 +671,15 @@ const POSScreen: React.FC = () => {
 
   const handlePaymentConfirmed = (method: 'cash' | 'card' | 'transfer') => {
     if (paymentOrder) {
-      // Update local state immediately — no refetch needed
       setUnpaidOrders((prev) => prev.filter((o) => o.id !== paymentOrder.id));
-      const methodLabels: Record<string, string> = {
-        cash: '\uD83D\uDCB5',
-        card: '\uD83D\uDCB3',
-        transfer: '\uD83D\uDCF2',
-      };
-      addToast(
-        `Orden #${paymentOrder.order_number} — Pagado ${methodLabels[method] || ''}`,
-        'success'
-      );
+      const methodLabels: Record<string, string> = { cash: '\uD83D\uDCB5', card: '\uD83D\uDCB3', transfer: '\uD83D\uDCF2' };
+      addToast(`Orden #${paymentOrder.order_number} — Pagado ${methodLabels[method] || ''}`, 'success');
     }
     setPaymentOrder(null);
     setShowPaymentConfirmation(false);
   };
+
+  // ==================== Render ====================
 
   if (loading) {
     return (
@@ -810,55 +694,15 @@ const POSScreen: React.FC = () => {
 
   return (
     <div className="flex h-screen bg-neutral-950 overflow-hidden">
-      {/* ==================== LEFT SIDEBAR - CATEGORIES ==================== */}
-      <div className="hidden lg:flex w-48 bg-neutral-900 border-r border-neutral-800 flex-col">
-        <div className="bg-neutral-950 p-4 text-center border-b border-neutral-800">
-          <BrandLogo className="h-8 mx-auto mb-1" />
-          <p className="font-bold text-xs text-neutral-400 tracking-tight">{t('header.categories')}</p>
-        </div>
+      {/* Left Sidebar - Categories */}
+      <CategorySidebar
+        categories={visibleCategories}
+        selectedCategory={selectedCategory}
+        onSelectCategory={(id) => { setSelectedCategory(id); setSearchQuery(''); }}
+      />
 
-        <div className="flex-1 overflow-y-auto">
-          <button
-            onClick={() => { setSelectedCategory('all'); setSearchQuery(''); }}
-            className={`w-full py-4 px-4 text-lg font-semibold border-b border-neutral-800 transition-all touch-manipulation ${
-              selectedCategory === 'all' ? 'bg-brand-600 text-white' : 'bg-neutral-900 text-neutral-300 hover:bg-neutral-800'
-            }`}
-          >
-            {t('header.allItems')}
-          </button>
-
-          {visibleCategories.map((cat) => (
-            <button
-              key={cat.id}
-              onClick={() => { setSelectedCategory(cat.id); setSearchQuery(''); }}
-              className={`w-full py-4 px-4 text-lg font-semibold border-b border-neutral-800 transition-all touch-manipulation ${
-                selectedCategory === cat.id ? 'bg-brand-600 text-white' : 'bg-neutral-900 text-neutral-300 hover:bg-neutral-800'
-              }`}
-            >
-              {cat.name}
-            </button>
-          ))}
-        </div>
-
-        <div className="border-t border-neutral-800 p-3 space-y-2">
-          <button
-            onClick={() => navigate('/admin')}
-            className="w-full py-2 bg-neutral-800 text-neutral-300 text-sm font-bold rounded hover:bg-neutral-700 transition-all border border-neutral-700"
-          >
-            {t('common:buttons.admin')}
-          </button>
-          <button
-            onClick={() => navigate('/kitchen')}
-            className="w-full py-2 bg-neutral-800 text-neutral-300 text-sm font-bold rounded hover:bg-neutral-700 transition-all border border-neutral-700"
-          >
-            {t('common:buttons.kitchen')}
-          </button>
-        </div>
-      </div>
-
-      {/* ==================== CENTER PANEL - MENU ITEMS ==================== */}
+      {/* Center Panel - Menu Items */}
       <div className="flex-1 flex flex-col bg-neutral-950 min-w-0">
-        {/* Horizontal CategoryBar for tablet portrait */}
         {showDrawerCart && (
           <CategoryBar
             categories={visibleCategories}
@@ -867,150 +711,28 @@ const POSScreen: React.FC = () => {
           />
         )}
 
-        <div className="bg-neutral-900 text-white p-3 lg:p-4 border-b border-neutral-800">
-          <div className="flex justify-between items-center mb-3 lg:mb-4">
-            <div className="flex-1">
-              <p className="text-xs text-neutral-500">{t('header.operator')}</p>
-              <p className="text-base lg:text-lg font-bold text-white">{currentEmployee?.name}</p>
-              {plan === 'trial' && ownerEmail && (
-                <p className="text-xs text-neutral-500 truncate max-w-[180px]">{ownerEmail}</p>
-              )}
-            </div>
-            <div className="text-center flex-1">
-              <p className="text-xs text-neutral-500">{t('header.time')}</p>
-              <p className="text-base lg:text-lg font-bold text-white">{formatTime(currentTime)}</p>
-            </div>
-            <div className="text-right flex-1 flex items-center justify-end gap-2 lg:gap-3">
-              <div className="hidden lg:block">
-                <p className="text-xs text-neutral-500">{t('header.ordersToday')}</p>
-                <p className="text-lg font-bold text-white">{todayOrderCount}</p>
-              </div>
-              {isOnline ? (
-                <Wifi className="w-5 h-5 text-green-500" />
-              ) : (
-                <WifiOff className="w-5 h-5 text-brand-500 animate-pulse" />
-              )}
-              <LanguageSwitcher variant="nav" />
-              {/* Hamburger nav for tablet portrait */}
-              {showDrawerCart && (
-                <div className="relative">
-                  <button
-                    onClick={() => setShowNavMenu(!showNavMenu)}
-                    className="p-2 bg-neutral-800 rounded-lg border border-neutral-700 hover:bg-neutral-700 transition-all"
-                  >
-                    <Menu className="w-5 h-5 text-neutral-300" />
-                  </button>
-                  {showNavMenu && (
-                    <>
-                      <div className="fixed inset-0 z-40" onClick={() => setShowNavMenu(false)} />
-                      <div className="absolute right-0 top-full mt-1 z-50 bg-neutral-800 border border-neutral-700 rounded-lg shadow-xl py-1 min-w-[140px]">
-                        <button
-                          onClick={() => { navigate('/admin'); setShowNavMenu(false); }}
-                          className="w-full text-left px-4 py-2.5 text-sm text-neutral-300 hover:bg-neutral-700 font-semibold"
-                        >
-                          {t('common:buttons.admin')}
-                        </button>
-                        <button
-                          onClick={() => { navigate('/kitchen'); setShowNavMenu(false); }}
-                          className="w-full text-left px-4 py-2.5 text-sm text-neutral-300 hover:bg-neutral-700 font-semibold"
-                        >
-                          {t('common:buttons.kitchen')}
-                        </button>
-                        <button
-                          onClick={() => { handleLogout(); setShowNavMenu(false); }}
-                          className="w-full text-left px-4 py-2.5 text-sm text-neutral-400 hover:bg-neutral-700 font-semibold border-t border-neutral-700"
-                        >
-                          {t('common:buttons.logout')}
-                        </button>
-                      </div>
-                    </>
-                  )}
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Offline Mode Banner */}
-          {!isOnline && (
-            <div className="flex items-center justify-center gap-2 py-2 px-4 mb-3 bg-brand-900/60 border border-brand-700 rounded-lg">
-              <span className="w-2 h-2 bg-brand-500 rounded-full animate-pulse" />
-              <span className="text-brand-200 font-bold text-sm">{t('offline.indicator')}</span>
-              {pendingSyncCount > 0 && (
-                <span className="ml-2 bg-brand-700 text-white text-xs font-bold px-2 py-0.5 rounded-full">
-                  {t('offline.pendingSync', { count: pendingSyncCount })}
-                </span>
-              )}
-            </div>
-          )}
-
-          {/* Pending sync badge (online with pending orders) */}
-          {isOnline && pendingSyncCount > 0 && (
-            <div className="flex items-center justify-center gap-2 py-2 px-4 mb-3 bg-amber-900/40 border border-amber-700 rounded-lg">
-              <span className="w-2 h-2 bg-amber-500 rounded-full animate-pulse" />
-              <span className="text-amber-200 font-bold text-sm">{t('offline.syncing')}</span>
-              <span className="ml-2 bg-amber-700 text-white text-xs font-bold px-2 py-0.5 rounded-full">
-                {pendingSyncCount}
-              </span>
-            </div>
-          )}
-
-          {/* Brand Toggle Pills */}
-          {posBrands.length > 0 && (
-            <div className="flex gap-2 mb-3 overflow-x-auto pb-1 scrollbar-hide">
-              <button
-                onClick={() => { setSelectedBrand('all'); setSelectedCategory('all'); }}
-                className={`flex-shrink-0 px-4 py-2 rounded-full text-sm font-bold transition-all ${
-                  selectedBrand === 'all'
-                    ? 'bg-brand-600 text-white'
-                    : 'bg-neutral-800 text-neutral-400 hover:bg-neutral-700'
-                }`}
-              >
-                {t('header.allItems')}
-              </button>
-              {posBrands.map((brand) => (
-                <button
-                  key={brand.id}
-                  onClick={() => { setSelectedBrand(brand.id); setSelectedCategory('all'); }}
-                  className={`flex-shrink-0 px-4 py-2 rounded-full text-sm font-bold transition-all flex items-center gap-2 ${
-                    selectedBrand === brand.id
-                      ? 'text-white'
-                      : 'bg-neutral-800 text-neutral-400 hover:bg-neutral-700'
-                  }`}
-                  style={selectedBrand === brand.id ? { backgroundColor: brand.primary_color } : undefined}
-                >
-                  <span
-                    className="w-3 h-3 rounded-full flex-shrink-0"
-                    style={{ backgroundColor: brand.primary_color }}
-                  />
-                  {brand.name}
-                </button>
-              ))}
-            </div>
-          )}
-
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-neutral-500" />
-            <input
-              ref={searchInputRef}
-              type="text"
-              placeholder={`${t('header.searchItems')} (Ctrl+K)`}
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-10 py-3 rounded-lg bg-neutral-800 border border-neutral-700 text-white placeholder-neutral-500 focus:outline-none focus:border-brand-600 text-lg"
-            />
-            {searchQuery && (
-              <button
-                onClick={() => setSearchQuery('')}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-white"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            )}
-          </div>
-          {searchQuery && (
-            <p className="text-neutral-500 text-sm mt-1">{t('searchResults', { count: filteredItems.length })}</p>
-          )}
-        </div>
+        <POSHeaderBar
+          currentEmployee={currentEmployee}
+          plan={plan}
+          ownerEmail={ownerEmail}
+          currentTime={currentTime}
+          isOnline={isOnline}
+          pendingSyncCount={pendingSyncCount}
+          searchQuery={searchQuery}
+          searchInputRef={searchInputRef}
+          posBrands={posBrands}
+          selectedBrand={selectedBrand}
+          showDrawerCart={showDrawerCart}
+          showNavMenu={showNavMenu}
+          todayOrderCount={todayOrderCount}
+          filteredItemsCount={filteredItems.length}
+          onSearchChange={setSearchQuery}
+          onSelectBrand={setSelectedBrand}
+          onSetSelectedCategory={setSelectedCategory}
+          onToggleNavMenu={() => setShowNavMenu(!showNavMenu)}
+          onCloseNavMenu={() => setShowNavMenu(false)}
+          onLogout={handleLogout}
+        />
 
         <AISuggestionBanner
           suggestions={cartSuggestions}
@@ -1018,356 +740,48 @@ const POSScreen: React.FC = () => {
           onDismiss={dismissSuggestion}
         />
 
-        <div className="flex-1 overflow-y-auto p-4">
-          {/* Favorites / Popular Items Row */}
-          {!searchQuery && filteredPopularItems.length > 0 && (
-            <div className="mb-4">
-              <div className="flex items-center gap-2 mb-2">
-                <Star className="w-4 h-4 text-amber-400 fill-amber-400" />
-                <p className="text-sm font-bold text-amber-400 uppercase tracking-wider">{t('favorites.title')}</p>
-              </div>
-              <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
-                {filteredPopularItems.map((item) => {
-                  const isSoldOut = soldOutItemIds.has(item.id);
-                  return (
-                    <button
-                      key={`pop-${item.id}`}
-                      onClick={() => !isSoldOut && handleItemTap(item)}
-                      disabled={isSoldOut}
-                      className={`flex-shrink-0 w-32 rounded-lg p-3 transition-all touch-manipulation border ${
-                        isSoldOut
-                          ? 'bg-neutral-900/40 border-neutral-700 opacity-50 cursor-not-allowed'
-                          : 'bg-neutral-900 border-amber-600/50 hover:border-amber-500 active:scale-95'
-                      }`}
-                    >
-                      <p className="font-bold text-white text-xs line-clamp-2">{brandItemMap?.get(item.id)?.custom_name || item.name}</p>
-                      <p className="font-bold text-amber-400 text-sm mt-1">{formatPrice(brandItemMap?.get(item.id)?.custom_price ?? item.price)}</p>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
-          <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 lg:gap-4">
-            {filteredItems.map((item) => {
-              const isPush = pushItemIds.has(item.id);
-              const isAvoid = avoidItemIds.has(item.id);
-              const isSoldOut = soldOutItemIds.has(item.id);
-              const isLowStock = lowStockItemIds.has(item.id);
-              const hasModifiers = !!itemModifierCache[item.id];
-              return (
-                <button
-                  key={item.id}
-                  onClick={() => {
-                    handleItemTap(item);
-                    if (isAvoid && !isSoldOut) {
-                      addToast(t('cart.lowStockWarning', { name: item.name }), 'info');
-                    }
-                  }}
-                  disabled={isSoldOut}
-                  className={`rounded-lg hover:shadow-lg active:scale-95 transition-all touch-manipulation flex flex-col h-44 lg:h-52 overflow-hidden relative ${
-                    isSoldOut
-                      ? 'bg-neutral-900/40 border border-neutral-700 grayscale cursor-not-allowed'
-                      : isLowStock
-                        ? 'bg-neutral-900 border-2 border-yellow-500'
-                        : isPush
-                          ? 'bg-neutral-900 border-2 border-green-600 ring-1 ring-green-600/30'
-                          : isAvoid
-                            ? 'bg-neutral-900/60 border border-neutral-700 opacity-60'
-                            : 'bg-neutral-900 border border-neutral-800 hover:border-brand-600'
-                  }`}
-                >
-                  {/* Image or placeholder */}
-                  <div className="h-28 w-full bg-neutral-800 flex items-center justify-center overflow-hidden flex-shrink-0">
-                    <MenuItemImage src={item.image_url} alt={item.name} />
-                  </div>
-
-                  {/* Sold out overlay */}
-                  {isSoldOut && (
-                    <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
-                      <span className="bg-brand-600 text-white text-xs font-bold px-3 py-1 rounded-full uppercase">
-                        {t('soldOut')}
-                      </span>
-                    </div>
-                  )}
-
-                  {/* Content */}
-                  <div className="p-3 flex flex-col flex-1">
-                    <div className="flex items-start justify-between flex-1">
-                      <p className="font-bold text-white text-sm line-clamp-2 flex-1">{brandItemMap?.get(item.id)?.custom_name || item.name}</p>
-                      <div className="flex items-center gap-1 ml-1 flex-shrink-0">
-                        {hasModifiers && <SlidersHorizontal className="w-3.5 h-3.5 text-neutral-400" />}
-                        {isPush && <span className="w-2 h-2 bg-green-500 rounded-full" />}
-                      </div>
-                    </div>
-                    <p className={`font-bold text-lg ${
-                      isSoldOut ? 'text-neutral-600' : isAvoid ? 'text-neutral-500' : 'text-brand-500'
-                    }`}>
-                      {formatPrice(brandItemMap?.get(item.id)?.custom_price ?? item.price)}
-                    </p>
-                  </div>
-                </button>
-              );
-            })}
-          </div>
-          {filteredItems.length === 0 && (
-            <div className="flex items-center justify-center h-full">
-              <p className="text-neutral-500 text-lg">{t('cart.noItemsFound')}</p>
-            </div>
-          )}
-        </div>
+        <MenuGrid
+          filteredItems={filteredItems}
+          filteredPopularItems={filteredPopularItems}
+          brandItemMap={brandItemMap}
+          itemModifierCache={itemModifierCache}
+          soldOutItemIds={soldOutItemIds}
+          pushItemIds={pushItemIds}
+          avoidItemIds={avoidItemIds}
+          lowStockItemIds={lowStockItemIds}
+          searchQuery={searchQuery}
+          onItemTap={handleItemTap}
+          onAddToast={addToast}
+        />
       </div>
 
-      {/* ==================== RIGHT SIDEBAR - CART ==================== */}
-      <div className="hidden lg:flex w-96 bg-neutral-900 border-l border-neutral-800 flex-col">
-        <div className="bg-brand-600 text-white p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-xl font-bold">{t('cart.orderNumber', { number: '1001' })}</p>
-              <p className="text-sm text-brand-200">{formatTime(new Date())}</p>
-            </div>
-          </div>
-          {linkedCustomer && (
-            <div className="mt-2 flex items-center justify-between bg-brand-700/50 rounded-lg px-3 py-2">
-              <div className="flex items-center gap-2">
-                <span className="text-sm font-bold">{linkedCustomer.name}</span>
-                {linkedCustomer.activeCard && (
-                  <span className="text-xs bg-purple-600 px-2 py-0.5 rounded-full">
-                    {linkedCustomer.activeCard.stamps_earned}/{linkedCustomer.activeCard.stamps_required}
-                  </span>
-                )}
-              </div>
-              <button
-                onClick={() => setLinkedCustomer(null)}
-                className="text-brand-200 hover:text-white text-xs font-bold"
-              >
-                {t('cart.unlink')}
-              </button>
-            </div>
-          )}
-        </div>
+      {/* Right Sidebar - Cart */}
+      <CartPanel
+        cart={cart}
+        linkedCustomer={linkedCustomer}
+        unpaidOrders={unpaidOrders}
+        showUnpaidOrders={showUnpaidOrders}
+        comboSuggestion={comboSuggestion}
+        total={total}
+        subtotal={subtotal}
+        tax={tax}
+        onRemoveFromCart={removeFromCart}
+        onUpdateQuantity={updateQuantity}
+        onSetNotesItem={setNotesItem}
+        onShowPaymentModal={openPaymentModal}
+        onShowCustomerLookup={() => setShowCustomerLookup(true)}
+        onShowTemplates={() => setShowTemplates(true)}
+        onShowComboBuilder={() => setShowComboBuilder(true)}
+        onShowSplitPayment={() => setShowSplitPayment(true)}
+        onClearCart={clearCart}
+        onLogout={handleLogout}
+        onConvertToCombo={convertToCombo}
+        onCobrar={handleCobrar}
+        onToggleUnpaidOrders={() => setShowUnpaidOrders(!showUnpaidOrders)}
+        onUnlinkCustomer={() => setLinkedCustomer(null)}
+      />
 
-        {/* Unpaid orders banner */}
-        {unpaidOrders.length > 0 && (
-          <div className="border-b border-neutral-800">
-            <button
-              onClick={() => setShowUnpaidOrders(!showUnpaidOrders)}
-              className="w-full flex items-center justify-between px-4 py-3 bg-amber-900/30 hover:bg-amber-900/40 transition-all"
-            >
-              <div className="flex items-center gap-2">
-                <span className="bg-amber-600 text-white text-xs font-bold px-2 py-0.5 rounded-full">
-                  {unpaidOrders.length}
-                </span>
-                <span className="text-amber-200 font-bold text-sm">Pedidos por cobrar</span>
-              </div>
-              <span className="text-amber-400 text-xs">{showUnpaidOrders ? '\u25B2' : '\u25BC'}</span>
-            </button>
-            {showUnpaidOrders && (
-              <div className="px-4 pb-3 space-y-2 max-h-48 overflow-y-auto">
-                {unpaidOrders.map((order) => (
-                  <div
-                    key={order.id}
-                    className="flex items-center justify-between bg-neutral-800 rounded-lg px-3 py-2 border border-neutral-700"
-                  >
-                    <div>
-                      <p className="text-white font-bold text-sm">#{order.order_number}</p>
-                      <p className="text-neutral-400 text-xs">{formatPrice(order.total)}</p>
-                    </div>
-                    <button
-                      onClick={() => handleCobrar(order)}
-                      className="px-3 py-1.5 bg-brand-600 text-white text-xs font-bold rounded-lg hover:bg-brand-700 transition-all"
-                    >
-                      Cobrar
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-
-        <div className="flex-1 overflow-y-auto p-4 space-y-3">
-          {cart.length === 0 ? (
-            <div className="flex items-center justify-center h-full">
-              <div className="text-center">
-                <p className="text-neutral-500 text-lg">{t('cart.noItems')}</p>
-                <p className="text-neutral-600 text-sm mt-2">{t('cart.selectItems')}</p>
-              </div>
-            </div>
-          ) : (
-            cart.map((item) => {
-              const isComboItem = !!item.combo_instance_id;
-              const isFirstComboItem = isComboItem && cart.findIndex(
-                (ci) => ci.combo_instance_id === item.combo_instance_id
-              ) === cart.indexOf(item);
-              const isSubComboItem = isComboItem && !isFirstComboItem;
-
-              return (
-                <div
-                  key={item.cart_id}
-                  className={`rounded-lg p-3 border ${
-                    isComboItem
-                      ? isFirstComboItem
-                        ? 'bg-amber-900/20 border-amber-700'
-                        : 'bg-amber-900/10 border-amber-800/50 ml-4'
-                      : 'bg-neutral-800 border-neutral-700'
-                  }`}
-                >
-                  {isFirstComboItem && (
-                    <p className="text-xs font-bold text-amber-400 mb-1 uppercase tracking-wider">{t('cart.combo')}</p>
-                  )}
-                  <div className="flex justify-between items-start mb-1">
-                    <div className="flex-1">
-                      <p className="font-bold text-white">{item.item_name}</p>
-                      {item.selectedModifierNames && item.selectedModifierNames.length > 0 && (
-                        <div className="mt-1 space-y-0.5">
-                          {item.selectedModifierNames.map((name, i) => (
-                            <p key={i} className="text-xs text-brand-400">+ {name}</p>
-                          ))}
-                        </div>
-                      )}
-                      {item.notes && (
-                        <p className="text-xs text-neutral-400 mt-1">{t('cart.note', { note: item.notes })}</p>
-                      )}
-                    </div>
-                    {(!isSubComboItem) && (
-                      <button
-                        onClick={() => removeFromCart(item.cart_id)}
-                        className="text-brand-500 hover:text-brand-400 font-bold ml-2"
-                      >
-                        ✕
-                      </button>
-                    )}
-                  </div>
-
-                  {!isSubComboItem && (
-                    <div className="flex justify-between items-center mb-2">
-                      <div className="flex items-center gap-2">
-                        {!isComboItem && (
-                          <>
-                            <button
-                              onClick={() => updateQuantity(item.cart_id, item.quantity - 1)}
-                              className="w-8 h-8 bg-neutral-700 text-white font-bold rounded hover:bg-neutral-600 transition-all"
-                            >
-                              −
-                            </button>
-                            <span className="w-10 text-center font-bold text-white">{item.quantity}</span>
-                            <button
-                              onClick={() => updateQuantity(item.cart_id, item.quantity + 1)}
-                              className="w-8 h-8 bg-neutral-700 text-white font-bold rounded hover:bg-neutral-600 transition-all"
-                            >
-                              +
-                            </button>
-                          </>
-                        )}
-                      </div>
-                      <p className="font-bold text-white">
-                        {item.unit_price > 0 ? formatPrice(item.unit_price * item.quantity) : ''}
-                      </p>
-                    </div>
-                  )}
-
-                  {!isComboItem && !item.selectedModifierIds?.length && (
-                    <button
-                      onClick={() => setNotesItem(item)}
-                      className="w-full py-2 text-sm bg-neutral-700 text-neutral-300 rounded hover:bg-neutral-600 transition-all font-semibold"
-                    >
-                      {t('cart.addNotes')}
-                    </button>
-                  )}
-                </div>
-              );
-            })
-          )}
-        </div>
-
-        {/* Combo Detection Banner */}
-        {comboSuggestion && (
-          <div className="mx-4 mb-2 bg-amber-900/30 border border-amber-600 rounded-lg p-3">
-            <p className="text-amber-400 font-bold text-sm">{t('comboDetection.title')}</p>
-            <p className="text-amber-200 text-xs mt-1">
-              {t('comboDetection.message', { name: comboSuggestion.combo.name, savings: formatPrice(comboSuggestion.savings) })}
-            </p>
-            <button
-              onClick={convertToCombo}
-              className="mt-2 w-full py-2 bg-amber-600 text-white text-sm font-bold rounded-lg hover:bg-amber-700 transition-all"
-            >
-              {t('comboDetection.convert', { price: formatPrice(comboSuggestion.combo.combo_price) })}
-            </button>
-          </div>
-        )}
-
-        <div className="border-t border-neutral-800 p-4 space-y-2">
-          <div className="border-b border-neutral-700 pb-2 flex justify-between text-xl">
-            <span className="font-bold text-white">{t('totals.total')}</span>
-            <span className="font-bold text-brand-500">{formatPrice(total)}</span>
-          </div>
-          <div className="flex justify-between text-neutral-500 text-sm">
-            <span>{t('totals.subtotalBeforeTax')}</span>
-            <span>{formatPrice(subtotal)}</span>
-          </div>
-          <div className="flex justify-between text-neutral-500 text-sm">
-            <span>{t('totals.taxIncluded', { label: TAX_LABEL })}</span>
-            <span>{formatPrice(tax)}</span>
-          </div>
-        </div>
-
-        <div className="border-t border-neutral-800 p-4 space-y-3">
-          <button
-            onClick={() => setShowPaymentModal(true)}
-            disabled={cart.length === 0}
-            className="w-full py-4 bg-brand-600 text-white text-lg font-bold rounded-lg hover:bg-brand-700 disabled:bg-neutral-800 disabled:text-neutral-600 disabled:cursor-not-allowed transition-all touch-manipulation"
-          >
-            {t('totals.charge', { amount: formatPrice(total) })}
-          </button>
-          <button
-            onClick={() => setShowCustomerLookup(true)}
-            className={`w-full py-3 text-white text-sm font-bold rounded-lg transition-all touch-manipulation ${
-              linkedCustomer ? 'bg-purple-700 hover:bg-purple-800' : 'bg-purple-600 hover:bg-purple-700'
-            }`}
-          >
-            {linkedCustomer ? t('loyalty.loyaltyCustomer', { name: linkedCustomer.name }) : t('loyalty.loyaltyProgram')}
-          </button>
-          <div className="flex gap-2">
-            <button
-              onClick={() => setShowTemplates(true)}
-              className="flex-1 py-3 bg-emerald-600 text-white text-sm font-bold rounded-lg hover:bg-emerald-700 transition-all touch-manipulation flex items-center justify-center gap-1"
-            >
-              <ClipboardList className="w-4 h-4" />
-              {t('quickOrders.title')}
-            </button>
-            <button
-              onClick={() => setShowComboBuilder(true)}
-              className="flex-1 py-3 bg-amber-600 text-white text-sm font-bold rounded-lg hover:bg-amber-700 transition-all touch-manipulation"
-            >
-              {t('actions.combos')}
-            </button>
-            <button
-              onClick={() => setShowSplitPayment(true)}
-              disabled={cart.length === 0}
-              className="flex-1 py-3 bg-blue-600 text-white text-sm font-bold rounded-lg hover:bg-blue-700 disabled:bg-neutral-800 disabled:text-neutral-600 transition-all touch-manipulation"
-            >
-              {t('actions.splitPay')}
-            </button>
-          </div>
-          <button
-            onClick={clearCart}
-            disabled={cart.length === 0}
-            className="w-full py-3 text-brand-500 text-lg font-bold hover:text-brand-400 hover:bg-neutral-800 disabled:text-neutral-700 transition-all rounded-lg"
-          >
-            {t('totals.clearOrder')}
-          </button>
-          <button
-            onClick={handleLogout}
-            className="w-full py-3 bg-neutral-800 text-neutral-400 text-sm font-bold rounded hover:bg-neutral-700 transition-all border border-neutral-700"
-          >
-            {t('common:buttons.logout')}
-          </button>
-        </div>
-      </div>
-
-      {/* ==================== TABLET PORTRAIT: CART DRAWER + MINI BUTTON ==================== */}
+      {/* Tablet Portrait: Cart Drawer + Mini Button */}
       {showDrawerCart && (
         <>
           <MiniCartButton count={cart.length} total={total} onClick={() => setIsCartOpen(true)} />
@@ -1380,7 +794,7 @@ const POSScreen: React.FC = () => {
             onRemoveFromCart={removeFromCart}
             onUpdateQuantity={updateQuantity}
             onSetNotesItem={setNotesItem}
-            onShowPaymentModal={() => setShowPaymentModal(true)}
+            onShowPaymentModal={openPaymentModal}
             onShowCustomerLookup={() => setShowCustomerLookup(true)}
             onShowTemplates={() => setShowTemplates(true)}
             onShowComboBuilder={() => setShowComboBuilder(true)}
@@ -1398,81 +812,19 @@ const POSScreen: React.FC = () => {
 
       {/* ==================== MODALS ==================== */}
 
-      {/* Templates Modal */}
       {showTemplates && (
-        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
-          <div className="bg-neutral-900 rounded-2xl shadow-2xl w-full max-w-md max-h-[80vh] border border-neutral-800 flex flex-col">
-            <div className="bg-emerald-600 text-white p-6 rounded-t-2xl flex items-center justify-between">
-              <div>
-                <h2 className="text-2xl font-bold">{t('quickOrders.title')}</h2>
-                <p className="text-emerald-100 text-sm">{t('quickOrders.subtitle')}</p>
-              </div>
-              <button onClick={() => setShowTemplates(false)} className="text-emerald-200 hover:text-white">
-                <X className="w-6 h-6" />
-              </button>
-            </div>
-            <div className="flex-1 overflow-y-auto p-4 space-y-3">
-              {templates.length === 0 ? (
-                <p className="text-neutral-500 text-center py-8">{t('quickOrders.noTemplates')}</p>
-              ) : (
-                templates.map((template) => (
-                  <button
-                    key={template.id}
-                    onClick={() => applyTemplate(template)}
-                    className="w-full text-left bg-neutral-800 border border-neutral-700 rounded-lg p-4 hover:border-emerald-600 transition-all"
-                  >
-                    <p className="font-bold text-white">{template.name}</p>
-                    {template.description && (
-                      <p className="text-neutral-400 text-sm mt-1">{template.description}</p>
-                    )}
-                    <p className="text-neutral-500 text-xs mt-2">
-                      {template.items.length} {template.items.length === 1 ? 'item' : 'items'}
-                    </p>
-                  </button>
-                ))
-              )}
-            </div>
-            {/* Save current cart as template (managers/admins only) */}
-            {hasPermission('manage_menu') && cart.length > 0 && (
-              <div className="border-t border-neutral-800 p-4">
-                {showSaveTemplate ? (
-                  <div className="space-y-2">
-                    <input
-                      type="text"
-                      value={templateName}
-                      onChange={(e) => setTemplateName(e.target.value)}
-                      placeholder={t('quickOrders.enterName')}
-                      className="w-full px-4 py-3 bg-neutral-800 border border-neutral-700 rounded-lg text-white placeholder-neutral-500 focus:outline-none focus:border-emerald-600"
-                      autoFocus
-                    />
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => setShowSaveTemplate(false)}
-                        className="flex-1 py-2 bg-neutral-700 text-white font-semibold rounded-lg hover:bg-neutral-600"
-                      >
-                        {t('common:buttons.cancel')}
-                      </button>
-                      <button
-                        onClick={saveCartAsTemplate}
-                        disabled={!templateName.trim()}
-                        className="flex-1 py-2 bg-emerald-600 text-white font-semibold rounded-lg hover:bg-emerald-700 disabled:bg-neutral-700 disabled:text-neutral-500"
-                      >
-                        {t('common:buttons.save')}
-                      </button>
-                    </div>
-                  </div>
-                ) : (
-                  <button
-                    onClick={() => setShowSaveTemplate(true)}
-                    className="w-full py-3 bg-neutral-800 text-emerald-400 font-bold rounded-lg hover:bg-neutral-700 border border-neutral-700 transition-all"
-                  >
-                    {t('quickOrders.saveCurrentCart')}
-                  </button>
-                )}
-              </div>
-            )}
-          </div>
-        </div>
+        <QuickOrdersModal
+          templates={templates}
+          hasCartItems={cart.length > 0}
+          hasPermission={hasPermission('manage_menu')}
+          showSaveTemplate={showSaveTemplate}
+          templateName={templateName}
+          onClose={() => setShowTemplates(false)}
+          onApplyTemplate={applyTemplate}
+          onSaveCartAsTemplate={saveCartAsTemplate}
+          onTemplateNameChange={setTemplateName}
+          onShowSaveTemplate={setShowSaveTemplate}
+        />
       )}
 
       {showCustomerLookup && (
@@ -1574,25 +926,25 @@ const POSScreen: React.FC = () => {
             clearCart();
             addToast(t('toast.cryptoDone'), 'success');
           }}
-          onCancel={() => {
-            setShowCryptoModal(false);
-            setCryptoOrderId(null);
-          }}
-          onExpired={() => {
-            setShowCryptoModal(false);
-            setCryptoOrderId(null);
-            addToast(t('toast.cryptoExpired'), 'error');
-          }}
+          onCancel={() => { setShowCryptoModal(false); setCryptoOrderId(null); }}
+          onExpired={() => { setShowCryptoModal(false); setCryptoOrderId(null); addToast(t('toast.cryptoExpired'), 'error'); }}
         />
       )}
 
       {showPaymentModal && (
         <PaymentModal
           orderTotal={total}
+          orderId={preCreatedOrderId ?? undefined}
           onCardPayment={handleCardPayment}
           onCashPayment={handleCashPayment}
           onCryptoPayment={handleCryptoPayment}
-          onCancel={() => setShowPaymentModal(false)}
+          onTerminalPaymentSuccess={() => {
+            clearCart();
+            setShowPaymentModal(false);
+            setPreCreatedOrderId(null);
+            addToast('Pago confirmado por terminal MP', 'success');
+          }}
+          onCancel={() => { setShowPaymentModal(false); setPreCreatedOrderId(null); }}
           isProcessing={isProcessingPayment}
           isOnline={isOnline}
         />

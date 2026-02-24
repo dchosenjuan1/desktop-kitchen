@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { all, get, run } from '../db/index.js';
+import { all, get, run, adminSql } from '../db/index.js';
 import { createPaymentIntent, createRefund, getPaymentIntent } from '../stripe.js';
 import {
   createCryptoPayment as npCreatePayment,
@@ -11,6 +11,13 @@ import {
 import { requireAuth } from '../middleware/auth.js';
 import { deductInventoryForOrder, restoreInventoryForItems } from '../helpers/inventory.js';
 import { generateInvoiceToken } from '../helpers/facturapi.js';
+import { getTenant } from '../tenants.js';
+import {
+  ensureFreshToken,
+  getTerminals as mpGetTerminals,
+  createPointOrder,
+  cancelPointOrder,
+} from '../services/mercadopago.js';
 
 const router = Router();
 
@@ -616,6 +623,152 @@ router.post('/crypto/ipn', async (req, res) => {
   }
 });
 
+// ==================== Mercado Pago Point Endpoints (Pro+) ====================
+
+/** Middleware: require Pro or ghost_kitchen plan */
+function requirePro(req, res, next) {
+  const plan = req.tenant?.plan;
+  if (plan !== 'pro' && plan !== 'ghost_kitchen') {
+    return res.status(403).json({ error: 'Mercado Pago Point requires a Pro plan' });
+  }
+  next();
+}
+
+// GET /api/payments/mp/connect — initiate MP OAuth flow
+router.get('/mp/connect', requireAuth('pos_access'), requirePro, (req, res) => {
+  const BASE_URL = process.env.BASE_URL || `${req.protocol}://${req.get('host')}`;
+  const params = new URLSearchParams({
+    client_id: process.env.MP_CLIENT_ID || '',
+    response_type: 'code',
+    platform_id: 'mp',
+    redirect_uri: `${BASE_URL}/api/payments/mp/callback`,
+    state: req.tenant.id,
+  });
+  res.redirect(`https://auth.mercadopago.com/authorization?${params}`);
+});
+
+// GET /api/payments/mp/terminals — list Point terminals in PDV mode
+router.get('/mp/terminals', requireAuth('pos_access'), requirePro, async (req, res) => {
+  try {
+    const tenant = await getTenant(req.tenant.id);
+    if (!tenant?.mp_access_token) {
+      return res.status(400).json({ error: 'Mercado Pago not connected' });
+    }
+    const accessToken = await ensureFreshToken(tenant, adminSql);
+    const terminals = await mpGetTerminals(accessToken);
+    res.json({ terminals });
+  } catch (error) {
+    console.error('MP getTerminals error:', error);
+    res.status(500).json({ error: 'Failed to fetch terminals' });
+  }
+});
+
+// POST /api/payments/mp/terminals/default — set default terminal
+router.post('/mp/terminals/default', requireAuth('pos_access'), requirePro, async (req, res) => {
+  try {
+    const { terminal_id } = req.body;
+    if (!terminal_id) return res.status(400).json({ error: 'Missing terminal_id' });
+    await adminSql`UPDATE tenants SET mp_default_terminal_id = ${terminal_id} WHERE id = ${req.tenant.id}`;
+    res.json({ success: true });
+  } catch (error) {
+    console.error('MP setDefaultTerminal error:', error);
+    res.status(500).json({ error: 'Failed to set default terminal' });
+  }
+});
+
+// POST /api/payments/mp/charge — create MP payment intent and push to terminal
+router.post('/mp/charge', requireAuth('pos_access'), requirePro, async (req, res) => {
+  try {
+    const { order_id, terminal_id } = req.body;
+    if (!order_id) return res.status(400).json({ error: 'Missing order_id' });
+
+    const order = await get('SELECT id, total, order_number, payment_status FROM orders WHERE id = $1', [order_id]);
+    if (!order) return res.status(404).json({ error: 'Order not found' });
+    if (order.payment_status === 'paid') return res.status(400).json({ error: 'Order is already paid' });
+
+    const tenant = await getTenant(req.tenant.id);
+    if (!tenant?.mp_access_token) {
+      return res.status(400).json({ error: 'Mercado Pago not connected' });
+    }
+
+    const accessToken = await ensureFreshToken(tenant, adminSql);
+    const termId = terminal_id || tenant.mp_default_terminal_id;
+    if (!termId) return res.status(400).json({ error: 'No terminal selected' });
+
+    const externalRef = `${req.tenant.id}-${order.id}`;
+    const mpOrder = await createPointOrder(accessToken, {
+      amount: order.total,
+      description: `Orden #${order.order_number} - ${req.tenant.name}`,
+      externalRef,
+      terminalId: termId,
+    });
+
+    await run(
+      `UPDATE orders SET mp_order_id = $1, payment_status = 'pending_terminal' WHERE id = $2`,
+      [mpOrder.id, order.id]
+    );
+
+    res.json({ success: true, mp_order_id: mpOrder.id, payment_intent_id: mpOrder.id });
+  } catch (error) {
+    console.error('MP charge error:', error);
+    res.status(500).json({ error: error.message || 'Failed to create terminal payment' });
+  }
+});
+
+// POST /api/payments/mp/cancel — cancel a pending terminal payment
+router.post('/mp/cancel', requireAuth('pos_access'), requirePro, async (req, res) => {
+  try {
+    const { order_id } = req.body;
+    if (!order_id) return res.status(400).json({ error: 'Missing order_id' });
+
+    const order = await get('SELECT id, mp_order_id, payment_status FROM orders WHERE id = $1', [order_id]);
+    if (!order) return res.status(404).json({ error: 'Order not found' });
+    if (order.payment_status !== 'pending_terminal') {
+      return res.status(400).json({ error: 'Order is not pending terminal payment' });
+    }
+
+    const tenant = await getTenant(req.tenant.id);
+    if (!tenant?.mp_access_token) {
+      return res.status(400).json({ error: 'Mercado Pago not connected' });
+    }
+
+    const accessToken = await ensureFreshToken(tenant, adminSql);
+    const termId = tenant.mp_default_terminal_id;
+    if (termId && order.mp_order_id) {
+      try {
+        await cancelPointOrder(accessToken, termId, order.mp_order_id);
+      } catch (cancelErr) {
+        console.error('MP cancel warning:', cancelErr.message);
+      }
+    }
+
+    await run(
+      `UPDATE orders SET payment_status = 'unpaid', mp_order_id = NULL WHERE id = $1`,
+      [order.id]
+    );
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error('MP cancel error:', error);
+    res.status(500).json({ error: 'Failed to cancel terminal payment' });
+  }
+});
+
+// GET /api/payments/mp/status — tenant MP connection status
+router.get('/mp/status', requireAuth('pos_access'), async (req, res) => {
+  try {
+    const tenant = await getTenant(req.tenant.id);
+    res.json({
+      connected: !!tenant?.mp_user_id,
+      mp_user_id: tenant?.mp_user_id || null,
+      mp_default_terminal_id: tenant?.mp_default_terminal_id || null,
+    });
+  } catch (error) {
+    console.error('MP status error:', error);
+    res.status(500).json({ error: 'Failed to get MP status' });
+  }
+});
+
 // GET /api/payments/:order_id - get payment status
 router.get('/:order_id', async (req, res) => {
   try {
@@ -657,5 +810,118 @@ router.get('/:order_id', async (req, res) => {
     res.status(500).json({ error: 'Failed to fetch payment status' });
   }
 });
+
+// ==================== MP OAuth Callback (mounted before tenant middleware) ====================
+export async function mpOAuthCallback(req, res) {
+  const { code, state: tenantId } = req.query;
+  if (!code || !tenantId) {
+    return res.status(400).send('Missing code or state');
+  }
+
+  try {
+    const BASE_URL = process.env.BASE_URL || `${req.protocol}://${req.get('host')}`;
+    const tokenRes = await fetch('https://api.mercadopago.com/oauth/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        client_secret: process.env.MP_CLIENT_SECRET,
+        client_id: process.env.MP_CLIENT_ID,
+        grant_type: 'authorization_code',
+        code,
+        redirect_uri: `${BASE_URL}/api/payments/mp/callback`,
+      }),
+    });
+
+    if (!tokenRes.ok) {
+      const text = await tokenRes.text();
+      console.error('MP OAuth token exchange failed:', text);
+      return res.redirect('/#/account?mp=error');
+    }
+
+    const data = await tokenRes.json();
+    const { access_token, refresh_token, user_id, expires_in } = data;
+    const expiresAt = new Date(Date.now() + expires_in * 1000);
+
+    await adminSql`
+      UPDATE tenants
+      SET mp_access_token = ${access_token},
+          mp_refresh_token = ${refresh_token},
+          mp_user_id = ${String(user_id)},
+          mp_token_expires_at = ${expiresAt}
+      WHERE id = ${tenantId}
+    `;
+
+    res.redirect('/#/account?mp=connected');
+  } catch (error) {
+    console.error('MP OAuth callback error:', error);
+    res.redirect('/#/account?mp=error');
+  }
+}
+
+// ==================== MP Webhook (mounted before tenant middleware) ====================
+export async function mpWebhook(req, res) {
+  // Always respond 200 immediately
+  res.sendStatus(200);
+
+  try {
+    const { action, data } = req.body || {};
+    if (!action || !data) return;
+
+    if (action === 'payment.updated' || action === 'payment') {
+      // MP Point webhook: look up by payment intent ID or external_reference
+      const paymentId = data.id;
+      if (!paymentId) return;
+
+      // Fetch the payment details from MP to get the status
+      // We need to find the tenant for this payment
+      const order = await adminSql`
+        SELECT o.id, o.tenant_id, o.mp_order_id, o.payment_status
+        FROM orders o
+        WHERE o.mp_order_id = ${String(paymentId)}
+        LIMIT 1
+      `;
+
+      if (order.length === 0) return;
+      const ord = order[0];
+
+      if (ord.payment_status === 'paid') return; // already processed
+
+      // Get tenant's token to verify payment status
+      const tenant = await getTenant(ord.tenant_id);
+      if (!tenant?.mp_access_token) return;
+
+      let accessToken;
+      try {
+        accessToken = await ensureFreshToken(tenant, adminSql);
+      } catch {
+        return;
+      }
+
+      // Fetch payment intent status from MP
+      const piRes = await fetch(`https://api.mercadopago.com/point/integration-api/payment-intents/${paymentId}`, {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+
+      if (!piRes.ok) return;
+      const piData = await piRes.json();
+
+      if (piData.state === 'FINISHED') {
+        await adminSql`
+          UPDATE orders
+          SET payment_status = 'paid', payment_method = 'card', paid_at = NOW()
+          WHERE id = ${ord.id}
+        `;
+      } else if (piData.state === 'CANCELLED' || piData.state === 'ERROR') {
+        await adminSql`
+          UPDATE orders
+          SET payment_status = 'failed'
+          WHERE id = ${ord.id}
+        `;
+      }
+    }
+  } catch (error) {
+    console.error('MP webhook processing error:', error);
+  }
+}
 
 export default router;

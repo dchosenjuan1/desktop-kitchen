@@ -100,6 +100,8 @@ export async function tenantMiddleware(req, res, next) {
       subscription_status: tenant.subscription_status,
       branding: tenant.branding_json ? JSON.parse(tenant.branding_json) : null,
       owner_email: tenant.owner_email || null,
+      mp_user_id: tenant.mp_user_id || null,
+      mp_default_terminal_id: tenant.mp_default_terminal_id || null,
     };
 
     // Run the rest of the request inside tenant context

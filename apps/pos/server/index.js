@@ -10,7 +10,7 @@ import { tenantMiddleware } from './middleware/tenant.js';
 // Import routes
 import menuRoutes from './routes/menu.js';
 import ordersRoutes from './routes/orders.js';
-import paymentsRoutes from './routes/payments.js';
+import paymentsRoutes, { mpOAuthCallback, mpWebhook } from './routes/payments.js';
 import inventoryRoutes from './routes/inventory.js';
 import employeesRoutes from './routes/employees.js';
 import reportsRoutes from './routes/reports.js';
@@ -92,6 +92,10 @@ app.use('/api/menu-board', menuBoardRoutes);
 // CFDI public self-service (token-based, no auth)
 app.use('/api/cfdi-public', cfdiPublicRoutes);
 
+// Mercado Pago OAuth callback and webhook (before tenant middleware — no tenant context)
+app.get('/api/payments/mp/callback', mpOAuthCallback);
+app.post('/api/payments/mp/webhook', mpWebhook);
+
 // Tenant resolution middleware — all /api routes below use the resolved tenant DB
 app.use('/api', tenantMiddleware);
 
@@ -114,7 +118,7 @@ app.use('/api/waste', wasteRoutes);
 app.use('/api/branding', brandingRoutes);
 app.use('/api/billing', billingRoutes);
 app.use('/api/account', accountRoutes);
-app.use('/api/delivery', deliveryIntelRoutes);
+app.use('/api/delivery-intel', deliveryIntelRoutes);
 app.use('/api/pricing', pricingRoutes);
 app.use('/api/cfdi', cfdiRoutes);
 

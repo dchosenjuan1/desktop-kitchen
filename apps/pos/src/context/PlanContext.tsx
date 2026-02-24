@@ -24,7 +24,10 @@ interface PlanContextType {
   plan: PlanTier;
   limits: PlanLimits;
   ownerEmail: string | null;
+  mpUserId: string | null;
+  mpDefaultTerminalId: string | null;
   isPaid: boolean;
+  isMpConnected: boolean;
   isAtLimit: (resource: 'menuItems' | 'inventoryItems' | 'employees' | 'modifierGroups' | 'combos', currentCount: number) => boolean;
   isFeatureLocked: (feature: 'printers' | 'delivery' | 'permissions' | 'loyalty' | 'prepForecast') => boolean;
   refresh: () => Promise<void>;
@@ -51,6 +54,8 @@ export const PlanProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [plan, setPlan] = useState<PlanTier>('trial');
   const [limits, setLimits] = useState<PlanLimits>(DEFAULT_LIMITS);
   const [ownerEmail, setOwnerEmail] = useState<string | null>(null);
+  const [mpUserId, setMpUserId] = useState<string | null>(null);
+  const [mpDefaultTerminalId, setMpDefaultTerminalId] = useState<string | null>(null);
 
   const fetchPlan = useCallback(async () => {
     try {
@@ -63,6 +68,8 @@ export const PlanProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         if (data.plan) setPlan(data.plan);
         if (data.limits) setLimits(data.limits);
         if (data.ownerEmail !== undefined) setOwnerEmail(data.ownerEmail);
+        if (data.mpUserId !== undefined) setMpUserId(data.mpUserId);
+        if (data.mpDefaultTerminalId !== undefined) setMpDefaultTerminalId(data.mpDefaultTerminalId);
       }
     } catch {
       // Server unreachable — keep defaults
@@ -72,6 +79,7 @@ export const PlanProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   useEffect(() => { fetchPlan(); }, [fetchPlan]);
 
   const isPaid = plan === 'starter' || plan === 'pro' || plan === 'ghost_kitchen';
+  const isMpConnected = !!mpUserId && (plan === 'pro' || plan === 'ghost_kitchen');
 
   const isAtLimit = useCallback((resource: string, currentCount: number) => {
     const max = (limits as unknown as Record<string, unknown>)[resource];
@@ -91,7 +99,7 @@ export const PlanProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   }, [limits]);
 
   return (
-    <PlanContext.Provider value={{ plan, limits, ownerEmail, isPaid, isAtLimit, isFeatureLocked, refresh: fetchPlan }}>
+    <PlanContext.Provider value={{ plan, limits, ownerEmail, mpUserId, mpDefaultTerminalId, isPaid, isMpConnected, isAtLimit, isFeatureLocked, refresh: fetchPlan }}>
       {children}
     </PlanContext.Provider>
   );

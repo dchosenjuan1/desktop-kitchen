@@ -2,9 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import {
   ArrowLeft, User, BarChart3, CreditCard, Settings, Lock,
-  Check, AlertCircle, Crown,
+  Check, AlertCircle, Crown, Smartphone, Wifi, WifiOff,
 } from 'lucide-react';
-import { getAccount, updateAccount, changePassword, createCheckoutSession, createPortalSession } from '../api';
+import { getAccount, updateAccount, changePassword, createCheckoutSession, createPortalSession, getMpTerminals, setMpDefaultTerminal as apiSetMpDefaultTerminal } from '../api';
 
 interface AccountData {
   id: string;
@@ -82,7 +82,22 @@ export default function AccountScreen() {
   // Billing
   const [billingLoading, setBillingLoading] = useState<string | null>(null);
 
+  // Mercado Pago
+  const [mpTerminals, setMpTerminals] = useState<Array<{ id: string; external_pos_id: string }>>([]);
+  const [mpTerminalsLoading, setMpTerminalsLoading] = useState(false);
+  const [mpDefaultTerminal, setMpDefaultTerminal] = useState<string>('');
+  const [mpSaved, setMpSaved] = useState(false);
+
   const [hasOwnerToken, setHasOwnerToken] = useState(!!localStorage.getItem('owner_token'));
+
+  // Check URL params for MP connection result
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.hash.split('?')[1] || '');
+    if (params.get('mp') === 'connected') {
+      // Remove param from URL
+      window.location.hash = window.location.hash.split('?')[0];
+    }
+  }, []);
 
   useEffect(() => {
     if (!hasOwnerToken) {
@@ -406,6 +421,103 @@ export default function AccountScreen() {
                 </button>
               </form>
             </div>
+
+            {/* Mercado Pago Point — Pro+ only */}
+            {(account.plan === 'pro' || account.plan === 'ghost_kitchen') && (
+              <div className="bg-neutral-900 border border-neutral-800 rounded-lg p-6">
+                <div className="flex items-center gap-3 mb-4">
+                  <Smartphone className="text-brand-500" size={22} />
+                  <h2 className="text-lg font-bold text-white">Pagos — Mercado Pago Point</h2>
+                </div>
+
+                {(() => {
+                  // Detect connection from URL param or account data
+                  // We check the mp endpoint for fresh data
+                  const mpUserId = (account as any).mp_user_id;
+                  const isConnected = !!mpUserId;
+
+                  if (!isConnected) {
+                    return (
+                      <div className="space-y-3">
+                        <div className="flex items-center gap-2 text-neutral-400">
+                          <WifiOff size={16} />
+                          <span className="text-sm">No conectado</span>
+                        </div>
+                        <p className="text-neutral-400 text-sm">
+                          Conecta tu terminal Mercado Pago Point para cobrar directo desde el POS sin entrada manual.
+                        </p>
+                        <a
+                          href="/api/payments/mp/connect"
+                          className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#009ee3] text-white text-sm font-bold rounded-lg hover:bg-[#0082c0] transition-colors"
+                        >
+                          <Smartphone size={16} />
+                          Conectar Mercado Pago
+                        </a>
+                      </div>
+                    );
+                  }
+
+                  return (
+                    <div className="space-y-4">
+                      <div className="flex items-center gap-2">
+                        <Wifi size={16} className="text-green-400" />
+                        <span className="text-sm font-semibold text-green-400">Conectado</span>
+                        <span className="text-xs text-neutral-500 ml-2">ID: {mpUserId}</span>
+                      </div>
+
+                      <div>
+                        <label className="block text-neutral-400 text-sm mb-1.5">Terminal predeterminada</label>
+                        <div className="flex items-center gap-2">
+                          <select
+                            value={mpDefaultTerminal || (account as any).mp_default_terminal_id || ''}
+                            onChange={async (e) => {
+                              const termId = e.target.value;
+                              setMpDefaultTerminal(termId);
+                              try {
+                                await apiSetMpDefaultTerminal(termId);
+                                setMpSaved(true);
+                                setTimeout(() => setMpSaved(false), 2000);
+                              } catch {
+                                // ignore
+                              }
+                            }}
+                            className="flex-1 bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-brand-500"
+                          >
+                            <option value="">Seleccionar terminal...</option>
+                            {mpTerminals.map(t => (
+                              <option key={t.id} value={t.id}>
+                                {t.external_pos_id || t.id}
+                              </option>
+                            ))}
+                          </select>
+                          <button
+                            onClick={async () => {
+                              setMpTerminalsLoading(true);
+                              try {
+                                const res = await getMpTerminals();
+                                setMpTerminals(res.terminals);
+                              } catch {
+                                // ignore
+                              }
+                              setMpTerminalsLoading(false);
+                            }}
+                            disabled={mpTerminalsLoading}
+                            className="px-3 py-2 bg-neutral-800 border border-neutral-700 text-neutral-300 text-sm rounded-lg hover:bg-neutral-700 transition-colors disabled:opacity-50"
+                          >
+                            {mpTerminalsLoading ? '...' : 'Actualizar'}
+                          </button>
+                        </div>
+                        {mpSaved && (
+                          <p className="text-teal-400 text-xs mt-1 flex items-center gap-1">
+                            <Check size={12} /> Guardado
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })()}
+              </div>
+            )}
           </>
         )}
       </div>

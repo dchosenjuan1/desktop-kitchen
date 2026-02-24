@@ -1229,11 +1229,11 @@ export async function getDeliveryAnalytics(start?: string, end?: string): Promis
   if (start) qs.append('start', start);
   if (end) qs.append('end', end);
   const s = qs.toString();
-  return apiRequest(`/delivery/analytics${s ? `?${s}` : ''}`);
+  return apiRequest(`/delivery-intel/analytics${s ? `?${s}` : ''}`);
 }
 
 export async function getMarkupRules(): Promise<any[]> {
-  return apiRequest('/delivery/markup-rules');
+  return apiRequest('/delivery-intel/markup-rules');
 }
 
 export async function createMarkupRule(data: {
@@ -1243,7 +1243,7 @@ export async function createMarkupRule(data: {
   markup_type?: string;
   markup_value: number;
 }): Promise<{ id: number }> {
-  return apiRequest('/delivery/markup-rules', {
+  return apiRequest('/delivery-intel/markup-rules', {
     method: 'POST',
     body: JSON.stringify(data),
   });
@@ -1254,22 +1254,22 @@ export async function updateMarkupRule(id: number, data: {
   markup_value?: number;
   active?: boolean;
 }): Promise<any> {
-  return apiRequest(`/delivery/markup-rules/${id}`, {
+  return apiRequest(`/delivery-intel/markup-rules/${id}`, {
     method: 'PUT',
     body: JSON.stringify(data),
   });
 }
 
 export async function deleteMarkupRule(id: number): Promise<any> {
-  return apiRequest(`/delivery/markup-rules/${id}`, { method: 'DELETE' });
+  return apiRequest(`/delivery-intel/markup-rules/${id}`, { method: 'DELETE' });
 }
 
 export async function getMarkupPreview(platformId: number): Promise<any[]> {
-  return apiRequest(`/delivery/markup-preview/${platformId}`);
+  return apiRequest(`/delivery-intel/markup-preview/${platformId}`);
 }
 
 export async function getVirtualBrands(): Promise<any[]> {
-  return apiRequest('/delivery/virtual-brands');
+  return apiRequest('/delivery-intel/virtual-brands');
 }
 
 export async function createVirtualBrand(data: {
@@ -1285,21 +1285,21 @@ export async function createVirtualBrand(data: {
   slug?: string;
   show_in_pos?: boolean;
 }): Promise<{ id: number }> {
-  return apiRequest('/delivery/virtual-brands', {
+  return apiRequest('/delivery-intel/virtual-brands', {
     method: 'POST',
     body: JSON.stringify(data),
   });
 }
 
 export async function updateVirtualBrand(id: number, data: any): Promise<any> {
-  return apiRequest(`/delivery/virtual-brands/${id}`, {
+  return apiRequest(`/delivery-intel/virtual-brands/${id}`, {
     method: 'PUT',
     body: JSON.stringify(data),
   });
 }
 
 export async function getVirtualBrandItems(brandId: number): Promise<any[]> {
-  return apiRequest(`/delivery/virtual-brands/${brandId}/items`);
+  return apiRequest(`/delivery-intel/virtual-brands/${brandId}/items`);
 }
 
 export async function setVirtualBrandItems(brandId: number, items: Array<{
@@ -1307,19 +1307,19 @@ export async function setVirtualBrandItems(brandId: number, items: Array<{
   custom_name?: string;
   custom_price?: number;
 }>): Promise<any> {
-  return apiRequest(`/delivery/virtual-brands/${brandId}/items`, {
+  return apiRequest(`/delivery-intel/virtual-brands/${brandId}/items`, {
     method: 'POST',
     body: JSON.stringify({ items }),
   });
 }
 
 export async function removeVirtualBrandItem(brandId: number, menuItemId: number): Promise<any> {
-  return apiRequest(`/delivery/virtual-brands/${brandId}/items/${menuItemId}`, { method: 'DELETE' });
+  return apiRequest(`/delivery-intel/virtual-brands/${brandId}/items/${menuItemId}`, { method: 'DELETE' });
 }
 
 export async function getRecaptureCandidates(days?: number): Promise<any[]> {
   const qs = days ? `?days=${days}` : '';
-  return apiRequest(`/delivery/recapture/candidates${qs}`);
+  return apiRequest(`/delivery-intel/recapture/candidates${qs}`);
 }
 
 export async function sendRecaptureSMS(data: {
@@ -1329,14 +1329,14 @@ export async function sendRecaptureSMS(data: {
   delivery_order_id?: number;
   message?: string;
 }): Promise<any> {
-  return apiRequest('/delivery/recapture/send', {
+  return apiRequest('/delivery-intel/recapture/send', {
     method: 'POST',
     body: JSON.stringify(data),
   });
 }
 
 export async function markRecaptureConverted(id: number): Promise<any> {
-  return apiRequest(`/delivery/recapture/${id}/convert`, { method: 'POST' });
+  return apiRequest(`/delivery-intel/recapture/${id}/convert`, { method: 'POST' });
 }
 
 /* ==================== Menu Board Endpoints ==================== */
@@ -1593,3 +1593,39 @@ export async function issueCfdiPublicInvoice(token: string, data: {
   }
   return res.json();
 }
+
+/* ==================== Mercado Pago Point Endpoints ==================== */
+
+export async function getMpStatus(): Promise<{
+  connected: boolean;
+  mp_user_id: string | null;
+  mp_default_terminal_id: string | null;
+}> {
+  return apiRequest('/payments/mp/status');
+}
+
+export async function getMpTerminals(): Promise<{ terminals: Array<{ id: string; external_pos_id: string; operating_mode: string }> }> {
+  return apiRequest('/payments/mp/terminals');
+}
+
+export async function setMpDefaultTerminal(terminal_id: string): Promise<{ success: boolean }> {
+  return apiRequest('/payments/mp/terminals/default', {
+    method: 'POST',
+    body: JSON.stringify({ terminal_id }),
+  });
+}
+
+export async function mpCharge(order_id: number, terminal_id?: string): Promise<{ success: boolean; mp_order_id: string; payment_intent_id: string }> {
+  return apiRequest('/payments/mp/charge', {
+    method: 'POST',
+    body: JSON.stringify({ order_id, terminal_id }),
+  });
+}
+
+export async function mpCancelCharge(order_id: number): Promise<{ success: boolean }> {
+  return apiRequest('/payments/mp/cancel', {
+    method: 'POST',
+    body: JSON.stringify({ order_id }),
+  });
+}
+
