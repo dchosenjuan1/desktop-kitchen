@@ -5,13 +5,20 @@ import { requireAuth } from '../middleware/auth.js';
 import { getPlanLimits, requirePlanFeature } from '../planLimits.js';
 import { getServiceCredentials } from '../helpers/tenantCredentials.js';
 import {
-  verifyWebhookSignature,
-  getAccessToken,
-  fetchOrder,
-  acceptOrder,
-  denyOrder,
+  verifyWebhookSignature as verifyUberSignature,
+  getAccessToken as getUberToken,
+  fetchOrder as fetchUberOrder,
+  acceptOrder as acceptUberOrder,
+  denyOrder as denyUberOrder,
   cancelUberOrder,
 } from '../services/uber-eats.js';
+import {
+  verifyRappiSignature,
+  getAccessToken as getRappiToken,
+  takeOrder as takeRappiOrder,
+  rejectOrder as rejectRappiOrder,
+  markReadyForPickup as rappiReadyForPickup,
+} from '../services/rappi.js';
 
 const router = Router();
 const TAX_RATE = 0.16; // 16% IVA (Mexico) — prices include tax
@@ -117,11 +124,17 @@ router.post('/orders/:id/accept', requireAuth('manage_delivery'), async (req, re
     if (!deliveryOrder) return res.status(404).json({ error: 'Delivery order not found' });
 
     const tenantId = req.tenant?.id;
-    if (deliveryOrder.platform_name === 'uber_eats' && tenantId) {
-      const token = await getAccessToken(tenantId);
-      await acceptOrder(token, deliveryOrder.external_order_id, {
-        reason: req.body.reason || 'Accepted by POS',
-      });
+    if (tenantId) {
+      if (deliveryOrder.platform_name === 'uber_eats') {
+        const token = await getUberToken(tenantId);
+        await acceptUberOrder(token, deliveryOrder.external_order_id, {
+          reason: req.body.reason || 'Accepted by POS',
+        });
+      } else if (deliveryOrder.platform_name === 'rappi') {
+        const creds = await getServiceCredentials(tenantId, 'rappi', { store_id: '' });
+        const token = await getRappiToken(tenantId);
+        await takeRappiOrder(token, creds.store_id, deliveryOrder.external_order_id, req.body.cooking_time);
+      }
     }
 
     await run('UPDATE delivery_orders SET platform_status = $1 WHERE id = $2', ['accepted', id]);
@@ -150,9 +163,18 @@ router.post('/orders/:id/deny', requireAuth('manage_delivery'), async (req, res)
     if (!deliveryOrder) return res.status(404).json({ error: 'Delivery order not found' });
 
     const tenantId = req.tenant?.id;
-    if (deliveryOrder.platform_name === 'uber_eats' && tenantId) {
-      const token = await getAccessToken(tenantId);
-      await denyOrder(token, deliveryOrder.external_order_id, { explanation, code });
+    if (tenantId) {
+      if (deliveryOrder.platform_name === 'uber_eats') {
+        const token = await getUberToken(tenantId);
+        await denyUberOrder(token, deliveryOrder.external_order_id, { explanation, code });
+      } else if (deliveryOrder.platform_name === 'rappi') {
+        const creds = await getServiceCredentials(tenantId, 'rappi', { store_id: '' });
+        const token = await getRappiToken(tenantId);
+        await rejectRappiOrder(
+          token, creds.store_id, deliveryOrder.external_order_id,
+          code || 'POS_INTERNAL_ERROR', explanation
+        );
+      }
     }
 
     await run('UPDATE delivery_orders SET platform_status = $1 WHERE id = $2', ['denied', id]);
@@ -181,9 +203,12 @@ router.post('/orders/:id/cancel', requireAuth('manage_delivery'), async (req, re
     if (!deliveryOrder) return res.status(404).json({ error: 'Delivery order not found' });
 
     const tenantId = req.tenant?.id;
-    if (deliveryOrder.platform_name === 'uber_eats' && tenantId) {
-      const token = await getAccessToken(tenantId);
-      await cancelUberOrder(token, deliveryOrder.external_order_id, reason);
+    if (tenantId) {
+      if (deliveryOrder.platform_name === 'uber_eats') {
+        const token = await getUberToken(tenantId);
+        await cancelUberOrder(token, deliveryOrder.external_order_id, reason);
+      }
+      // Rappi doesn't support cancel-after-accept via API — order is cancelled locally only
     }
 
     await run('UPDATE delivery_orders SET platform_status = $1 WHERE id = $2', ['cancelled', id]);
@@ -213,19 +238,27 @@ async function generateOrderNumber() {
   return row.order_number;
 }
 
-// ==================== Uber Eats Webhook ====================
+// ==================== Shared Helpers ====================
+
+const PLATFORM_DEFAULTS = {
+  uber_eats: { display_name: 'Uber Eats', commission_percent: 30 },
+  rappi:     { display_name: 'Rappi',     commission_percent: 25 },
+  didi_food: { display_name: 'DiDi Food', commission_percent: 25 },
+};
 
 /**
- * Find or create the delivery_platforms row for uber_eats.
+ * Find or create a delivery_platforms row by name.
  */
-async function ensureUberPlatform() {
+async function ensurePlatform(name) {
   let platform = await get(
-    "SELECT * FROM delivery_platforms WHERE name = 'uber_eats'"
+    'SELECT * FROM delivery_platforms WHERE name = $1', [name]
   );
   if (!platform) {
+    const defaults = PLATFORM_DEFAULTS[name] || { display_name: name, commission_percent: 0 };
     const result = await run(
       `INSERT INTO delivery_platforms (name, display_name, commission_percent, active)
-       VALUES ('uber_eats', 'Uber Eats', 30, true)`
+       VALUES ($1, $2, $3, true)`,
+      [name, defaults.display_name, defaults.commission_percent]
     );
     platform = await get('SELECT * FROM delivery_platforms WHERE id = $1', [result.lastInsertRowid]);
   }
@@ -233,8 +266,7 @@ async function ensureUberPlatform() {
 }
 
 /**
- * Find a system/delivery employee to attribute the order to.
- * Tries 'delivery' role first, then 'admin', then any employee.
+ * Find a system employee to attribute delivery orders to.
  */
 async function findSystemEmployee() {
   return (
@@ -244,10 +276,14 @@ async function findSystemEmployee() {
 }
 
 /**
- * Try to match an Uber Eats item to a local menu item.
- * Matches by name (case-insensitive).
+ * Try to match a delivery item to a local menu item by name (case-insensitive)
+ * or by SKU if provided.
  */
-async function matchMenuItem(title) {
+async function matchMenuItem(title, sku) {
+  if (sku) {
+    const byId = await get('SELECT id, name, price FROM menu_items WHERE id = $1', [sku]);
+    if (byId) return byId;
+  }
   if (!title) return null;
   return get(
     "SELECT id, name, price FROM menu_items WHERE LOWER(name) = LOWER($1) LIMIT 1",
@@ -271,10 +307,10 @@ async function processUberOrder(tenantId, externalOrderId, rawWebhookData) {
   }
 
   // Fetch full order from Uber
-  const token = await getAccessToken(tenantId);
-  const uberOrder = await fetchOrder(token, externalOrderId);
+  const token = await getUberToken(tenantId);
+  const uberOrder = await fetchUberOrder(token, externalOrderId);
 
-  const platform = await ensureUberPlatform();
+  const platform = await ensurePlatform('uber_eats');
   const employee = await findSystemEmployee();
   if (!employee) {
     throw new Error('No active employee found to attribute delivery order');
@@ -402,7 +438,7 @@ async function processUberOrder(tenantId, externalOrderId, rawWebhookData) {
 
   // Auto-accept on Uber Eats
   try {
-    await acceptOrder(token, externalOrderId, {
+    await acceptUberOrder(token, externalOrderId, {
       reason: 'Auto-accepted by POS',
       externalRef: String(orderId),
     });
@@ -441,7 +477,7 @@ router.post('/webhook/uber-eats', async (req, res) => {
           console.warn('[Uber Eats] Webhook missing x-uber-signature header');
           return res.status(403).json({ error: 'Missing webhook signature' });
         }
-        if (!verifyWebhookSignature(req.rawBody, signature, creds.client_secret)) {
+        if (!verifyUberSignature(req.rawBody, signature, creds.client_secret)) {
           console.warn('[Uber Eats] Webhook signature verification failed');
           return res.status(403).json({ error: 'Invalid webhook signature' });
         }
@@ -514,7 +550,144 @@ router.post('/webhook/uber-eats', async (req, res) => {
   }
 });
 
-// ==================== Rappi / DiDi Webhooks (stubs) ====================
+// ==================== Rappi Webhook ====================
+
+/**
+ * Process a Rappi NEW_ORDER: parse items from webhook payload (full order included),
+ * create internal order + delivery_order, and auto-accept on Rappi.
+ */
+async function processRappiOrder(tenantId, payload, rawWebhookData) {
+  const orderDetail = payload.order_detail || {};
+  const externalOrderId = String(orderDetail.order_id);
+
+  // Idempotent dedup
+  const existing = await get(
+    "SELECT id FROM delivery_orders WHERE external_order_id = $1",
+    [externalOrderId]
+  );
+  if (existing) {
+    console.log(`[Rappi] Order ${externalOrderId} already processed (delivery_order ${existing.id})`);
+    return { duplicate: true, delivery_order_id: existing.id };
+  }
+
+  const platform = await ensurePlatform('rappi');
+  const employee = await findSystemEmployee();
+  if (!employee) {
+    throw new Error('No active employee found to attribute delivery order');
+  }
+
+  // Parse items — Rappi prices are in centavos (15000 = $150.00 MXN)
+  const rappiItems = orderDetail.items || [];
+  const orderItems = [];
+  let itemsTotal = 0;
+
+  for (const rappiItem of rappiItems) {
+    if (rappiItem.type === 'TOPPING') continue; // toppings are subitems, handled below
+
+    const quantity = rappiItem.quantity || 1;
+    // Use discounted price if available, otherwise original price
+    let unitPrice = (rappiItem.unit_price_with_discount ?? rappiItem.price ?? 0) / 100;
+
+    // Add subitem (topping/modifier) prices
+    const subitems = rappiItem.subitems || [];
+    for (const sub of subitems) {
+      unitPrice += (sub.price || 0) / 100 * (sub.quantity || 1);
+    }
+
+    const title = rappiItem.name || 'Rappi Item';
+    const notes = rappiItem.comments || null;
+
+    const localItem = await matchMenuItem(title, rappiItem.sku);
+
+    orderItems.push({
+      menu_item_id: localItem?.id || null,
+      item_name: localItem?.name || title,
+      quantity,
+      unit_price: unitPrice > 0 ? unitPrice : (localItem?.price || 0),
+      notes,
+    });
+
+    itemsTotal += (unitPrice > 0 ? unitPrice : (localItem?.price || 0)) * quantity;
+  }
+
+  // Calculate tax (prices include IVA)
+  const total = itemsTotal;
+  const tax = Math.round((total - total / (1 + TAX_RATE)) * 100) / 100;
+  const subtotal = Math.round((total - tax) * 100) / 100;
+  const orderNumber = await generateOrderNumber();
+
+  // Create internal order
+  const orderResult = await run(`
+    INSERT INTO orders (order_number, employee_id, status, subtotal, tax, total, payment_status, payment_method, source)
+    VALUES ($1, $2, 'confirmed', $3, $4, $5, 'paid', 'rappi', 'rappi')
+  `, [orderNumber, employee.id, subtotal, tax, total]);
+
+  const orderId = orderResult.lastInsertRowid;
+
+  // Insert order items
+  for (const item of orderItems) {
+    await run(`
+      INSERT INTO order_items (order_id, menu_item_id, item_name, quantity, unit_price, notes)
+      VALUES ($1, $2, $3, $4, $5, $6)
+    `, [orderId, item.menu_item_id, item.item_name, item.quantity, item.unit_price, item.notes]);
+  }
+
+  // Parse delivery fee and commission
+  const totals = orderDetail.totals || {};
+  const deliveryFee = (totals.charges?.shipping || 0) / 100;
+  const commission = total * (platform.commission_percent / 100);
+
+  // Parse customer info
+  const customer = payload.customer || {};
+  const customerName = [customer.first_name, customer.last_name].filter(Boolean).join(' ') || null;
+  const deliveryInfo = orderDetail.delivery_information || {};
+  const deliveryAddress = deliveryInfo.complete_address || null;
+
+  // Create delivery_order record
+  const deliveryResult = await run(`
+    INSERT INTO delivery_orders (order_id, platform_id, external_order_id, platform_status, delivery_fee, platform_commission, customer_name, delivery_address, raw_webhook_data)
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+  `, [
+    orderId,
+    platform.id,
+    externalOrderId,
+    'received',
+    deliveryFee,
+    commission,
+    customerName,
+    deliveryAddress,
+    rawWebhookData,
+  ]);
+
+  // Link delivery order to the internal order
+  await run('UPDATE orders SET delivery_order_id = $1 WHERE id = $2', [
+    deliveryResult.lastInsertRowid, orderId,
+  ]);
+
+  // Auto-accept on Rappi (must happen within 6 minutes)
+  try {
+    const creds = await getServiceCredentials(tenantId, 'rappi', { store_id: '' });
+    if (creds.store_id) {
+      const token = await getRappiToken(tenantId);
+      const cookingTime = orderDetail.cooking_time || 20;
+      await takeRappiOrder(token, creds.store_id, externalOrderId, cookingTime);
+      await run('UPDATE delivery_orders SET platform_status = $1 WHERE id = $2', [
+        'accepted', deliveryResult.lastInsertRowid,
+      ]);
+      console.log(`[Rappi] Order ${externalOrderId} auto-accepted (internal order ${orderId})`);
+    }
+  } catch (acceptErr) {
+    console.error(`[Rappi] Auto-accept failed for ${externalOrderId}:`, acceptErr.message);
+  }
+
+  return {
+    order_id: orderId,
+    order_number: orderNumber,
+    delivery_order_id: deliveryResult.lastInsertRowid,
+    items_count: orderItems.length,
+    total,
+  };
+}
 
 // POST /api/delivery/webhook/rappi - Rappi webhook
 router.post('/webhook/rappi', async (req, res) => {
@@ -522,33 +695,87 @@ router.post('/webhook/rappi', async (req, res) => {
     const payload = req.body;
     const tenantId = req.tenant?.id;
 
+    // Validate webhook signature (Rappi-Signature: t=<ts>,sign=<hmac>)
     if (tenantId) {
       const creds = await getServiceCredentials(tenantId, 'rappi', {
         webhook_secret: '',
       });
       if (creds.webhook_secret && req.rawBody) {
-        const signature = req.headers['x-rappi-signature'] || req.headers['x-webhook-signature'];
-        if (!signature) {
-          console.warn('[Rappi] Webhook missing signature header');
+        const sigHeader = req.headers['rappi-signature'] || req.headers['x-rappi-signature'];
+        if (!sigHeader) {
+          console.warn('[Rappi] Webhook missing Rappi-Signature header');
           return res.status(403).json({ error: 'Missing webhook signature' });
         }
-        const expected = crypto.createHmac('sha256', creds.webhook_secret)
-          .update(req.rawBody)
-          .digest('hex');
-        if (expected !== signature) {
+        if (!verifyRappiSignature(req.rawBody, sigHeader, creds.webhook_secret)) {
           console.warn('[Rappi] Webhook signature verification failed');
           return res.status(403).json({ error: 'Invalid webhook signature' });
         }
       }
     }
 
-    console.log('Rappi webhook received:', JSON.stringify(payload).slice(0, 200));
-    res.json({ success: true, message: 'Webhook received' });
+    // Determine event type — Rappi sends different structures per event
+    // NEW_ORDER has order_detail, PING has store_id only, cancels have event field
+    const eventType = payload.event || (payload.order_detail ? 'NEW_ORDER' : null)
+      || (payload.store_id && !payload.order_detail && !payload.event ? 'PING' : 'UNKNOWN');
+
+    console.log(`[Rappi] Webhook: ${eventType}, order: ${payload.order_detail?.order_id || 'N/A'}`);
+
+    switch (eventType) {
+      case 'PING': {
+        // Rappi sends PING every 3 min — must respond with status OK or store goes offline
+        return res.json({ status: 'OK', description: 'POS online' });
+      }
+
+      case 'NEW_ORDER': {
+        if (!tenantId) {
+          console.warn('[Rappi] No tenant context for order processing');
+          return res.status(400).json({ error: 'Tenant context required' });
+        }
+
+        const result = await processRappiOrder(tenantId, payload, JSON.stringify(payload));
+        console.log('[Rappi] Order processed:', result);
+        return res.json({ success: true, ...result });
+      }
+
+      case 'canceled_with_charge':
+      case 'canceled_without_charge':
+      case 'ORDER_EVENT_CANCEL': {
+        const cancelOrderId = String(payload.order_id);
+        const deliveryOrder = await get(
+          "SELECT id, order_id FROM delivery_orders WHERE external_order_id = $1",
+          [cancelOrderId]
+        );
+        if (deliveryOrder) {
+          await run('UPDATE delivery_orders SET platform_status = $1 WHERE id = $2', [
+            'cancelled_by_rappi', deliveryOrder.id,
+          ]);
+          await run('UPDATE orders SET status = $1 WHERE id = $2', [
+            'cancelled', deliveryOrder.order_id,
+          ]);
+          console.log(`[Rappi] Order ${cancelOrderId} cancelled by Rappi`);
+        }
+        return res.json({ success: true, message: 'Cancel processed' });
+      }
+
+      case 'taken_visible_order':
+      case 'ORDER_OTHER_EVENT': {
+        // Courier assigned or other status update — log for now
+        console.log(`[Rappi] Status event: ${payload.event} for order ${payload.order_id}`);
+        return res.json({ success: true, message: 'Event acknowledged' });
+      }
+
+      default: {
+        console.log(`[Rappi] Unhandled event: ${eventType}`);
+        return res.json({ success: true, message: `Event ${eventType} acknowledged` });
+      }
+    }
   } catch (error) {
-    console.error('Rappi webhook error:', error);
-    res.status(500).json({ error: 'Webhook processing failed' });
+    console.error('[Rappi] Webhook error:', error);
+    res.status(200).json({ success: false, error: error.message });
   }
 });
+
+// ==================== DiDi Food Webhook (stub) ====================
 
 // POST /api/delivery/webhook/didi - DiDi Food webhook
 router.post('/webhook/didi', async (req, res) => {

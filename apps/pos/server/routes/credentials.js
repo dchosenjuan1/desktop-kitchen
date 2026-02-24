@@ -53,8 +53,9 @@ const SERVICE_SCHEMA = {
   rappi: {
     label: 'Rappi',
     fields: [
+      { key: 'client_id', label: 'Client ID', secret: false },
+      { key: 'client_secret', label: 'Client Secret', secret: true },
       { key: 'store_id', label: 'Store ID', secret: false },
-      { key: 'api_key', label: 'API Key', secret: true },
       { key: 'webhook_secret', label: 'Webhook Secret', secret: true },
     ],
   },
