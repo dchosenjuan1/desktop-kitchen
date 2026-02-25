@@ -67,6 +67,12 @@ import {
   CfdiInvoice,
   CfdiInvoiceToken,
   CfdiCatalogs,
+  RecipeIngredient,
+  RecipeSummaryItem,
+  StressTestTemplate,
+  StressTestConfig,
+  StressTestProgress,
+  StressTestResults,
 } from '../types';
 
 // Employee ID for display/sync use - set after login
@@ -677,6 +683,26 @@ export async function removeModifierGroupFromItem(menuItemId: number, groupId: n
 
 export async function getItemsWithModifiers(): Promise<{ itemIds: number[] }> {
   return apiRequest<{ itemIds: number[] }>('/modifiers/items-with-modifiers');
+}
+
+/* ==================== Recipe Endpoints ==================== */
+
+export async function getRecipeSummary(): Promise<RecipeSummaryItem[]> {
+  return apiRequest<RecipeSummaryItem[]>('/menu/recipes/summary');
+}
+
+export async function getItemRecipe(menuItemId: number): Promise<RecipeIngredient[]> {
+  return apiRequest<RecipeIngredient[]>(`/menu/items/${menuItemId}/recipe`);
+}
+
+export async function updateItemRecipe(
+  menuItemId: number,
+  ingredients: { inventory_item_id: number; quantity_used: number }[]
+): Promise<RecipeIngredient[]> {
+  return apiRequest<RecipeIngredient[]>(`/menu/items/${menuItemId}/recipe`, {
+    method: 'PUT',
+    body: JSON.stringify({ ingredients }),
+  });
 }
 
 /* ==================== Combo Endpoints ==================== */
@@ -1699,6 +1725,72 @@ export async function saveCredentials(service: string, values: Record<string, st
     throw new Error(err.error || `API Error: ${res.status}`);
   }
   return res.json();
+}
+
+/* ==================== Stress Test ==================== */
+
+export async function getStressTestTemplates(): Promise<StressTestTemplate[]> {
+  return apiRequest<StressTestTemplate[]>('/stress-test/templates');
+}
+
+export async function runStressTest(
+  config: StressTestConfig,
+  onProgress: (event: StressTestProgress) => void,
+  onComplete: (results: StressTestResults) => void,
+  onError: (error: string) => void,
+): Promise<void> {
+  const base = IOS_FALLBACK_URLS.length ? await resolveBaseUrl() : activeBaseUrl;
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  if (currentEmployeeToken) headers['Authorization'] = `Bearer ${currentEmployeeToken}`;
+  const tenantId = localStorage.getItem('tenant_id');
+  if (tenantId) headers['X-Tenant-ID'] = tenantId;
+
+  const response = await fetch(`${base}/stress-test/run`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify(config),
+  });
+
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}));
+    throw new Error(err.error || `API Error: ${response.status}`);
+  }
+
+  const reader = response.body?.getReader();
+  if (!reader) throw new Error('No response stream');
+
+  const decoder = new TextDecoder();
+  let buffer = '';
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split('\n');
+    buffer = lines.pop() || '';
+
+    let currentEvent = '';
+    for (const line of lines) {
+      if (line.startsWith('event: ')) {
+        currentEvent = line.slice(7).trim();
+      } else if (line.startsWith('data: ')) {
+        try {
+          const data = JSON.parse(line.slice(6));
+          if (currentEvent === 'progress') {
+            onProgress(data as StressTestProgress);
+          } else if (currentEvent === 'complete') {
+            onComplete(data as StressTestResults);
+          } else if (currentEvent === 'error') {
+            onError(data.message || 'Unknown error');
+          }
+        } catch {
+          // Skip malformed JSON
+        }
+        currentEvent = '';
+      }
+    }
+  }
 }
 
 export async function deleteCredentials(service: string): Promise<{ success: boolean }> {

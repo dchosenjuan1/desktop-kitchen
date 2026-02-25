@@ -26,6 +26,8 @@ import {
   Receipt,
   TrendingUp,
   Plug,
+  BookOpen,
+  Gauge,
 } from 'lucide-react';
 import { getSalesReport, getLowStock, createCheckoutSession, createPortalSession } from '../api';
 import { SalesReport, InventoryItem } from '../types';
@@ -278,6 +280,16 @@ export default function AdminPanel() {
             </div>
           </Link>
 
+          <Link to="/admin/recipes">
+            <div className="bg-neutral-900 p-8 rounded-lg border border-neutral-800 hover:border-brand-600 transition-all cursor-pointer h-full">
+              <div className="flex items-center justify-center w-12 h-12 bg-brand-600/10 rounded-lg mb-4">
+                <BookOpen className="text-brand-500" size={28} />
+              </div>
+              <h2 className="text-xl font-bold text-white mb-2">Recipes</h2>
+              <p className="text-neutral-400 text-sm">Manage ingredients and costs per menu item</p>
+            </div>
+          </Link>
+
           <Link to="/admin/inventory">
             <div className="bg-neutral-900 p-8 rounded-lg border border-neutral-800 hover:border-brand-600 transition-all cursor-pointer h-full">
               <div className="flex items-center justify-center w-12 h-12 bg-brand-600/10 rounded-lg mb-4">
@@ -457,6 +469,18 @@ export default function AdminPanel() {
               <p className="text-neutral-400 text-sm">Manage your account, billing, and settings</p>
             </div>
           </Link>
+
+          {(plan === 'pro' || plan === 'ghost_kitchen') && (
+            <Link to="/admin/stress-test">
+              <div className="bg-neutral-900 p-8 rounded-lg border border-neutral-800 hover:border-orange-600 transition-all cursor-pointer h-full">
+                <div className="flex items-center justify-center w-12 h-12 bg-orange-600/10 rounded-lg mb-4">
+                  <Gauge className="text-orange-500" size={28} />
+                </div>
+                <h2 className="text-xl font-bold text-white mb-2">Stress Test</h2>
+                <p className="text-neutral-400 text-sm">Simulate rush hours, delivery surges, and find your system's breaking point</p>
+              </div>
+            </Link>
+          )}
         </div>
 
         {lowStockItems.length > 0 && (

@@ -35,6 +35,7 @@ import accountRoutes from './routes/account.js';
 import wasteRoutes from './routes/waste.js';
 import cfdiRoutes from './routes/cfdi.js';
 import credentialsRoutes from './routes/credentials.js';
+import stressTestRoutes from './routes/stress-test.js';
 import { initAI } from './ai/index.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -137,6 +138,7 @@ app.use('/api/delivery-intel', deliveryIntelRoutes);
 app.use('/api/pricing', pricingRoutes);
 app.use('/api/cfdi', cfdiRoutes);
 app.use('/api/credentials', credentialsRoutes);
+app.use('/api/stress-test', stressTestRoutes);
 
 // Serve index.html for all other routes (SPA)
 app.get('*', (req, res) => {

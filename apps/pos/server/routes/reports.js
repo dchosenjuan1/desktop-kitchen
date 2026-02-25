@@ -179,13 +179,20 @@ router.get('/cash-card-breakdown', async (req, res) => {
       GROUP BY payment_method
     `, [startDate]);
 
+    // Coerce Postgres numeric/bigint strings to JS numbers
+    for (const b of breakdown) {
+      b.count = Number(b.count) || 0;
+      b.total = Number(b.total) || 0;
+      b.tips = Number(b.tips) || 0;
+    }
+
     const totalOrders = breakdown.reduce((sum, b) => sum + b.count, 0);
-    const totalRevenue = breakdown.reduce((sum, b) => sum + (b.total || 0), 0);
+    const totalRevenue = breakdown.reduce((sum, b) => sum + b.total, 0);
 
     const result = breakdown.map(b => ({
       ...b,
       percentage: totalOrders > 0 ? Math.round((b.count / totalOrders) * 100) : 0,
-      revenue_percentage: totalRevenue > 0 ? Math.round(((b.total || 0) / totalRevenue) * 100) : 0,
+      revenue_percentage: totalRevenue > 0 ? Math.round((b.total / totalRevenue) * 100) : 0,
     }));
 
     res.json({
@@ -299,16 +306,18 @@ router.get('/cogs', async (req, res) => {
         WHERE mii.menu_item_id = $1
       `, [item.menu_item_id]);
 
-      const cogsPerUnit = ingredients.reduce((sum, ing) => sum + (ing.quantity_used * ing.cost_price), 0);
-      const totalCogs = Math.round(cogsPerUnit * item.quantity_sold * 100) / 100;
-      const margin = item.revenue - totalCogs;
-      const marginPercent = item.revenue > 0 ? Math.round((margin / item.revenue) * 100) : 0;
+      const cogsPerUnit = ingredients.reduce((sum, ing) => sum + (Number(ing.quantity_used) * Number(ing.cost_price)), 0);
+      const revenue = Number(item.revenue) || 0;
+      const qtySold = Number(item.quantity_sold) || 0;
+      const totalCogs = Math.round(cogsPerUnit * qtySold * 100) / 100;
+      const margin = revenue - totalCogs;
+      const marginPercent = revenue > 0 ? Math.round((margin / revenue) * 100) : 0;
 
       result.push({
         menu_item_id: item.menu_item_id,
         item_name: item.item_name,
-        quantity_sold: item.quantity_sold,
-        revenue: item.revenue,
+        quantity_sold: qtySold,
+        revenue,
         cogs: totalCogs,
         margin,
         margin_percent: marginPercent,

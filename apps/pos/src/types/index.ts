@@ -1055,6 +1055,75 @@ export interface CfdiCatalogs {
   cancellationMotives: SatCatalogItem[];
 }
 
+/* Stress Test Types */
+export type StressTestTemplateId = 'slow_day' | 'lunch_rush' | 'friday_night' | 'delivery_blitz' | 'breaking_point';
+
+export interface StressTestParam {
+  key: string;
+  label: string;
+  min: number;
+  max: number;
+  step: number;
+  default: number;
+  unit?: string;
+}
+
+export interface StressTestTemplate {
+  id: StressTestTemplateId;
+  name: string;
+  description: string;
+  icon: string;
+  params: StressTestParam[];
+}
+
+export interface StressTestConfig {
+  templateId: StressTestTemplateId;
+  params: Record<string, number>;
+}
+
+export interface StressTestProgress {
+  phase: string;
+  message: string;
+  percent: number;
+  ordersCreated?: number;
+  ordersProcessed?: number;
+  errorsCount?: number;
+  currentLatencyMs?: number;
+}
+
+export interface StressTestLatencyStats {
+  avg: number;
+  p50: number;
+  p95: number;
+  p99: number;
+  max: number;
+  min: number;
+}
+
+export interface StressTestBatchResult {
+  batchSize: number;
+  avgLatencyMs: number;
+  errorRate: number;
+}
+
+export interface StressTestResults {
+  templateId: StressTestTemplateId;
+  templateName: string;
+  durationMs: number;
+  totalOrders: number;
+  posOrders: number;
+  deliveryOrders: number;
+  ordersCompleted: number;
+  ordersFailed: number;
+  errorRate: number;
+  orderCreationLatency: StressTestLatencyStats;
+  kitchenTransitionLatency: StressTestLatencyStats;
+  throughputPerMinute: number;
+  peakKitchenQueue: number;
+  breakingPointBatches?: StressTestBatchResult[];
+  recommendations: string[];
+}
+
 /* API Response Types */
 export interface ApiResponse<T> {
   success: boolean;

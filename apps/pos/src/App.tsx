@@ -63,6 +63,12 @@ const MenuManagement = React.lazy(() =>
   }))
 );
 
+const RecipeManagement = React.lazy(() =>
+  import('./screens/RecipeManagement').then((module) => ({
+    default: module.default || (() => <div>Recipe Management</div>),
+  }))
+);
+
 const AIConfigScreen = React.lazy(() =>
   import('./screens/AIConfigScreen').then((module) => ({
     default: module.default || (() => <div>AI Config</div>),
@@ -186,6 +192,12 @@ const AccountScreen = React.lazy(() =>
 const IntegrationsScreen = React.lazy(() =>
   import('./screens/IntegrationsScreen').then((module) => ({
     default: module.default || (() => <div>Integrations</div>),
+  }))
+);
+
+const StressTestScreen = React.lazy(() =>
+  import('./screens/StressTestScreen').then((module) => ({
+    default: module.default || (() => <div>Stress Test</div>),
   }))
 );
 
@@ -390,6 +402,17 @@ const TenantRoutes: React.FC = () => {
         }
       />
 
+      {/* Recipe Management - requires manager/admin role */}
+      <Route
+        path="/admin/recipes"
+        element={
+          <ProtectedRoute
+            element={<RecipeManagement />}
+            requiredRole={['manager', 'admin']}
+          />
+        }
+      />
+
       {/* AI Intelligence - requires manager/admin role */}
       <Route
         path="/admin/ai"
@@ -550,6 +573,17 @@ const TenantRoutes: React.FC = () => {
         element={
           <ProtectedRoute
             element={<IntegrationsScreen />}
+            requiredRole={['manager', 'admin']}
+          />
+        }
+      />
+
+      {/* Stress Test — pro/ghost_kitchen only */}
+      <Route
+        path="/admin/stress-test"
+        element={
+          <ProtectedRoute
+            element={<StressTestScreen />}
             requiredRole={['manager', 'admin']}
           />
         }

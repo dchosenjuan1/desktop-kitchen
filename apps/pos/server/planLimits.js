@@ -15,6 +15,7 @@ export const PLAN_LIMITS = {
     prepForecast: { locked: true },
     menuBoard: { canRenameBrands: false },
     dynamicPricing: { aiSuggestions: false, scheduledRules: false, priceHistory: false, guardrails: false, abTesting: false, deliveryIntegration: false },
+    stressTest: { locked: true },
   },
   starter: {
     menuItems: Infinity,
@@ -32,6 +33,7 @@ export const PLAN_LIMITS = {
     prepForecast: { locked: false },
     menuBoard: { canRenameBrands: true },
     dynamicPricing: { aiSuggestions: false, scheduledRules: false, priceHistory: false, guardrails: false, abTesting: false, deliveryIntegration: false },
+    stressTest: { locked: true },
   },
   pro: {
     menuItems: Infinity,
@@ -49,6 +51,7 @@ export const PLAN_LIMITS = {
     prepForecast: { locked: false },
     menuBoard: { canRenameBrands: true },
     dynamicPricing: { aiSuggestions: true, scheduledRules: true, priceHistory: true, guardrails: true, abTesting: false, deliveryIntegration: false },
+    stressTest: { locked: false },
   },
   ghost_kitchen: {
     menuItems: Infinity,
@@ -66,6 +69,7 @@ export const PLAN_LIMITS = {
     prepForecast: { locked: false },
     menuBoard: { canRenameBrands: true },
     dynamicPricing: { aiSuggestions: true, scheduledRules: true, priceHistory: true, guardrails: true, abTesting: true, deliveryIntegration: true },
+    stressTest: { locked: false },
   },
 };
 
