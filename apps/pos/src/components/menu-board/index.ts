@@ -9,3 +9,4 @@ export { default as BrandTransition } from './BrandTransition';
 export { default as MenuListView } from './MenuListView';
 export { default as MagazineGrid } from './MagazineGrid';
 export { useMenuLayout } from './useMenuLayout';
+export { default as TemplateRenderer } from './templates/TemplateRenderer';

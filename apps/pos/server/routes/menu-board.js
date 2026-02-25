@@ -14,7 +14,7 @@ router.get('/data', async (req, res) => {
     // Fetch menu-board brands
     const brands = await all(`
       SELECT id, name, slug, description, logo_url,
-             primary_color, secondary_color, font_family, dark_bg
+             primary_color, secondary_color, font_family, dark_bg, template_slug
       FROM virtual_brands
       WHERE display_type IN ('menu_board', 'both')
         AND active = true
@@ -128,6 +128,7 @@ router.get('/data', async (req, res) => {
         slug: brand.slug,
         description: brand.description,
         logoUrl: brand.logo_url,
+        templateSlug: brand.template_slug || null,
         theme: {
           primaryColor: brand.primary_color,
           secondaryColor: brand.secondary_color,

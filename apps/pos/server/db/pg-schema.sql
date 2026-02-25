@@ -378,7 +378,8 @@ CREATE TABLE IF NOT EXISTS virtual_brands (
   font_family TEXT,
   dark_bg TEXT,
   slug TEXT,
-  show_in_pos BOOLEAN DEFAULT true
+  show_in_pos BOOLEAN DEFAULT true,
+  template_slug TEXT DEFAULT NULL
 );
 
 -- Virtual Brand Items

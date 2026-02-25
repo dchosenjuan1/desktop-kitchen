@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { GrainOverlay, BrandView, BrandTransition, MenuListView } from '../components/menu-board';
+import { GrainOverlay, BrandView, BrandTransition, MenuListView, TemplateRenderer } from '../components/menu-board';
+import { TEMPLATE_REGISTRY } from '../components/menu-board/templates';
 import type { ComboData } from '../components/menu-board/ComboHero';
 import type { BrandData } from '../types/menu-board';
 
@@ -9,10 +10,10 @@ interface MenuBoardResponse {
   lastUpdated: string;
 }
 
-// Each brand gets 2 slides: photo cards, then full list
+// Each brand gets slides: template brands get 1 slide, others get photo + list
 interface Slide {
   brand: BrandData;
-  view: 'photo' | 'list';
+  view: 'photo' | 'list' | 'template';
 }
 
 const ROTATE_INTERVAL = 12_000; // 12s per slide
@@ -32,11 +33,16 @@ const MenuBoardScreen: React.FC = () => {
   const cursorTimer = useRef<number | null>(null);
   const fontsLoaded = useRef(false);
 
-  // Build slides array: for each brand, photo view then list view
-  const slides: Slide[] = brands.flatMap(brand => [
-    { brand, view: 'photo' as const },
-    { brand, view: 'list' as const },
-  ]);
+  // Build slides array: template brands get 1 slide, others get photo + list
+  const slides: Slide[] = brands.flatMap((brand): Slide[] => {
+    if (brand.templateSlug && TEMPLATE_REGISTRY[brand.templateSlug]) {
+      return [{ brand, view: 'template' }];
+    }
+    return [
+      { brand, view: 'photo' },
+      { brand, view: 'list' },
+    ];
+  });
 
   // Fetch menu data
   const fetchData = useCallback(async () => {
@@ -48,11 +54,26 @@ const MenuBoardScreen: React.FC = () => {
       setCombos(data.combos || []);
       setError(null);
 
-      if (!fontsLoaded.current && data.brands.some(b => b.slug === 'ensenada-101')) {
-        const link = document.createElement('link');
-        link.rel = 'stylesheet';
-        link.href = 'https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=Montserrat:wght@400;500;600;700&display=swap';
-        document.head.appendChild(link);
+      // Load fonts for templates and special brands
+      if (!fontsLoaded.current) {
+        const fontUrls: string[] = [];
+        // Legacy: Ensenada 101 brand
+        if (data.brands.some(b => b.slug === 'ensenada-101')) {
+          fontUrls.push('https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=Montserrat:wght@400;500;600;700&display=swap');
+        }
+        // Template fonts
+        for (const brand of data.brands) {
+          if (brand.templateSlug && TEMPLATE_REGISTRY[brand.templateSlug]?.fontsUrl) {
+            const url = TEMPLATE_REGISTRY[brand.templateSlug].fontsUrl!;
+            if (!fontUrls.includes(url)) fontUrls.push(url);
+          }
+        }
+        for (const url of fontUrls) {
+          const link = document.createElement('link');
+          link.rel = 'stylesheet';
+          link.href = url;
+          document.head.appendChild(link);
+        }
         fontsLoaded.current = true;
       }
     } catch (e: any) {
@@ -143,7 +164,9 @@ const MenuBoardScreen: React.FC = () => {
 
       {slides.map((slide, i) => (
         <BrandTransition key={`${slide.brand.id}-${slide.view}`} isActive={i === activeSlideIndex}>
-          {slide.view === 'photo' ? (
+          {slide.view === 'template' ? (
+            <TemplateRenderer brand={slide.brand} combos={combos} isPortrait={isPortrait} />
+          ) : slide.view === 'photo' ? (
             <BrandView brand={slide.brand} combos={combos} isPortrait={isPortrait} />
           ) : (
             <MenuListView brand={slide.brand} combos={combos} isPortrait={isPortrait} />
@@ -162,7 +185,13 @@ const MenuBoardScreen: React.FC = () => {
                 i === activeSlideIndex
                   ? 'bg-white/60 scale-110'
                   : 'bg-white/20'
-              } ${slide.view === 'list' ? 'w-4 h-2 rounded-sm' : 'w-2 h-2 rounded-full'}`}
+              } ${
+                slide.view === 'list'
+                  ? 'w-4 h-2 rounded-sm'
+                  : slide.view === 'template'
+                    ? 'w-3 h-3 rounded-md'
+                    : 'w-2 h-2 rounded-full'
+              }`}
             />
           ))}
         </div>

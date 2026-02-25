@@ -30,6 +30,13 @@ export interface BrandData {
   name: string;
   slug: string;
   description?: string;
+  templateSlug?: string | null;
   theme: BrandTheme;
   categories: CategoryData[];
+}
+
+export interface TemplateViewProps {
+  brand: BrandData;
+  combos: any[];
+  isPortrait: boolean;
 }

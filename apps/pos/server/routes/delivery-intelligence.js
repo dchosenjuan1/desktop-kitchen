@@ -242,15 +242,15 @@ router.get('/virtual-brands', requireAuth('manage_delivery'), async (req, res) =
  */
 router.post('/virtual-brands', requireAuth('manage_delivery'), async (req, res) => {
   try {
-    const { name, platform_id, description, logo_url, display_type, primary_color, secondary_color, font_family, dark_bg, slug, show_in_pos } = req.body;
+    const { name, platform_id, description, logo_url, display_type, primary_color, secondary_color, font_family, dark_bg, slug, show_in_pos, template_slug } = req.body;
     if (!name || !platform_id) {
       return res.status(400).json({ error: 'name and platform_id required' });
     }
 
     const result = await run(
-      `INSERT INTO virtual_brands (name, platform_id, description, logo_url, display_type, primary_color, secondary_color, font_family, dark_bg, slug, show_in_pos)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
-      [name, platform_id, description || null, logo_url || null, display_type || 'delivery', primary_color || null, secondary_color || null, font_family || null, dark_bg || null, slug || null, show_in_pos !== undefined ? show_in_pos : true]
+      `INSERT INTO virtual_brands (name, platform_id, description, logo_url, display_type, primary_color, secondary_color, font_family, dark_bg, slug, show_in_pos, template_slug)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
+      [name, platform_id, description || null, logo_url || null, display_type || 'delivery', primary_color || null, secondary_color || null, font_family || null, dark_bg || null, slug || null, show_in_pos !== undefined ? show_in_pos : true, template_slug || null]
     );
 
     res.status(201).json({ id: result.lastInsertRowid });
@@ -266,13 +266,13 @@ router.post('/virtual-brands', requireAuth('manage_delivery'), async (req, res) 
 router.put('/virtual-brands/:id', requireAuth('manage_delivery'), async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, description, logo_url, active, display_type, primary_color, secondary_color, font_family, dark_bg, slug, show_in_pos } = req.body;
+    const { name, description, logo_url, active, display_type, primary_color, secondary_color, font_family, dark_bg, slug, show_in_pos, template_slug } = req.body;
 
     const brand = await get('SELECT * FROM virtual_brands WHERE id = $1', [id]);
     if (!brand) return res.status(404).json({ error: 'Virtual brand not found' });
 
     await run(
-      `UPDATE virtual_brands SET name = $1, description = $2, logo_url = $3, active = $4, display_type = $5, primary_color = $6, secondary_color = $7, font_family = $8, dark_bg = $9, slug = $10, show_in_pos = $11 WHERE id = $12`,
+      `UPDATE virtual_brands SET name = $1, description = $2, logo_url = $3, active = $4, display_type = $5, primary_color = $6, secondary_color = $7, font_family = $8, dark_bg = $9, slug = $10, show_in_pos = $11, template_slug = $12 WHERE id = $13`,
       [
         name ?? brand.name,
         description ?? brand.description,
@@ -285,6 +285,7 @@ router.put('/virtual-brands/:id', requireAuth('manage_delivery'), async (req, re
         dark_bg ?? brand.dark_bg,
         slug ?? brand.slug,
         show_in_pos !== undefined ? show_in_pos : brand.show_in_pos,
+        template_slug !== undefined ? template_slug : brand.template_slug,
         id
       ]
     );

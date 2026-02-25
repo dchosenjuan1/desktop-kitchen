@@ -19,6 +19,12 @@ import {
   rejectOrder as rejectRappiOrder,
   markReadyForPickup as rappiReadyForPickup,
 } from '../services/rappi.js';
+import {
+  verifyDidiSignature,
+  getAccessToken as getDidiToken,
+  confirmOrder as confirmDidiOrder,
+  cancelDidiOrder,
+} from '../services/didi-food.js';
 
 const router = Router();
 const TAX_RATE = 0.16; // 16% IVA (Mexico) — prices include tax
@@ -134,6 +140,9 @@ router.post('/orders/:id/accept', requireAuth('manage_delivery'), async (req, re
         const creds = await getServiceCredentials(tenantId, 'rappi', { store_id: '' });
         const token = await getRappiToken(tenantId);
         await takeRappiOrder(token, creds.store_id, deliveryOrder.external_order_id, req.body.cooking_time);
+      } else if (deliveryOrder.platform_name === 'didi_food') {
+        const token = await getDidiToken(tenantId);
+        await confirmDidiOrder(token, deliveryOrder.external_order_id);
       }
     }
 
@@ -174,6 +183,9 @@ router.post('/orders/:id/deny', requireAuth('manage_delivery'), async (req, res)
           token, creds.store_id, deliveryOrder.external_order_id,
           code || 'POS_INTERNAL_ERROR', explanation
         );
+      } else if (deliveryOrder.platform_name === 'didi_food') {
+        const token = await getDidiToken(tenantId);
+        await cancelDidiOrder(token, deliveryOrder.external_order_id, explanation);
       }
     }
 
@@ -207,6 +219,9 @@ router.post('/orders/:id/cancel', requireAuth('manage_delivery'), async (req, re
       if (deliveryOrder.platform_name === 'uber_eats') {
         const token = await getUberToken(tenantId);
         await cancelUberOrder(token, deliveryOrder.external_order_id, reason);
+      } else if (deliveryOrder.platform_name === 'didi_food') {
+        const token = await getDidiToken(tenantId);
+        await cancelDidiOrder(token, deliveryOrder.external_order_id, reason);
       }
       // Rappi doesn't support cancel-after-accept via API — order is cancelled locally only
     }
@@ -775,7 +790,156 @@ router.post('/webhook/rappi', async (req, res) => {
   }
 });
 
-// ==================== DiDi Food Webhook (stub) ====================
+// ==================== DiDi Food Webhook ====================
+
+/**
+ * Process a DiDi Food new order callback.
+ * DiDi's exact payload schema isn't public — this handles common patterns
+ * with flexible field resolution, and stores the raw webhook for debugging.
+ */
+async function processDidiOrder(tenantId, payload, rawWebhookData) {
+  // DiDi uses order_id at top level or nested in order/data object
+  const orderData = payload.order || payload.data?.order || payload.data || payload;
+  const externalOrderId = String(
+    orderData.order_id || payload.order_id || orderData.id || ''
+  );
+
+  if (!externalOrderId) {
+    throw new Error('DiDi Food webhook missing order_id');
+  }
+
+  // Idempotent dedup
+  const existing = await get(
+    "SELECT id FROM delivery_orders WHERE external_order_id = $1",
+    [externalOrderId]
+  );
+  if (existing) {
+    console.log(`[DiDi Food] Order ${externalOrderId} already processed (delivery_order ${existing.id})`);
+    return { duplicate: true, delivery_order_id: existing.id };
+  }
+
+  const platform = await ensurePlatform('didi_food');
+  const employee = await findSystemEmployee();
+  if (!employee) {
+    throw new Error('No active employee found to attribute delivery order');
+  }
+
+  // Parse items — DiDi prices are likely in centavos (like Rappi) or decimal
+  const didiItems = orderData.items || orderData.order_items || orderData.products || [];
+  const orderItems = [];
+  let itemsTotal = 0;
+
+  for (const didiItem of didiItems) {
+    const quantity = didiItem.quantity || didiItem.count || 1;
+
+    // Price resolution — handle both centavos and decimal formats
+    let rawPrice = didiItem.price || didiItem.unit_price || didiItem.total_price || 0;
+    // If price looks like centavos (>1000 for a single item), divide by 100
+    let unitPrice = typeof rawPrice === 'number' && rawPrice > 1000
+      ? rawPrice / 100
+      : rawPrice;
+
+    // Add modifier/addon prices
+    const addons = didiItem.addons || didiItem.options || didiItem.modifiers || [];
+    for (const addon of addons) {
+      let addonPrice = addon.price || addon.unit_price || 0;
+      if (typeof addonPrice === 'number' && addonPrice > 1000) addonPrice /= 100;
+      unitPrice += addonPrice * (addon.quantity || 1);
+    }
+
+    const title = didiItem.name || didiItem.item_name || didiItem.product_name || 'DiDi Food Item';
+    const notes = didiItem.remark || didiItem.note || didiItem.special_instructions || null;
+    const sku = didiItem.sku || didiItem.app_item_id || didiItem.item_id || null;
+
+    const localItem = await matchMenuItem(title, sku);
+
+    orderItems.push({
+      menu_item_id: localItem?.id || null,
+      item_name: localItem?.name || title,
+      quantity,
+      unit_price: unitPrice > 0 ? unitPrice : (localItem?.price || 0),
+      notes,
+    });
+
+    itemsTotal += (unitPrice > 0 ? unitPrice : (localItem?.price || 0)) * quantity;
+  }
+
+  // Calculate tax (prices include IVA)
+  const total = itemsTotal;
+  const tax = Math.round((total - total / (1 + TAX_RATE)) * 100) / 100;
+  const subtotal = Math.round((total - tax) * 100) / 100;
+  const orderNumber = await generateOrderNumber();
+
+  // Create internal order
+  const orderResult = await run(`
+    INSERT INTO orders (order_number, employee_id, status, subtotal, tax, total, payment_status, payment_method, source)
+    VALUES ($1, $2, 'confirmed', $3, $4, $5, 'paid', 'didi_food', 'didi_food')
+  `, [orderNumber, employee.id, subtotal, tax, total]);
+
+  const orderId = orderResult.lastInsertRowid;
+
+  // Insert order items
+  for (const item of orderItems) {
+    await run(`
+      INSERT INTO order_items (order_id, menu_item_id, item_name, quantity, unit_price, notes)
+      VALUES ($1, $2, $3, $4, $5, $6)
+    `, [orderId, item.menu_item_id, item.item_name, item.quantity, item.unit_price, item.notes]);
+  }
+
+  // Parse delivery fee and commission
+  const deliveryFee = (orderData.delivery_fee || orderData.shipping_fee || 0);
+  const normalizedFee = deliveryFee > 1000 ? deliveryFee / 100 : deliveryFee;
+  const commission = total * (platform.commission_percent / 100);
+
+  // Parse customer info
+  const customer = orderData.customer || orderData.user || payload.customer || {};
+  const customerName = customer.name || customer.full_name
+    || [customer.first_name, customer.last_name].filter(Boolean).join(' ')
+    || null;
+  const deliveryAddress = orderData.delivery_address || orderData.address
+    || customer.address || null;
+
+  // Create delivery_order record
+  const deliveryResult = await run(`
+    INSERT INTO delivery_orders (order_id, platform_id, external_order_id, platform_status, delivery_fee, platform_commission, customer_name, delivery_address, raw_webhook_data)
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+  `, [
+    orderId,
+    platform.id,
+    externalOrderId,
+    'received',
+    normalizedFee,
+    commission,
+    customerName,
+    typeof deliveryAddress === 'object' ? JSON.stringify(deliveryAddress) : deliveryAddress,
+    rawWebhookData,
+  ]);
+
+  // Link delivery order to the internal order
+  await run('UPDATE orders SET delivery_order_id = $1 WHERE id = $2', [
+    deliveryResult.lastInsertRowid, orderId,
+  ]);
+
+  // Auto-confirm on DiDi Food
+  try {
+    const token = await getDidiToken(tenantId);
+    await confirmDidiOrder(token, externalOrderId);
+    await run('UPDATE delivery_orders SET platform_status = $1 WHERE id = $2', [
+      'accepted', deliveryResult.lastInsertRowid,
+    ]);
+    console.log(`[DiDi Food] Order ${externalOrderId} auto-confirmed (internal order ${orderId})`);
+  } catch (acceptErr) {
+    console.error(`[DiDi Food] Auto-confirm failed for ${externalOrderId}:`, acceptErr.message);
+  }
+
+  return {
+    order_id: orderId,
+    order_number: orderNumber,
+    delivery_order_id: deliveryResult.lastInsertRowid,
+    items_count: orderItems.length,
+    total,
+  };
+}
 
 // POST /api/delivery/webhook/didi - DiDi Food webhook
 router.post('/webhook/didi', async (req, res) => {
@@ -783,31 +947,109 @@ router.post('/webhook/didi', async (req, res) => {
     const payload = req.body;
     const tenantId = req.tenant?.id;
 
+    // Validate webhook signature
     if (tenantId) {
       const creds = await getServiceCredentials(tenantId, 'didi_food', {
         webhook_secret: '',
+        app_secret: '',
       });
-      if (creds.webhook_secret && req.rawBody) {
-        const signature = req.headers['x-didi-signature'] || req.headers['x-webhook-signature'];
+      const secret = creds.webhook_secret || creds.app_secret;
+      if (secret && req.rawBody) {
+        const signature = req.headers['x-didi-signature']
+          || req.headers['x-webhook-signature']
+          || req.headers['didi-signature'];
         if (!signature) {
           console.warn('[DiDi Food] Webhook missing signature header');
           return res.status(403).json({ error: 'Missing webhook signature' });
         }
-        const expected = crypto.createHmac('sha256', creds.webhook_secret)
-          .update(req.rawBody)
-          .digest('hex');
-        if (expected !== signature) {
+        if (!verifyDidiSignature(req.rawBody, signature, secret)) {
           console.warn('[DiDi Food] Webhook signature verification failed');
           return res.status(403).json({ error: 'Invalid webhook signature' });
         }
       }
     }
 
-    console.log('DiDi Food webhook received:', JSON.stringify(payload).slice(0, 200));
-    res.json({ success: true, message: 'Webhook received' });
+    // Determine event type — DiDi sends event_type or type at top level
+    const eventType = (
+      payload.event_type || payload.type || payload.event
+      || payload.data?.event_type || payload.data?.type
+      || ''
+    ).toLowerCase();
+
+    const orderId = payload.order_id || payload.data?.order_id
+      || payload.order?.order_id || '';
+
+    console.log(`[DiDi Food] Webhook: ${eventType || 'unknown'}, order: ${orderId || 'N/A'}`);
+
+    // Route by event type
+    if (eventType.includes('new_order') || eventType.includes('order_create') || eventType === 'new_order') {
+      if (!tenantId) {
+        console.warn('[DiDi Food] No tenant context for order processing');
+        return res.status(400).json({ error: 'Tenant context required' });
+      }
+
+      const result = await processDidiOrder(tenantId, payload, JSON.stringify(payload));
+      console.log('[DiDi Food] Order processed:', result);
+      return res.json({ success: true, ...result });
+    }
+
+    if (eventType.includes('cancel') || eventType.includes('order_cancel')) {
+      const cancelId = String(orderId);
+      if (cancelId) {
+        const deliveryOrder = await get(
+          "SELECT id, order_id FROM delivery_orders WHERE external_order_id = $1",
+          [cancelId]
+        );
+        if (deliveryOrder) {
+          const cancelSource = payload.cancel_source || payload.cancelled_by || 'platform';
+          await run('UPDATE delivery_orders SET platform_status = $1 WHERE id = $2', [
+            `cancelled_by_${cancelSource}`, deliveryOrder.id,
+          ]);
+          await run('UPDATE orders SET status = $1 WHERE id = $2', [
+            'cancelled', deliveryOrder.order_id,
+          ]);
+          console.log(`[DiDi Food] Order ${cancelId} cancelled (source: ${cancelSource})`);
+        }
+      }
+      return res.json({ success: true, message: 'Cancel processed' });
+    }
+
+    if (eventType.includes('complete') || eventType.includes('order_complete')) {
+      const completeId = String(orderId);
+      if (completeId) {
+        const deliveryOrder = await get(
+          "SELECT id, order_id FROM delivery_orders WHERE external_order_id = $1",
+          [completeId]
+        );
+        if (deliveryOrder) {
+          await run('UPDATE delivery_orders SET platform_status = $1 WHERE id = $2', [
+            'completed', deliveryOrder.id,
+          ]);
+          await run('UPDATE orders SET status = $1 WHERE id = $2', [
+            'completed', deliveryOrder.order_id,
+          ]);
+          console.log(`[DiDi Food] Order ${completeId} completed`);
+        }
+      }
+      return res.json({ success: true, message: 'Completion processed' });
+    }
+
+    if (eventType.includes('delivery') || eventType.includes('status')) {
+      console.log(`[DiDi Food] Delivery status update for order ${orderId}: ${eventType}`);
+      return res.json({ success: true, message: 'Status update acknowledged' });
+    }
+
+    if (eventType.includes('refund') || eventType.includes('order_refund')) {
+      console.log(`[DiDi Food] Refund event for order ${orderId}`);
+      return res.json({ success: true, message: 'Refund acknowledged' });
+    }
+
+    // Unknown event — acknowledge to prevent retries
+    console.log(`[DiDi Food] Unhandled event: ${eventType || 'unknown'}`, JSON.stringify(payload).slice(0, 300));
+    return res.json({ success: true, message: `Event acknowledged` });
   } catch (error) {
-    console.error('DiDi Food webhook error:', error);
-    res.status(500).json({ error: 'Webhook processing failed' });
+    console.error('[DiDi Food] Webhook error:', error);
+    res.status(200).json({ success: false, error: error.message });
   }
 });
 

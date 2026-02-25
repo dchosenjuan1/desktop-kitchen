@@ -17,6 +17,7 @@ import {
 } from '../api';
 import { formatPrice } from '../utils/currency';
 import { usePlan } from '../context/PlanContext';
+import { TEMPLATE_LIST, TEMPLATE_REGISTRY } from '../components/menu-board/templates';
 
 interface BrandRow {
   id: number;
@@ -34,6 +35,7 @@ interface BrandRow {
   dark_bg: string | null;
   slug: string | null;
   show_in_pos: number;
+  template_slug: string | null;
 }
 
 interface BrandItemRow {
@@ -74,6 +76,7 @@ interface FormData {
   show_in_pos: boolean;
   logo_url: string;
   platform_id: number;
+  template_slug: string;
 }
 
 interface ItemAssignment {
@@ -109,6 +112,7 @@ const DEFAULT_FORM: FormData = {
   show_in_pos: true,
   logo_url: '',
   platform_id: 0,
+  template_slug: '',
 };
 
 export default function MenuBoardManagement() {
@@ -174,6 +178,7 @@ export default function MenuBoardManagement() {
         show_in_pos: !!brand.show_in_pos,
         logo_url: brand.logo_url || '',
         platform_id: brand.platform_id,
+        template_slug: brand.template_slug || '',
       });
 
       // Load existing brand items
@@ -265,6 +270,7 @@ export default function MenuBoardManagement() {
         slug: formData.slug || slugify(formData.name),
         show_in_pos: formData.show_in_pos,
         active: formData.active,
+        template_slug: formData.template_slug || null,
       };
 
       if (brandId) {
@@ -381,8 +387,13 @@ export default function MenuBoardManagement() {
                         <p className="text-xs text-neutral-500 font-mono">/{brand.slug}</p>
                       )}
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
                       {getDisplayTypeBadge(brand.display_type)}
+                      {brand.template_slug && TEMPLATE_REGISTRY[brand.template_slug] && (
+                        <span className="px-2 py-0.5 text-xs rounded bg-purple-600/20 text-purple-400">
+                          {TEMPLATE_REGISTRY[brand.template_slug].name}
+                        </span>
+                      )}
                       {brand.active ? (
                         <span className="w-2.5 h-2.5 rounded-full bg-green-500" title="Active" />
                       ) : (
@@ -531,6 +542,44 @@ export default function MenuBoardManagement() {
                     className="w-full px-3 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white focus:outline-none focus:border-brand-500"
                     placeholder="e.g. Inter, Roboto"
                   />
+                </div>
+              </div>
+
+              {/* Template picker */}
+              <div>
+                <label className="block text-sm font-medium text-neutral-400 mb-2">Template</label>
+                <div className="flex gap-3 overflow-x-auto pb-2">
+                  {/* Classic (no template) */}
+                  <button
+                    type="button"
+                    onClick={() => updateField('template_slug', '')}
+                    className={`shrink-0 w-36 rounded-lg border-2 transition-all flex flex-col items-center justify-center gap-1.5 p-3 ${
+                      !formData.template_slug
+                        ? 'border-brand-500 bg-brand-600/10'
+                        : 'border-neutral-700 bg-neutral-800 hover:border-neutral-600'
+                    }`}
+                  >
+                    <Tv size={18} className="text-neutral-400" />
+                    <span className="text-xs font-medium text-white">Classic</span>
+                    <span className="text-[10px] text-neutral-500 text-center leading-tight">Photo grid + list view</span>
+                  </button>
+                  {/* Template options */}
+                  {TEMPLATE_LIST.map((t) => (
+                    <button
+                      key={t.slug}
+                      type="button"
+                      onClick={() => updateField('template_slug', t.slug)}
+                      className={`shrink-0 w-36 rounded-lg border-2 transition-all flex flex-col items-center justify-center gap-1.5 p-3 ${
+                        formData.template_slug === t.slug
+                          ? 'border-brand-500 bg-brand-600/10'
+                          : 'border-neutral-700 bg-neutral-800 hover:border-neutral-600'
+                      }`}
+                      title={t.description}
+                    >
+                      <span className="text-xs font-medium text-white">{t.name}</span>
+                      <span className="text-[10px] text-neutral-500 text-center leading-tight line-clamp-2">{t.description}</span>
+                    </button>
+                  ))}
                 </div>
               </div>
 
