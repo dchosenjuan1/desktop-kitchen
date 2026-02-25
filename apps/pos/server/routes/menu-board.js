@@ -27,7 +27,7 @@ router.get('/data', async (req, res) => {
 
     // Fetch all items for these brands in one query
     const brandIds = brands.map(b => b.id);
-    const placeholders = brandIds.map(() => '?').join(',');
+    const placeholders = brandIds.map((_, i) => `$${i + 1}`).join(',');
 
     const rows = await all(`
       SELECT
