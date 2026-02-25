@@ -299,6 +299,26 @@ router.put('/virtual-brands/:id', requireAuth('manage_delivery'), async (req, re
 });
 
 /**
+ * DELETE /api/delivery/virtual-brands/:id — delete a virtual brand and its items
+ */
+router.delete('/virtual-brands/:id', requireAuth('manage_delivery'), async (req, res) => {
+  try {
+    const { id } = req.params;
+    const brand = await get('SELECT * FROM virtual_brands WHERE id = $1', [id]);
+    if (!brand) return res.status(404).json({ error: 'Virtual brand not found' });
+
+    // Delete items first (FK constraint), then the brand
+    await run('DELETE FROM virtual_brand_items WHERE virtual_brand_id = $1', [id]);
+    await run('DELETE FROM virtual_brands WHERE id = $1', [id]);
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Virtual brand delete error:', error);
+    res.status(500).json({ error: 'Failed to delete virtual brand' });
+  }
+});
+
+/**
  * DELETE /api/delivery/virtual-brands/:brandId/items/:itemId — remove item from virtual brand
  */
 router.delete('/virtual-brands/:brandId/items/:itemId', requireAuth('manage_delivery'), async (req, res) => {

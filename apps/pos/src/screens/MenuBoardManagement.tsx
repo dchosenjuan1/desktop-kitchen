@@ -10,6 +10,7 @@ import {
   getVirtualBrands,
   createVirtualBrand,
   updateVirtualBrand,
+  deleteVirtualBrand,
   getVirtualBrandItems,
   setVirtualBrandItems,
   removeVirtualBrandItem,
@@ -270,6 +271,18 @@ export default function MenuBoardManagement() {
     setEditingBrandId(null);
   };
 
+  const handleDelete = async (brand: BrandRow) => {
+    if (!window.confirm(`Delete "${brand.name}"? This will remove the brand and all its item assignments. This cannot be undone.`)) {
+      return;
+    }
+    try {
+      await deleteVirtualBrand(brand.id);
+      await fetchBrands();
+    } catch (err) {
+      console.error('Failed to delete brand:', err);
+    }
+  };
+
   const updateField = (field: keyof FormData, value: any) => {
     setFormData((prev) => {
       const next = { ...prev, [field]: value };
@@ -510,14 +523,24 @@ export default function MenuBoardManagement() {
                       </div>
                       <span className="text-sm text-neutral-500">{brand.item_count} items</span>
                     </div>
-                    <button
-                      onClick={() => openEditor(brand)}
-                      disabled={!canEdit}
-                      className="flex items-center gap-1.5 px-3 py-1.5 bg-brand-600 text-white text-sm rounded-lg hover:bg-brand-700 transition-colors disabled:opacity-50"
-                    >
-                      <Pencil size={14} />
-                      Edit
-                    </button>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => handleDelete(brand)}
+                        disabled={!canEdit}
+                        className="flex items-center gap-1.5 px-2.5 py-1.5 text-red-400 text-sm rounded-lg hover:bg-red-600/10 transition-colors disabled:opacity-50"
+                        title="Delete brand"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                      <button
+                        onClick={() => openEditor(brand)}
+                        disabled={!canEdit}
+                        className="flex items-center gap-1.5 px-3 py-1.5 bg-brand-600 text-white text-sm rounded-lg hover:bg-brand-700 transition-colors disabled:opacity-50"
+                      >
+                        <Pencil size={14} />
+                        Edit
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>

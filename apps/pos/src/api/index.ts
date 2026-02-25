@@ -1318,6 +1318,10 @@ export async function removeVirtualBrandItem(brandId: number, menuItemId: number
   return apiRequest(`/delivery-intel/virtual-brands/${brandId}/items/${menuItemId}`, { method: 'DELETE' });
 }
 
+export async function deleteVirtualBrand(brandId: number): Promise<any> {
+  return apiRequest(`/delivery-intel/virtual-brands/${brandId}`, { method: 'DELETE' });
+}
+
 export async function getRecaptureCandidates(days?: number): Promise<any[]> {
   const qs = days ? `?days=${days}` : '';
   return apiRequest(`/delivery-intel/recapture/candidates${qs}`);
