@@ -99,6 +99,34 @@ export default function AccountScreen() {
 
   const [hasOwnerToken, setHasOwnerToken] = useState(!!localStorage.getItem('owner_token'));
 
+  // Owner login form (shown when no token)
+  const [loginEmail, setLoginEmail] = useState('');
+  const [loginPassword, setLoginPassword] = useState('');
+  const [loginLoading, setLoginLoading] = useState(false);
+  const [loginError, setLoginError] = useState('');
+
+  const handleOwnerLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!loginEmail || !loginPassword) { setLoginError('Email and password required'); return; }
+    setLoginLoading(true);
+    setLoginError('');
+    try {
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: loginEmail, password: loginPassword }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Login failed');
+      localStorage.setItem('owner_token', data.token);
+      if (data.tenant?.id) localStorage.setItem('tenant_id', data.tenant.id);
+      setHasOwnerToken(true);
+    } catch (err: any) {
+      setLoginError(err.message || 'Login failed');
+    }
+    setLoginLoading(false);
+  };
+
   // Check URL params for MP connection result
   useEffect(() => {
     const params = new URLSearchParams(window.location.hash.split('?')[1] || '');
@@ -237,12 +265,47 @@ export default function AccountScreen() {
 
       <div className="max-w-3xl mx-auto p-6 space-y-6">
         {!hasOwnerToken ? (
-          <div className="bg-neutral-900 border border-neutral-800 rounded-lg p-8 text-center">
+          <div className="bg-neutral-900 border border-neutral-800 rounded-lg p-8 max-w-md mx-auto">
             <Lock className="mx-auto text-neutral-600 mb-3" size={40} />
-            <h2 className="text-white text-lg font-bold mb-2">Owner Authentication Required</h2>
-            <p className="text-neutral-400 text-sm">
-              Sign in as the account owner to manage your restaurant account, billing, and settings.
+            <h2 className="text-white text-lg font-bold mb-2 text-center">Owner Sign In</h2>
+            <p className="text-neutral-400 text-sm text-center mb-6">
+              Sign in with your owner email and password to manage account, billing, and settings.
             </p>
+            <form onSubmit={handleOwnerLogin} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-neutral-300 mb-1">Email</label>
+                <input
+                  type="email"
+                  value={loginEmail}
+                  onChange={e => { setLoginEmail(e.target.value); setLoginError(''); }}
+                  placeholder="owner@restaurant.com"
+                  className="w-full px-4 py-3 bg-neutral-800 border border-neutral-700 rounded-lg text-white placeholder-neutral-500 focus:outline-none focus:border-teal-600 text-sm"
+                  autoFocus
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-neutral-300 mb-1">Password</label>
+                <input
+                  type="password"
+                  value={loginPassword}
+                  onChange={e => { setLoginPassword(e.target.value); setLoginError(''); }}
+                  placeholder="Your owner password"
+                  className="w-full px-4 py-3 bg-neutral-800 border border-neutral-700 rounded-lg text-white placeholder-neutral-500 focus:outline-none focus:border-teal-600 text-sm"
+                />
+              </div>
+              {loginError && (
+                <div className="p-3 rounded-lg bg-red-900/30 border border-red-800 text-red-400 text-sm">
+                  {loginError}
+                </div>
+              )}
+              <button
+                type="submit"
+                disabled={loginLoading}
+                className="w-full py-3 bg-brand-600 text-white font-semibold rounded-lg hover:bg-brand-700 transition-colors disabled:opacity-50 text-sm"
+              >
+                {loginLoading ? 'Signing in...' : 'Sign In'}
+              </button>
+            </form>
           </div>
         ) : loading ? (
           <div className="space-y-4">

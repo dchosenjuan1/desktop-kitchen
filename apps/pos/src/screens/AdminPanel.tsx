@@ -198,7 +198,9 @@ export default function AdminPanel() {
           )}
 
           {!hasOwnerToken ? (
-            <p className="text-neutral-400 text-sm">Sign in as account owner to manage billing.</p>
+            <p className="text-neutral-400 text-sm">
+              <Link to="/admin/account" className="text-brand-400 hover:text-brand-300 underline">Sign in as account owner</Link> to manage billing.
+            </p>
           ) : plan === 'trial' ? (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {/* Starter Card */}

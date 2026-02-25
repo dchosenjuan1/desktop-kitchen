@@ -30,6 +30,10 @@ const PlatformGateway: React.FC = () => {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Login failed');
 
+      // Store owner token (useful on localhost where origin stays the same)
+      if (data.token) localStorage.setItem('owner_token', data.token);
+      if (data.tenant?.id) localStorage.setItem('tenant_id', data.tenant.id);
+
       // Redirect to the tenant's subdomain
       redirectToTenant(data.tenant.subdomain);
     } catch (err) {
