@@ -600,31 +600,208 @@ router.get('/promos/usage', async (req, res) => {
   }
 });
 
-// POST /admin/tenants/:id/seed — seed demo data for a tenant
+// POST /admin/tenants/:id/seed — seed full demo data for a tenant
 router.post('/tenants/:id/seed', async (req, res) => {
   try {
     const tenant = await getTenant(req.params.id);
     if (!tenant) return res.status(404).json({ error: 'Tenant not found' });
 
-    // Seed a default admin employee (uses adminSql since we need to specify tenant_id)
-    const seedPin = await bcrypt.hash('1234', BCRYPT_ROUNDS);
-    await adminSql`
-      INSERT INTO employees (tenant_id, name, pin, role, active)
-      VALUES (${tenant.id}, 'Manager', ${seedPin}, 'admin', true)
-      ON CONFLICT DO NOTHING
-    `;
+    const tid = tenant.id;
 
-    // Seed basic menu categories
-    const categories = ['Main Dishes', 'Sides', 'Drinks'];
-    for (let i = 0; i < categories.length; i++) {
+    // Clear existing seed-able data (preserves orders/customers)
+    const clearTables = [
+      'menu_item_modifier_groups', 'menu_item_ingredients',
+      'combo_slots', 'combo_definitions',
+      'modifiers', 'modifier_groups',
+      'menu_items', 'menu_categories',
+      'inventory_items',
+      'delivery_markup_rules', 'delivery_platforms',
+      'ai_category_roles', 'ai_config',
+    ];
+    for (const t of clearTables) {
+      try { await adminSql.unsafe(`DELETE FROM ${t} WHERE tenant_id = $1`, [tid]); } catch {}
+    }
+
+    // ── Employees (only add if none exist) ──
+    const [empCount] = await adminSql`SELECT COUNT(*)::int AS c FROM employees WHERE tenant_id = ${tid}`;
+    if (empCount.c === 0) {
+      const pin1234 = await bcrypt.hash('1234', BCRYPT_ROUNDS);
+      const pin5678 = await bcrypt.hash('5678', BCRYPT_ROUNDS);
+      await adminSql`INSERT INTO employees (tenant_id, name, pin, role, active) VALUES (${tid}, 'Manager', ${pin1234}, 'admin', true)`;
+      await adminSql`INSERT INTO employees (tenant_id, name, pin, role, active) VALUES (${tid}, 'Cashier', ${pin5678}, 'cashier', true)`;
+    }
+
+    // ── Menu Categories ──
+    const catRows = await adminSql`
+      INSERT INTO menu_categories (tenant_id, name, sort_order, active, printer_target) VALUES
+        (${tid}, 'Burgers', 1, true, 'kitchen'),
+        (${tid}, 'Chicken', 2, true, 'kitchen'),
+        (${tid}, 'Sides', 3, true, 'kitchen'),
+        (${tid}, 'Drinks', 4, true, 'bar'),
+        (${tid}, 'Desserts', 5, true, 'kitchen')
+      RETURNING id, name
+    `;
+    const catId = {};
+    for (const r of catRows) catId[r.name] = r.id;
+
+    // ── Menu Items (MXN prices) ──
+    const items = [
+      [catId['Burgers'], 'Classic Burger', 95, 'Beef patty, lettuce, tomato, onion, pickles'],
+      [catId['Burgers'], 'Cheeseburger', 110, 'Beef patty with melted American cheese'],
+      [catId['Burgers'], 'Double Burger', 145, 'Two beef patties, cheese, special sauce'],
+      [catId['Burgers'], 'Bacon Burger', 130, 'Beef patty, crispy bacon, cheese, BBQ sauce'],
+      [catId['Burgers'], 'Chicken Burger', 105, 'Grilled chicken breast, lettuce, mayo'],
+      [catId['Chicken'], 'Chicken Tenders (4 pcs)', 85, 'Crispy breaded chicken strips'],
+      [catId['Chicken'], 'Chicken Wings (6 pcs)', 95, 'Fried wings with your choice of sauce'],
+      [catId['Chicken'], 'Chicken Wrap', 90, 'Grilled chicken, lettuce, ranch, flour tortilla'],
+      [catId['Sides'], 'French Fries', 45, 'Classic golden fries'],
+      [catId['Sides'], 'Onion Rings', 55, 'Crispy battered onion rings'],
+      [catId['Sides'], 'Coleslaw', 35, 'Fresh creamy coleslaw'],
+      [catId['Sides'], 'Side Salad', 50, 'Mixed greens, tomato, cucumber, dressing'],
+      [catId['Drinks'], 'Coca-Cola', 30, 'Coca-Cola (500ml)'],
+      [catId['Drinks'], 'Sprite', 30, 'Sprite (500ml)'],
+      [catId['Drinks'], 'Lemonade', 35, 'Fresh-squeezed lemonade'],
+      [catId['Drinks'], 'Water', 20, 'Bottled water'],
+      [catId['Drinks'], 'Coffee', 35, 'Freshly brewed coffee'],
+      [catId['Desserts'], 'Milkshake', 65, 'Vanilla, chocolate, or strawberry'],
+      [catId['Desserts'], 'Brownie', 50, 'Warm chocolate brownie'],
+      [catId['Desserts'], 'Ice Cream Cup', 45, 'Two scoops, your choice of flavor'],
+    ];
+    const itemId = {};
+    for (const [categoryId, name, price, description] of items) {
+      const [row] = await adminSql`
+        INSERT INTO menu_items (tenant_id, category_id, name, price, description, active)
+        VALUES (${tid}, ${categoryId}, ${name}, ${price}, ${description}, true)
+        RETURNING id, name
+      `;
+      itemId[row.name] = row.id;
+    }
+
+    // ── Inventory ──
+    const invItems = [
+      ['Beef Patties', 200, 'count', 40, 'Meats', 25],
+      ['Chicken Breast', 50, 'lbs', 10, 'Meats', 90],
+      ['Bacon', 30, 'lbs', 5, 'Meats', 120],
+      ['Burger Buns', 200, 'count', 40, 'Dry Goods', 5],
+      ['French Fries (frozen)', 100, 'lbs', 20, 'Frozen', 15],
+      ['Chicken Tenders (frozen)', 80, 'lbs', 15, 'Frozen', 50],
+      ['American Cheese', 30, 'lbs', 8, 'Dairy', 80],
+      ['Lettuce', 30, 'heads', 5, 'Produce', 15],
+      ['Tomatoes', 50, 'lbs', 10, 'Produce', 30],
+      ['Onions', 40, 'lbs', 8, 'Produce', 15],
+      ['Pickles', 20, 'jars', 5, 'Supplies', 40],
+      ['Cooking Oil', 40, 'liters', 10, 'Supplies', 30],
+      ['Coca-Cola (500ml)', 100, 'count', 20, 'Beverages', 12],
+      ['Sprite (500ml)', 80, 'count', 15, 'Beverages', 12],
+      ['Coffee Beans', 20, 'lbs', 5, 'Beverages', 150],
+    ];
+    for (const [name, qty, unit, threshold, category, cost] of invItems) {
       await adminSql`
-        INSERT INTO menu_categories (tenant_id, name, sort_order, active)
-        VALUES (${tenant.id}, ${categories[i]}, ${i + 1}, true)
-        ON CONFLICT DO NOTHING
+        INSERT INTO inventory_items (tenant_id, name, quantity, unit, low_stock_threshold, category, cost_price)
+        VALUES (${tid}, ${name}, ${qty}, ${unit}, ${threshold}, ${category}, ${cost})
       `;
     }
 
-    res.json({ message: `Seeded demo data for tenant '${tenant.id}'` });
+    // ── Modifier Groups ──
+    const mgRows = await adminSql`
+      INSERT INTO modifier_groups (tenant_id, name, selection_type, required, min_selections, max_selections, sort_order, active) VALUES
+        (${tid}, 'Extras', 'multi', false, 0, 5, 1, true),
+        (${tid}, 'Sauce', 'single', false, 0, 1, 2, true)
+      RETURNING id, name
+    `;
+    const mgId = {};
+    for (const r of mgRows) mgId[r.name] = r.id;
+
+    await adminSql`INSERT INTO modifiers (tenant_id, group_id, name, price_adjustment, sort_order, active) VALUES (${tid}, ${mgId['Extras']}, 'Extra Cheese', 15, 1, true)`;
+    await adminSql`INSERT INTO modifiers (tenant_id, group_id, name, price_adjustment, sort_order, active) VALUES (${tid}, ${mgId['Extras']}, 'Bacon', 20, 2, true)`;
+    await adminSql`INSERT INTO modifiers (tenant_id, group_id, name, price_adjustment, sort_order, active) VALUES (${tid}, ${mgId['Extras']}, 'Jalapenos', 0, 3, true)`;
+    await adminSql`INSERT INTO modifiers (tenant_id, group_id, name, price_adjustment, sort_order, active) VALUES (${tid}, ${mgId['Extras']}, 'Extra Patty', 35, 4, true)`;
+
+    await adminSql`INSERT INTO modifiers (tenant_id, group_id, name, price_adjustment, sort_order, active) VALUES (${tid}, ${mgId['Sauce']}, 'Ketchup', 0, 1, true)`;
+    await adminSql`INSERT INTO modifiers (tenant_id, group_id, name, price_adjustment, sort_order, active) VALUES (${tid}, ${mgId['Sauce']}, 'BBQ', 0, 2, true)`;
+    await adminSql`INSERT INTO modifiers (tenant_id, group_id, name, price_adjustment, sort_order, active) VALUES (${tid}, ${mgId['Sauce']}, 'Ranch', 0, 3, true)`;
+    await adminSql`INSERT INTO modifiers (tenant_id, group_id, name, price_adjustment, sort_order, active) VALUES (${tid}, ${mgId['Sauce']}, 'Buffalo', 0, 4, true)`;
+
+    // Assign Extras to burgers
+    for (const n of ['Classic Burger', 'Cheeseburger', 'Double Burger', 'Bacon Burger', 'Chicken Burger']) {
+      if (itemId[n]) await adminSql`INSERT INTO menu_item_modifier_groups (tenant_id, menu_item_id, modifier_group_id, sort_order) VALUES (${tid}, ${itemId[n]}, ${mgId['Extras']}, 1)`;
+    }
+    // Assign Sauce to chicken
+    for (const n of ['Chicken Tenders (4 pcs)', 'Chicken Wings (6 pcs)', 'Chicken Wrap']) {
+      if (itemId[n]) await adminSql`INSERT INTO menu_item_modifier_groups (tenant_id, menu_item_id, modifier_group_id, sort_order) VALUES (${tid}, ${itemId[n]}, ${mgId['Sauce']}, 1)`;
+    }
+
+    // ── Combos ──
+    const comboRows = await adminSql`
+      INSERT INTO combo_definitions (tenant_id, name, description, combo_price, active) VALUES
+        (${tid}, 'Burger Combo', 'Any burger + fries + drink', 155, true),
+        (${tid}, 'Chicken Combo', 'Tenders or wings + side + drink', 150, true)
+      RETURNING id, name
+    `;
+    const comboId = {};
+    for (const r of comboRows) comboId[r.name] = r.id;
+
+    await adminSql`INSERT INTO combo_slots (tenant_id, combo_id, slot_label, category_id, sort_order) VALUES (${tid}, ${comboId['Burger Combo']}, 'Burger', ${catId['Burgers']}, 1)`;
+    await adminSql`INSERT INTO combo_slots (tenant_id, combo_id, slot_label, category_id, sort_order) VALUES (${tid}, ${comboId['Burger Combo']}, 'Side', ${catId['Sides']}, 2)`;
+    await adminSql`INSERT INTO combo_slots (tenant_id, combo_id, slot_label, category_id, sort_order) VALUES (${tid}, ${comboId['Burger Combo']}, 'Drink', ${catId['Drinks']}, 3)`;
+    await adminSql`INSERT INTO combo_slots (tenant_id, combo_id, slot_label, category_id, sort_order) VALUES (${tid}, ${comboId['Chicken Combo']}, 'Chicken', ${catId['Chicken']}, 1)`;
+    await adminSql`INSERT INTO combo_slots (tenant_id, combo_id, slot_label, category_id, sort_order) VALUES (${tid}, ${comboId['Chicken Combo']}, 'Side', ${catId['Sides']}, 2)`;
+    await adminSql`INSERT INTO combo_slots (tenant_id, combo_id, slot_label, category_id, sort_order) VALUES (${tid}, ${comboId['Chicken Combo']}, 'Drink', ${catId['Drinks']}, 3)`;
+
+    // ── Delivery Platforms ──
+    await adminSql`INSERT INTO delivery_platforms (tenant_id, name, display_name, commission_percent, active) VALUES (${tid}, 'uber_eats', 'Uber Eats', 30, true)`;
+    await adminSql`INSERT INTO delivery_platforms (tenant_id, name, display_name, commission_percent, active) VALUES (${tid}, 'rappi', 'Rappi', 25, true)`;
+    await adminSql`INSERT INTO delivery_platforms (tenant_id, name, display_name, commission_percent, active) VALUES (${tid}, 'didi_food', 'DiDi Food', 22, true)`;
+
+    // ── AI Config ──
+    const aiEntries = [
+      ['restaurant_name', tenant.name, 'Restaurant display name'],
+      ['currency', 'MXN', 'Currency code'],
+      ['tax_rate', '0.16', 'Tax rate (16% IVA)'],
+      ['rush_hours', '11-14,18-21', 'Rush hour ranges (24h format)'],
+      ['slow_hours', '15-17', 'Slow period ranges (24h format)'],
+      ['max_suggestions_per_order', '2', 'Max AI suggestions per order'],
+      ['upsell_enabled', '1', 'Enable upsell suggestions'],
+      ['inventory_push_enabled', '1', 'Enable inventory-aware item pushing'],
+      ['combo_upgrade_enabled', '1', 'Enable combo upgrade suggestions'],
+    ];
+    for (const [key, value, description] of aiEntries) {
+      await adminSql`
+        INSERT INTO ai_config (tenant_id, key, value, description)
+        VALUES (${tid}, ${key}, ${value}, ${description})
+        ON CONFLICT (tenant_id, key) DO UPDATE SET value = EXCLUDED.value
+      `;
+    }
+
+    // AI category roles
+    await adminSql`INSERT INTO ai_category_roles (tenant_id, category_id, role) VALUES (${tid}, ${catId['Burgers']}, 'main')`;
+    await adminSql`INSERT INTO ai_category_roles (tenant_id, category_id, role) VALUES (${tid}, ${catId['Chicken']}, 'main')`;
+    await adminSql`INSERT INTO ai_category_roles (tenant_id, category_id, role) VALUES (${tid}, ${catId['Sides']}, 'side')`;
+    await adminSql`INSERT INTO ai_category_roles (tenant_id, category_id, role) VALUES (${tid}, ${catId['Drinks']}, 'drink')`;
+    await adminSql`INSERT INTO ai_category_roles (tenant_id, category_id, role) VALUES (${tid}, ${catId['Desserts']}, 'side')`;
+
+    audit({
+      tenantId: tid,
+      actorType: 'admin',
+      actorId: 'super-admin',
+      action: 'seed',
+      resource: 'tenant',
+      resourceId: tid,
+      details: { items: items.length, categories: 5, inventory: invItems.length },
+      ip: req.ip,
+    });
+
+    res.json({
+      message: `Seeded demo data for tenant '${tid}'`,
+      summary: {
+        categories: 5,
+        menu_items: items.length,
+        inventory_items: invItems.length,
+        modifier_groups: 2,
+        combos: 2,
+        delivery_platforms: 3,
+      },
+    });
   } catch (error) {
     console.error('Error seeding tenant:', error);
     res.status(500).json({ error: 'Failed to seed tenant' });
