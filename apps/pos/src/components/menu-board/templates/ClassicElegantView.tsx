@@ -74,7 +74,7 @@ const ElegantItem: React.FC<{ item: MenuItemData; primaryColor: string }> = ({ i
         className="shrink-0 text-[0.95rem] font-semibold tabular-nums"
         style={{ fontFamily: "'Cormorant Garamond', serif", color: primaryColor }}
       >
-        ${item.price.toFixed(2)}
+        ${Number(item.price).toFixed(2)}
       </span>
     </div>
     {item.description && (

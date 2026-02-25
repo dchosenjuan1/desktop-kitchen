@@ -70,7 +70,7 @@ const ChalkMenuItem: React.FC<{ item: MenuItemData }> = ({ item }) => (
       className="shrink-0 text-[clamp(0.75rem,1.3vw,1rem)] text-amber-100/80 tabular-nums"
       style={{ fontFamily: "'Patrick Hand', cursive", textShadow: chalkGlow }}
     >
-      ${item.price.toFixed(0)}
+      ${Number(item.price).toFixed(0)}
     </span>
   </div>
 );
@@ -154,7 +154,7 @@ const ChalkCombos: React.FC<{ combos: any[] }> = ({ combos }) => {
               className="shrink-0 text-[clamp(0.75rem,1.3vw,1rem)] text-amber-100/80 tabular-nums"
               style={{ fontFamily: "'Patrick Hand', cursive", textShadow: chalkGlow }}
             >
-              ${combo.comboPrice?.toFixed(0) ?? '—'}
+              ${Number(combo.comboPrice ?? 0).toFixed(0)}
             </span>
           </div>
         ))}

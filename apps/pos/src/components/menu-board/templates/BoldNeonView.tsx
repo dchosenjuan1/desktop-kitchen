@@ -97,7 +97,7 @@ const NeonItemCard: React.FC<{
               fontFamily: "'Orbitron', sans-serif",
             }}
           >
-            ${item.price.toFixed(2)}
+            ${Number(item.price).toFixed(2)}
           </span>
         </div>
       </div>
@@ -149,7 +149,7 @@ const NeonComboCard: React.FC<{
             fontFamily: "'Orbitron', sans-serif",
           }}
         >
-          ${Number(combo.price).toFixed(2)}
+          ${Number(combo.comboPrice ?? combo.price ?? 0).toFixed(2)}
         </span>
       )}
     </div>

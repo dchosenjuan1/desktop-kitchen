@@ -46,7 +46,7 @@ const ItemCard: React.FC<{ item: MenuItemData }> = ({ item }) => (
       className="flex-shrink-0 text-sm font-semibold tabular-nums"
       style={{ color: 'var(--mb-primary)' }}
     >
-      ${item.price.toFixed(2)}
+      ${Number(item.price).toFixed(2)}
     </span>
   </div>
 );
@@ -64,7 +64,7 @@ const ComboCard: React.FC<{ combo: any }> = ({ combo }) => (
         className="absolute -top-2.5 right-4 rounded-full px-3 py-0.5 text-[11px] font-semibold text-white"
         style={{ backgroundColor: 'var(--mb-primary)' }}
       >
-        Ahorra ${combo.savings.toFixed(0)}
+        Ahorra ${Number(combo.savings).toFixed(0)}
       </span>
     )}
 
@@ -81,7 +81,7 @@ const ComboCard: React.FC<{ combo: any }> = ({ combo }) => (
       className="mt-3 text-lg font-bold tabular-nums"
       style={{ color: 'var(--mb-primary)' }}
     >
-      ${combo.comboPrice?.toFixed(2) ?? combo.price?.toFixed(2) ?? '—'}
+      ${Number(combo.comboPrice ?? combo.price ?? 0).toFixed(2)}
     </span>
   </div>
 );

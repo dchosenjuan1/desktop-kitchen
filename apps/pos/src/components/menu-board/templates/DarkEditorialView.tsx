@@ -101,7 +101,7 @@ function pickFeaturedItems(
 /* ------------------------------------------------------------------ */
 
 function formatPrice(price: number): string {
-  return `$${price.toFixed(0)}`;
+  return `$${Number(price).toFixed(0)}`;
 }
 
 /* ------------------------------------------------------------------ */
