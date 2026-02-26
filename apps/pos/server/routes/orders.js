@@ -28,12 +28,15 @@ async function estimatePrepTime(conn, itemMenuIds, tenantId) {
   `, [itemMenuIds]);
   const maxPrep = prepRows[0]?.max_prep || 5;
 
-  // 2. Count active orders in queue (pending + preparing)
-  const queueRows = await conn.unsafe(`
-    SELECT COUNT(*) AS queue_size
-    FROM orders
-    WHERE status IN ('pending', 'confirmed', 'preparing')
-  `);
+  // 2. Count active orders in queue (today only, to ignore stale test data)
+  const queueQuery = tenantId
+    ? `SELECT COUNT(*) AS queue_size FROM orders
+       WHERE status IN ('pending', 'confirmed', 'preparing')
+         AND created_at >= CURRENT_DATE AND tenant_id = $1`
+    : `SELECT COUNT(*) AS queue_size FROM orders
+       WHERE status IN ('pending', 'confirmed', 'preparing')
+         AND created_at >= CURRENT_DATE`;
+  const queueRows = await conn.unsafe(queueQuery, tenantId ? [tenantId] : []);
   const queueSize = Math.max(0, (parseInt(queueRows[0]?.queue_size) || 0) - 1); // exclude this order
   const queueBuffer = Math.round(queueSize * 1.5);
 
