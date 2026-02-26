@@ -78,22 +78,14 @@ export async function run(sql, params = []) {
   const hasReturning = /\bRETURNING\b/i.test(sql);
 
   if (isInsert && !hasReturning) {
-    // Try with RETURNING id; fall back to plain INSERT for tables without an id column
-    const withReturning = sql.replace(/;?\s*$/, ' RETURNING id');
-    try {
-      const rows = await conn.unsafe(withReturning, params);
-      if (rows.length > 0 && rows[0].id != null) {
-        return { lastInsertRowid: Number(rows[0].id) };
-      }
-      return { lastInsertRowid: 0, changes: rows.count ?? 0 };
-    } catch (err) {
-      // '42703' = undefined_column — table has no "id" column (e.g. junction tables)
-      if (err.code === '42703') {
-        const rows = await conn.unsafe(sql, params);
-        return { lastInsertRowid: 0, changes: rows.count ?? 0 };
-      }
-      throw err;
+    // Append RETURNING * so it works for any table regardless of schema.
+    // Then check if the result has an `id` column to populate lastInsertRowid.
+    const withReturning = sql.replace(/;?\s*$/, ' RETURNING *');
+    const rows = await conn.unsafe(withReturning, params);
+    if (rows.length > 0 && rows[0].id != null) {
+      return { lastInsertRowid: Number(rows[0].id) };
     }
+    return { lastInsertRowid: 0, changes: rows.count ?? 0 };
   }
 
   const rows = await conn.unsafe(sql, params);

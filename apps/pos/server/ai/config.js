@@ -53,18 +53,14 @@ export async function getAllConfig() {
 }
 
 export async function setConfig(key, value, description) {
-  const existing = await get('SELECT key FROM ai_config WHERE key = $1', [key]);
-  if (existing) {
-    await run(
-      `UPDATE ai_config SET value = $1, description = COALESCE($2, description), updated_at = NOW() WHERE key = $3`,
-      [String(value), description || null, key]
-    );
-  } else {
-    await run(
-      `INSERT INTO ai_config (key, value, description) VALUES ($1, $2, $3)`,
-      [key, String(value), description || null]
-    );
-  }
+  await run(
+    `INSERT INTO ai_config (key, value, description) VALUES ($1, $2, $3)
+     ON CONFLICT (tenant_id, key) DO UPDATE
+       SET value = EXCLUDED.value,
+           description = COALESCE(EXCLUDED.description, ai_config.description),
+           updated_at = NOW()`,
+    [key, String(value), description || null]
+  );
 }
 
 export async function setMultipleConfig(entries) {
@@ -75,10 +71,10 @@ export async function setMultipleConfig(entries) {
 
 export async function seedDefaults() {
   for (const [key, value] of Object.entries(DEFAULT_CONFIG)) {
-    const existing = await get('SELECT key FROM ai_config WHERE key = $1', [key]);
-    if (!existing) {
-      await run('INSERT INTO ai_config (key, value) VALUES ($1, $2)', [key, value]);
-    }
+    await run(
+      'INSERT INTO ai_config (key, value) VALUES ($1, $2) ON CONFLICT (tenant_id, key) DO NOTHING RETURNING key',
+      [key, value]
+    );
   }
 }
 
