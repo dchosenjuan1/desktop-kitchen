@@ -8,6 +8,7 @@ export interface PlanLimits {
   employees: number;
   modifierGroups: number;
   combos: number;
+  maxBankConnections: number;
   reports: { editVariables: boolean };
   ai: { mode: 'mock' | 'locked' | 'full'; monthlyAnalyses: number };
   printers: { functional: boolean };
@@ -18,6 +19,8 @@ export interface PlanLimits {
   prepForecast: { locked: boolean };
   menuBoard: { canRenameBrands: boolean };
   dynamicPricing: { aiSuggestions: boolean; scheduledRules: boolean; priceHistory: boolean; guardrails: boolean; abTesting: boolean; deliveryIntegration: boolean };
+  banking: { locked: boolean };
+  bankReconciliation: { locked: boolean };
 }
 
 interface PlanContextType {
@@ -29,13 +32,13 @@ interface PlanContextType {
   isPaid: boolean;
   isMpConnected: boolean;
   isAtLimit: (resource: 'menuItems' | 'inventoryItems' | 'employees' | 'modifierGroups' | 'combos', currentCount: number) => boolean;
-  isFeatureLocked: (feature: 'printers' | 'delivery' | 'permissions' | 'loyalty' | 'prepForecast') => boolean;
+  isFeatureLocked: (feature: 'printers' | 'delivery' | 'permissions' | 'loyalty' | 'prepForecast' | 'banking' | 'bankReconciliation') => boolean;
   refresh: () => Promise<void>;
 }
 
 const DEFAULT_LIMITS: PlanLimits = {
   menuItems: 10, inventoryItems: 12, employees: 3,
-  modifierGroups: 2, combos: 1,
+  modifierGroups: 2, combos: 1, maxBankConnections: 0,
   reports: { editVariables: false },
   ai: { mode: 'mock', monthlyAnalyses: 0 },
   printers: { functional: false },
@@ -46,6 +49,8 @@ const DEFAULT_LIMITS: PlanLimits = {
   prepForecast: { locked: true },
   menuBoard: { canRenameBrands: false },
   dynamicPricing: { aiSuggestions: false, scheduledRules: false, priceHistory: false, guardrails: false, abTesting: false, deliveryIntegration: false },
+  banking: { locked: true },
+  bankReconciliation: { locked: true },
 };
 
 const PlanContext = createContext<PlanContextType | undefined>(undefined);

@@ -3,8 +3,13 @@ import { Link } from 'react-router-dom';
 import {
   ArrowLeft, User, BarChart3, CreditCard, Settings, Lock,
   Check, AlertCircle, Crown, Smartphone, Wifi, WifiOff, X, Loader2,
+  Landmark, Shield,
 } from 'lucide-react';
-import { getAccount, updateAccount, changePassword, createCheckoutSession, createPortalSession, getMpTerminals, setMpDefaultTerminal as apiSetMpDefaultTerminal, validatePromoCode } from '../api';
+import { getAccount, updateAccount, changePassword, createCheckoutSession, createPortalSession, getMpTerminals, setMpDefaultTerminal as apiSetMpDefaultTerminal, validatePromoCode, getBankConnections, getBankAccounts, syncBankConnection, deleteBankConnection, type BankConnection, type BankAccount } from '../api';
+import { usePlan } from '../context/PlanContext';
+import BankConnectionCard from '../components/banking/BankConnectionCard';
+import ConnectBankButton from '../components/banking/ConnectBankButton';
+import SecurityInfoModal from '../components/banking/SecurityInfoModal';
 
 type PromoState = 'idle' | 'expanded' | 'loading' | 'valid' | 'invalid';
 
@@ -97,6 +102,16 @@ export default function AccountScreen() {
   const [mpDefaultTerminal, setMpDefaultTerminal] = useState<string>('');
   const [mpSaved, setMpSaved] = useState(false);
 
+  // Banking
+  const [bankConnections, setBankConnections] = useState<BankConnection[]>([]);
+  const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([]);
+  const [bankLoading, setBankLoading] = useState(false);
+  const [showSecurityModal, setShowSecurityModal] = useState(false);
+
+  const { plan, limits } = usePlan();
+  const isBankingPlan = plan === 'pro' || plan === 'ghost_kitchen';
+  const maxBankConns = limits.maxBankConnections || 0;
+
   const [hasOwnerToken, setHasOwnerToken] = useState(!!localStorage.getItem('owner_token'));
 
   // Owner login form (shown when no token)
@@ -136,6 +151,21 @@ export default function AccountScreen() {
     }
   }, []);
 
+  const loadBankData = async () => {
+    setBankLoading(true);
+    try {
+      const [conns, accts] = await Promise.all([
+        getBankConnections(),
+        getBankAccounts(),
+      ]);
+      setBankConnections(conns);
+      setBankAccounts(accts);
+    } catch {
+      // silent — section just won't show data
+    }
+    setBankLoading(false);
+  };
+
   useEffect(() => {
     if (!hasOwnerToken) {
       setLoading(false);
@@ -147,6 +177,10 @@ export default function AccountScreen() {
         setAccount(data);
         setEditName(data.name);
         setEditEmail(data.email);
+        // Load banking data for pro+ plans
+        if (data.plan === 'pro' || data.plan === 'ghost_kitchen') {
+          loadBankData();
+        }
       })
       .catch((err: any) => {
         // If token is expired/invalid, clear it and show the auth gate
@@ -686,6 +720,85 @@ export default function AccountScreen() {
                     </div>
                   );
                 })()}
+              </div>
+            )}
+
+            {/* Bank Connections — Pro+ only */}
+            {isBankingPlan && (
+              <div className="bg-neutral-900 border border-neutral-800 rounded-lg p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-3">
+                    <Landmark className="text-green-500" size={22} />
+                    <h2 className="text-lg font-bold text-white">Bank Connections</h2>
+                  </div>
+                  <button
+                    onClick={() => setShowSecurityModal(true)}
+                    className="inline-flex items-center gap-1.5 text-sm text-brand-400 hover:text-brand-300 transition-colors"
+                  >
+                    <Shield size={14} />
+                    Learn about bank security
+                  </button>
+                </div>
+
+                {/* Connection Slots */}
+                <div className="flex items-center gap-2 mb-4">
+                  <span className="text-sm text-neutral-400">
+                    {bankConnections.filter(c => c.status !== 'disconnected').length} of {maxBankConns} connections used
+                  </span>
+                  <div className="flex-1 bg-neutral-800 rounded-full h-1.5">
+                    <div
+                      className="h-1.5 rounded-full bg-green-500 transition-all"
+                      style={{
+                        width: `${Math.min(
+                          (bankConnections.filter(c => c.status !== 'disconnected').length / Math.max(maxBankConns, 1)) * 100,
+                          100
+                        )}%`,
+                      }}
+                    />
+                  </div>
+                </div>
+
+                {/* Connected Banks */}
+                {bankLoading ? (
+                  <div className="space-y-3">
+                    {[1, 2].map(i => (
+                      <div key={i} className="h-20 bg-neutral-800 rounded-lg animate-pulse" />
+                    ))}
+                  </div>
+                ) : bankConnections.length > 0 ? (
+                  <div className="space-y-3 mb-4">
+                    {bankConnections.filter(c => c.status !== 'disconnected').map(conn => (
+                      <BankConnectionCard
+                        key={conn.id}
+                        connection={conn}
+                        accounts={bankAccounts}
+                        onSync={async (id) => { await syncBankConnection(id); await loadBankData(); }}
+                        onDisconnect={async (id) => { await deleteBankConnection(id); await loadBankData(); }}
+                      />
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-neutral-500 text-sm mb-4">No bank accounts connected yet.</p>
+                )}
+
+                {/* Connect Button */}
+                {bankConnections.filter(c => c.status !== 'disconnected').length < maxBankConns ? (
+                  <ConnectBankButton onSuccess={loadBankData} />
+                ) : (
+                  <div className="relative group inline-block">
+                    <button
+                      disabled
+                      className="inline-flex items-center gap-2 px-4 py-2.5 bg-neutral-800 text-neutral-500 font-semibold rounded-lg cursor-not-allowed"
+                    >
+                      Connect Bank
+                    </button>
+                    <div className="absolute bottom-full left-0 mb-2 px-3 py-1.5 bg-neutral-800 border border-neutral-700 rounded-lg text-xs text-neutral-300 whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+                      Connection limit reached ({maxBankConns} max on {plan} plan)
+                    </div>
+                  </div>
+                )}
+
+                <SecurityInfoModal open={showSecurityModal} onClose={() => setShowSecurityModal(false)} />
               </div>
             )}
           </>

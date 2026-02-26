@@ -5,6 +5,7 @@ export const PLAN_LIMITS = {
     employees: 3,
     modifierGroups: 2,
     combos: 1,
+    maxBankConnections: 0,
     reports: { editVariables: false },
     ai: { mode: 'mock', monthlyAnalyses: 0 },
     printers: { functional: false },
@@ -16,6 +17,8 @@ export const PLAN_LIMITS = {
     menuBoard: { canRenameBrands: false },
     dynamicPricing: { aiSuggestions: false, scheduledRules: false, priceHistory: false, guardrails: false, abTesting: false, deliveryIntegration: false },
     stressTest: { locked: true },
+    banking: { locked: true },
+    bankReconciliation: { locked: true },
   },
   starter: {
     menuItems: Infinity,
@@ -23,6 +26,7 @@ export const PLAN_LIMITS = {
     employees: Infinity,
     modifierGroups: 15,
     combos: 10,
+    maxBankConnections: 0,
     reports: { editVariables: true },
     ai: { mode: 'locked', monthlyAnalyses: 0 },
     printers: { functional: true },
@@ -34,6 +38,8 @@ export const PLAN_LIMITS = {
     menuBoard: { canRenameBrands: true },
     dynamicPricing: { aiSuggestions: false, scheduledRules: false, priceHistory: false, guardrails: false, abTesting: false, deliveryIntegration: false },
     stressTest: { locked: true },
+    banking: { locked: true },
+    bankReconciliation: { locked: true },
   },
   pro: {
     menuItems: Infinity,
@@ -41,6 +47,7 @@ export const PLAN_LIMITS = {
     employees: Infinity,
     modifierGroups: Infinity,
     combos: Infinity,
+    maxBankConnections: 2,
     reports: { editVariables: true },
     ai: { mode: 'full', monthlyAnalyses: 100 },
     printers: { functional: true },
@@ -52,6 +59,8 @@ export const PLAN_LIMITS = {
     menuBoard: { canRenameBrands: true },
     dynamicPricing: { aiSuggestions: true, scheduledRules: true, priceHistory: true, guardrails: true, abTesting: false, deliveryIntegration: false },
     stressTest: { locked: false },
+    banking: { locked: false },
+    bankReconciliation: { locked: true },
   },
   ghost_kitchen: {
     menuItems: Infinity,
@@ -59,6 +68,7 @@ export const PLAN_LIMITS = {
     employees: Infinity,
     modifierGroups: Infinity,
     combos: Infinity,
+    maxBankConnections: 5,
     reports: { editVariables: true },
     ai: { mode: 'full', monthlyAnalyses: Infinity },
     printers: { functional: true },
@@ -70,6 +80,8 @@ export const PLAN_LIMITS = {
     menuBoard: { canRenameBrands: true },
     dynamicPricing: { aiSuggestions: true, scheduledRules: true, priceHistory: true, guardrails: true, abTesting: true, deliveryIntegration: true },
     stressTest: { locked: false },
+    banking: { locked: false },
+    bankReconciliation: { locked: false },
   },
 };
 

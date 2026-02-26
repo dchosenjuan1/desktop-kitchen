@@ -28,11 +28,14 @@ import {
   Plug,
   BookOpen,
   Gauge,
+  Landmark,
 } from 'lucide-react';
-import { getSalesReport, getLowStock, createCheckoutSession, createPortalSession } from '../api';
+import { getSalesReport, getLowStock, createCheckoutSession, createPortalSession, getBankConfirmedTotal } from '../api';
 import { SalesReport, InventoryItem } from '../types';
 import { formatPrice } from '../utils/currency';
 import BrandLogo from '../components/BrandLogo';
+import BankingSummaryWidget from '../components/banking/BankingSummaryWidget';
+import BankSyncBanner from '../components/banking/BankSyncBanner';
 import { usePlan } from '../context/PlanContext';
 import { useLocation } from 'react-router-dom';
 
@@ -42,11 +45,14 @@ export default function AdminPanel() {
   const location = useLocation();
   const [dailyStats, setDailyStats] = useState<SalesReport | null>(null);
   const [lowStockItems, setLowStockItems] = useState<InventoryItem[]>([]);
+  const [confirmedInBank, setConfirmedInBank] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [billingLoading, setBillingLoading] = useState<string | null>(null);
   const [billingError, setBillingError] = useState<string | null>(null);
   const [showCancelledBanner, setShowCancelledBanner] = useState(false);
+
+  const isPro = plan === 'pro' || plan === 'ghost_kitchen';
 
   const hasOwnerToken = !!localStorage.getItem('owner_token');
 
@@ -96,6 +102,14 @@ export default function AdminPanel() {
         ]);
         setDailyStats(stats);
         setLowStockItems(lowStock);
+
+        // Fetch confirmed bank deposits for pro+ tenants (non-blocking)
+        if (plan === 'pro' || plan === 'ghost_kitchen') {
+          const today = new Date().toISOString().split('T')[0];
+          getBankConfirmedTotal(today, today)
+            .then(data => setConfirmedInBank(data.confirmedTotal))
+            .catch(() => {}); // not critical
+        }
       } catch (err) {
         setError(err instanceof Error ? err.message : t('panel.failedToFetch'));
       } finally {
@@ -146,7 +160,7 @@ export default function AdminPanel() {
             ))}
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+          <div className={`grid grid-cols-1 gap-4 mb-8 ${isPro && confirmedInBank !== null ? 'md:grid-cols-5' : 'md:grid-cols-4'}`}>
             <div className="bg-neutral-900 p-6 rounded-lg border border-neutral-800">
               <p className="text-neutral-400 text-sm font-medium">{t('panel.todaysRevenue')}</p>
               <p className="text-3xl font-bold text-brand-500 mt-2">
@@ -171,6 +185,17 @@ export default function AdminPanel() {
                 {formatPrice(dailyStats?.tip_total || 0)}
               </p>
             </div>
+            {isPro && confirmedInBank !== null && (
+              <Link to="/admin/banking" className="bg-neutral-900 p-6 rounded-lg border border-neutral-800 hover:border-green-600 transition-colors">
+                <div className="flex items-center gap-1.5">
+                  <Landmark size={14} className="text-green-400" />
+                  <p className="text-neutral-400 text-sm font-medium">Confirmed in Bank</p>
+                </div>
+                <p className="text-3xl font-bold text-green-400 mt-2">
+                  {formatPrice(confirmedInBank)}
+                </p>
+              </Link>
+            )}
           </div>
         )}
 
@@ -233,6 +258,7 @@ export default function AdminPanel() {
                   <li className="flex items-center gap-2"><Check size={16} className="text-brand-500" /> AI intelligence & analytics</li>
                   <li className="flex items-center gap-2"><Check size={16} className="text-brand-500" /> Delivery platforms & virtual brands</li>
                   <li className="flex items-center gap-2"><Check size={16} className="text-brand-500" /> Loyalty & CRM</li>
+                  <li className="flex items-center gap-2"><Check size={16} className="text-brand-500" /> Bank account integration (up to 2)</li>
                 </ul>
                 <button
                   onClick={() => handleSubscribe('pro')}
@@ -269,7 +295,44 @@ export default function AdminPanel() {
               </div>
             </div>
           )}
+
+          {/* Banking Feature Comparison */}
+          <div className="mt-6">
+            <h3 className="text-sm font-semibold text-neutral-400 uppercase tracking-wider mb-3">Banking Features by Plan</h3>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-neutral-700">
+                    <th className="text-left py-2 pr-4 text-neutral-400 font-medium">Feature</th>
+                    <th className="text-center py-2 px-3 text-neutral-500 font-medium">Free</th>
+                    <th className="text-center py-2 px-3 text-neutral-500 font-medium">Starter</th>
+                    <th className="text-center py-2 px-3 text-neutral-400 font-medium">Pro</th>
+                    <th className="text-center py-2 px-3 text-neutral-400 font-medium">Ghost Kitchen</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr className="border-b border-neutral-800/50">
+                    <td className="py-2.5 pr-4 text-neutral-300">Bank Account Integration</td>
+                    <td className="text-center py-2.5 px-3"><X size={14} className="inline text-neutral-600" /></td>
+                    <td className="text-center py-2.5 px-3"><X size={14} className="inline text-neutral-600" /></td>
+                    <td className="text-center py-2.5 px-3"><span className="text-green-400 text-xs font-medium">Up to 2</span></td>
+                    <td className="text-center py-2.5 px-3"><span className="text-green-400 text-xs font-medium">Up to 5</span></td>
+                  </tr>
+                  <tr>
+                    <td className="py-2.5 pr-4 text-neutral-300">Delivery Payout Reconciliation</td>
+                    <td className="text-center py-2.5 px-3"><X size={14} className="inline text-neutral-600" /></td>
+                    <td className="text-center py-2.5 px-3"><X size={14} className="inline text-neutral-600" /></td>
+                    <td className="text-center py-2.5 px-3"><X size={14} className="inline text-neutral-600" /></td>
+                    <td className="text-center py-2.5 px-3"><Check size={14} className="inline text-green-400" /></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
         </div>
+
+        {/* Bank Sync Failure Banner */}
+        {isPro && <BankSyncBanner />}
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           <Link to="/admin/menu">
@@ -472,7 +535,19 @@ export default function AdminPanel() {
             </div>
           </Link>
 
-          {(plan === 'pro' || plan === 'ghost_kitchen') && (
+          {isPro && (
+            <Link to="/admin/banking">
+              <div className="bg-neutral-900 p-8 rounded-lg border border-neutral-800 hover:border-green-600 transition-all cursor-pointer h-full">
+                <div className="flex items-center justify-center w-12 h-12 bg-green-600/10 rounded-lg mb-4">
+                  <Landmark className="text-green-500" size={28} />
+                </div>
+                <h2 className="text-xl font-bold text-white mb-2">Bank Accounts</h2>
+                <p className="text-neutral-400 text-sm">Connect your bank, track cash flow, reconcile delivery payouts</p>
+              </div>
+            </Link>
+          )}
+
+          {isPro && (
             <Link to="/admin/stress-test">
               <div className="bg-neutral-900 p-8 rounded-lg border border-neutral-800 hover:border-orange-600 transition-all cursor-pointer h-full">
                 <div className="flex items-center justify-center w-12 h-12 bg-orange-600/10 rounded-lg mb-4">
@@ -484,6 +559,13 @@ export default function AdminPanel() {
             </Link>
           )}
         </div>
+
+        {/* Banking Summary Widget — pro/ghost_kitchen only */}
+        {isPro && (
+          <div className="mb-8">
+            <BankingSummaryWidget />
+          </div>
+        )}
 
         {lowStockItems.length > 0 && (
           <div className="bg-neutral-900 p-6 rounded-lg border border-neutral-800">

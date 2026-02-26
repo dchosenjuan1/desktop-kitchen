@@ -1849,6 +1849,194 @@ export async function cleanupStressTestData(): Promise<{ deleted: number }> {
   return apiRequest<{ deleted: number }>('/stress-test/cleanup', { method: 'DELETE' });
 }
 
+/* ==================== Banking Endpoints (Owner JWT Auth) ==================== */
+
+export interface BankConnection {
+  id: string;
+  provider: string;
+  external_link_id: string;
+  institution_name: string | null;
+  institution_logo_url: string | null;
+  country_code: string;
+  status: 'active' | 'disconnected' | 'error' | 'pending';
+  last_synced_at: string | null;
+  created_at: string;
+  updated_at: string;
+  account_count: number;
+}
+
+export interface BankAccount {
+  id: string;
+  connection_id: string;
+  external_account_id: string;
+  name: string;
+  type: 'checking' | 'savings' | 'credit_card' | 'loan' | 'investment' | 'other' | null;
+  currency: string;
+  balance_current: number | null;
+  balance_available: number | null;
+  last_four: string | null;
+  is_primary: boolean;
+  synced_at: string | null;
+  provider: string;
+  institution_name: string | null;
+  institution_logo_url: string | null;
+}
+
+export interface BankTransaction {
+  id: string;
+  account_id: string;
+  external_transaction_id: string;
+  amount: number;
+  currency: string;
+  description: string | null;
+  merchant_name: string | null;
+  category: string | null;
+  subcategory: string | null;
+  transaction_date: string;
+  transaction_type: 'INFLOW' | 'OUTFLOW' | 'TRANSFER' | null;
+  status: 'posted' | 'pending';
+  account_name: string;
+  last_four: string | null;
+}
+
+export interface BankingSummary {
+  totalBalance: number;
+  totalCreditAvailable: number;
+  lastSyncedAt: string | null;
+  accountsByType: Record<string, number>;
+  recentTransactions: BankTransaction[];
+}
+
+async function ownerApiRequest<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
+  const base = IOS_FALLBACK_URLS.length ? await resolveBaseUrl() : activeBaseUrl;
+  const res = await fetch(`${base}${endpoint}`, {
+    ...options,
+    headers: { ...ownerHeaders(), ...(options.headers || {}) },
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || `API Error: ${res.status}`);
+  }
+  const data = await res.json();
+  return coerceNumerics(data) as T;
+}
+
+export async function getBankingWidgetToken(): Promise<{ token: string; provider: string; widgetJsUrl: string }> {
+  return ownerApiRequest('/banking/widget-token', { method: 'POST' });
+}
+
+export async function exchangeBankToken(publicToken: string, metadata?: { institutionName?: string; institutionLogoUrl?: string; countryCode?: string }): Promise<{ connectionId: string; institutionName: string; accountCount: number }> {
+  return ownerApiRequest('/banking/exchange-token', {
+    method: 'POST',
+    body: JSON.stringify({ publicToken, metadata }),
+  });
+}
+
+export async function getBankConnections(): Promise<BankConnection[]> {
+  return ownerApiRequest<BankConnection[]>('/banking/connections');
+}
+
+export async function deleteBankConnection(connectionId: string): Promise<{ success: boolean }> {
+  return ownerApiRequest(`/banking/connections/${connectionId}`, { method: 'DELETE' });
+}
+
+export async function getBankAccounts(connectionId?: string): Promise<BankAccount[]> {
+  const qs = connectionId ? `?connectionId=${connectionId}` : '';
+  return ownerApiRequest<BankAccount[]>(`/banking/accounts${qs}`);
+}
+
+export async function getBankTransactions(params: {
+  accountId?: string;
+  startDate?: string;
+  endDate?: string;
+  limit?: number;
+  offset?: number;
+}): Promise<{ transactions: BankTransaction[]; totalCount: number }> {
+  const base = IOS_FALLBACK_URLS.length ? await resolveBaseUrl() : activeBaseUrl;
+  const qs = new URLSearchParams();
+  if (params.accountId) qs.append('accountId', params.accountId);
+  if (params.startDate) qs.append('startDate', params.startDate);
+  if (params.endDate) qs.append('endDate', params.endDate);
+  if (params.limit) qs.append('limit', String(params.limit));
+  if (params.offset) qs.append('offset', String(params.offset));
+
+  const res = await fetch(`${base}/banking/transactions?${qs}`, {
+    headers: ownerHeaders(),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || `API Error: ${res.status}`);
+  }
+  const totalCount = Number(res.headers.get('X-Total-Count')) || 0;
+  const transactions = coerceNumerics(await res.json()) as BankTransaction[];
+  return { transactions, totalCount };
+}
+
+export async function syncBankConnection(connectionId?: string): Promise<{ synced: number; errors: Array<{ connectionId: string; institution: string; error: string }> }> {
+  return ownerApiRequest('/banking/sync', {
+    method: 'POST',
+    body: JSON.stringify(connectionId ? { connectionId } : {}),
+  });
+}
+
+export async function getBankingSummary(): Promise<BankingSummary> {
+  return ownerApiRequest<BankingSummary>('/banking/summary');
+}
+
+export interface ReconciliationItem {
+  platformId: number;
+  platformName: string;
+  displayName: string;
+  orderCount: number;
+  grossRevenue: number;
+  commission: number;
+  expectedPayout: number;
+  depositAmount: number | null;
+  difference: number | null;
+  status: 'matched' | 'partial' | 'missing';
+  matchedTransactionId: string | null;
+  matchedDescription: string | null;
+  matchedDate: string | null;
+}
+
+export interface ReconciliationResult {
+  items: ReconciliationItem[];
+  summary: {
+    totalExpected: number;
+    totalConfirmed: number;
+    totalPartial: number;
+    totalUnconfirmed: number;
+    matchedCount: number;
+    partialCount: number;
+    missingCount: number;
+  };
+}
+
+export async function getBankReconciliation(startDate?: string, endDate?: string): Promise<ReconciliationResult> {
+  const qs = new URLSearchParams();
+  if (startDate) qs.append('startDate', startDate);
+  if (endDate) qs.append('endDate', endDate);
+  return ownerApiRequest<ReconciliationResult>(`/banking/reconciliation?${qs}`);
+}
+
+export async function getBankConfirmedTotal(startDate?: string, endDate?: string): Promise<{ confirmedTotal: number; period: { start: string; end: string } }> {
+  const qs = new URLSearchParams();
+  if (startDate) qs.append('startDate', startDate);
+  if (endDate) qs.append('endDate', endDate);
+  return ownerApiRequest(`/banking/confirmed-total?${qs}`);
+}
+
+export interface BankSyncAlert {
+  connectionId: string;
+  institutionName: string;
+  status: string;
+  consecutiveFailures: number;
+}
+
+export async function getBankSyncHealth(): Promise<{ alerts: BankSyncAlert[] }> {
+  return ownerApiRequest('/banking/sync-health');
+}
+
 export async function deleteCredentials(service: string): Promise<{ success: boolean }> {
   const base = IOS_FALLBACK_URLS.length ? await resolveBaseUrl() : activeBaseUrl;
   const ownerToken = localStorage.getItem('owner_token');

@@ -10,6 +10,7 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import { SyncProvider } from './context/SyncContext';
 import { BrandingProvider } from './context/BrandingContext';
 import { PlanProvider } from './context/PlanContext';
+import { ToastProvider } from './context/ToastContext';
 import { resolveTenant, type TenantInfo } from './lib/tenantResolver';
 import { useDeviceType } from './hooks/useDeviceType';
 
@@ -198,6 +199,12 @@ const IntegrationsScreen = React.lazy(() =>
 const StressTestScreen = React.lazy(() =>
   import('./screens/StressTestScreen').then((module) => ({
     default: module.default || (() => <div>Stress Test</div>),
+  }))
+);
+
+const BankingPage = React.lazy(() =>
+  import('./components/banking/BankingPage').then((module) => ({
+    default: module.default || (() => <div>Banking</div>),
   }))
 );
 
@@ -578,6 +585,17 @@ const TenantRoutes: React.FC = () => {
         }
       />
 
+      {/* Banking — pro/ghost_kitchen only */}
+      <Route
+        path="/admin/banking"
+        element={
+          <ProtectedRoute
+            element={<BankingPage />}
+            requiredRole={['manager', 'admin']}
+          />
+        }
+      />
+
       {/* Stress Test — pro/ghost_kitchen only */}
       <Route
         path="/admin/stress-test"
@@ -630,11 +648,13 @@ export default function App() {
   return (
     <BrandingProvider>
       <PlanProvider>
-        <AuthProvider>
-          <SyncProvider>
-            <AppContent />
-          </SyncProvider>
-        </AuthProvider>
+        <ToastProvider>
+          <AuthProvider>
+            <SyncProvider>
+              <AppContent />
+            </SyncProvider>
+          </AuthProvider>
+        </ToastProvider>
       </PlanProvider>
     </BrandingProvider>
   );

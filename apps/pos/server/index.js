@@ -36,7 +36,11 @@ import wasteRoutes from './routes/waste.js';
 import cfdiRoutes from './routes/cfdi.js';
 import credentialsRoutes from './routes/credentials.js';
 import stressTestRoutes from './routes/stress-test.js';
+import bankingRoutes from './routes/banking.js';
+import belvoWebhook from './routes/webhooks/belvo.js';
+import plaidWebhook from './routes/webhooks/plaid.js';
 import { initAI } from './ai/index.js';
+import { startBankingSyncScheduler } from './services/banking/SyncScheduler.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -59,6 +63,10 @@ app.use(cors({
 
 // Stripe webhook needs raw body (before express.json)
 app.post('/api/billing/webhook', express.raw({ type: 'application/json' }), stripeWebhook);
+
+// Banking webhooks need raw body for signature verification (before express.json)
+app.use('/webhooks/belvo', express.raw({ type: 'application/json' }), belvoWebhook);
+app.use('/webhooks/plaid', express.raw({ type: 'application/json' }), plaidWebhook);
 
 // Capture raw body for delivery webhook signature verification
 app.use(express.json({
@@ -139,6 +147,7 @@ app.use('/api/pricing', pricingRoutes);
 app.use('/api/cfdi', cfdiRoutes);
 app.use('/api/credentials', credentialsRoutes);
 app.use('/api/stress-test', stressTestRoutes);
+app.use('/api/banking', bankingRoutes);
 
 // Serve index.html for all other routes (SPA)
 app.get('*', (req, res) => {
@@ -164,6 +173,10 @@ if (process.env.NODE_ENV === 'production' && !process.env.JWT_SECRET) {
     await initMigrations();
     await runMigrations('default');
     await initAI();
+
+    // Banking sync scheduler
+    startBankingSyncScheduler();
+
     app.listen(PORT, '0.0.0.0', () => {
       console.log(`Desktop Kitchen POS server running on port ${PORT}`);
       console.log(`Database: Neon Postgres`);
