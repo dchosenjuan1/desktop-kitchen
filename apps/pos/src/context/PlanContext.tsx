@@ -59,10 +59,14 @@ export const PlanProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const fetchPlan = useCallback(async () => {
     try {
-      const tenantId = localStorage.getItem('tenant_id');
+      const isCapacitor = !!(window as any).Capacitor?.isNativePlatform?.();
+      const tenantSlug = localStorage.getItem('tenant_id');
+      const baseUrl = isCapacitor && tenantSlug
+        ? `https://${tenantSlug}.desktop.kitchen/api`
+        : '/api';
       const headers: Record<string, string> = {};
-      if (tenantId) headers['X-Tenant-ID'] = tenantId;
-      const res = await fetch('/api/branding', { headers });
+      if (!isCapacitor && tenantSlug) headers['X-Tenant-ID'] = tenantSlug;
+      const res = await fetch(`${baseUrl}/branding`, { headers });
       if (res.ok) {
         const data = await res.json();
         if (data.plan) setPlan(data.plan);

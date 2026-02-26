@@ -190,9 +190,13 @@ async function apiRequest<T>(
   if (currentEmployeeToken) {
     defaultHeaders['Authorization'] = `Bearer ${currentEmployeeToken}`;
   }
-  const tenantId = localStorage.getItem('tenant_id');
-  if (tenantId) {
-    defaultHeaders['X-Tenant-ID'] = tenantId;
+  // On Capacitor, tenant is resolved via subdomain in the base URL — don't send header
+  // (production requires X-Admin-Secret alongside X-Tenant-ID)
+  if (!isCapacitor) {
+    const tenantId = localStorage.getItem('tenant_id');
+    if (tenantId) {
+      defaultHeaders['X-Tenant-ID'] = tenantId;
+    }
   }
 
   const response = await fetch(url, {
@@ -1413,7 +1417,7 @@ export async function getMenuBoardData(): Promise<any> {
 
 function ownerHeaders(): Record<string, string> {
   const token = localStorage.getItem('owner_token');
-  const tenantId = localStorage.getItem('tenant_id');
+  const tenantId = !isCapacitor ? localStorage.getItem('tenant_id') : null;
   return {
     'Content-Type': 'application/json',
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
@@ -1533,9 +1537,11 @@ export async function uploadCSD(formData: FormData): Promise<{ config: CfdiConfi
   if (currentEmployeeToken) {
     headers['Authorization'] = `Bearer ${currentEmployeeToken}`;
   }
-  const tenantId = localStorage.getItem('tenant_id');
-  if (tenantId) {
-    headers['X-Tenant-ID'] = tenantId;
+  if (!isCapacitor) {
+    const tenantId = localStorage.getItem('tenant_id');
+    if (tenantId) {
+      headers['X-Tenant-ID'] = tenantId;
+    }
   }
   // Note: no Content-Type header — browser sets multipart boundary automatically
   const res = await fetch(`${base}/cfdi/config/csd`, {
@@ -1741,8 +1747,7 @@ export async function getCredentials(): Promise<Record<string, Record<string, st
   const ownerToken = localStorage.getItem('owner_token');
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
   if (ownerToken) headers['Authorization'] = `Bearer ${ownerToken}`;
-  const tenantId = localStorage.getItem('tenant_id');
-  if (tenantId) headers['X-Tenant-ID'] = tenantId;
+  if (!isCapacitor) { const tenantId = localStorage.getItem('tenant_id'); if (tenantId) headers['X-Tenant-ID'] = tenantId; }
 
   const res = await fetch(`${base}/credentials`, { headers });
   if (!res.ok) {
@@ -1757,8 +1762,7 @@ export async function saveCredentials(service: string, values: Record<string, st
   const ownerToken = localStorage.getItem('owner_token');
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
   if (ownerToken) headers['Authorization'] = `Bearer ${ownerToken}`;
-  const tenantId = localStorage.getItem('tenant_id');
-  if (tenantId) headers['X-Tenant-ID'] = tenantId;
+  if (!isCapacitor) { const tenantId = localStorage.getItem('tenant_id'); if (tenantId) headers['X-Tenant-ID'] = tenantId; }
 
   const res = await fetch(`${base}/credentials/${service}`, {
     method: 'PUT',
@@ -1787,8 +1791,7 @@ export async function runStressTest(
   const base = IOS_FALLBACK_URLS.length ? await resolveBaseUrl() : activeBaseUrl;
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
   if (currentEmployeeToken) headers['Authorization'] = `Bearer ${currentEmployeeToken}`;
-  const tenantId = localStorage.getItem('tenant_id');
-  if (tenantId) headers['X-Tenant-ID'] = tenantId;
+  if (!isCapacitor) { const tenantId = localStorage.getItem('tenant_id'); if (tenantId) headers['X-Tenant-ID'] = tenantId; }
 
   const response = await fetch(`${base}/stress-test/run`, {
     method: 'POST',
@@ -1851,8 +1854,7 @@ export async function deleteCredentials(service: string): Promise<{ success: boo
   const ownerToken = localStorage.getItem('owner_token');
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
   if (ownerToken) headers['Authorization'] = `Bearer ${ownerToken}`;
-  const tenantId = localStorage.getItem('tenant_id');
-  if (tenantId) headers['X-Tenant-ID'] = tenantId;
+  if (!isCapacitor) { const tenantId = localStorage.getItem('tenant_id'); if (tenantId) headers['X-Tenant-ID'] = tenantId; }
 
   const res = await fetch(`${base}/credentials/${service}`, {
     method: 'DELETE',

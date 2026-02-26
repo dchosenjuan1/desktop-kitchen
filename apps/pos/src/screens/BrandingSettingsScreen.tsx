@@ -94,12 +94,14 @@ export default function BrandingSettingsScreen() {
       if (logoFile) {
         const formData = new FormData();
         formData.append('logo', logoFile);
+        const isCap = !!(window as any).Capacitor?.isNativePlatform?.();
         const tid = localStorage.getItem('tenant_id');
-        const logoRes = await fetch('/api/branding/logo', {
+        const baseUrl = isCap && tid ? `https://${tid}.desktop.kitchen/api` : '/api';
+        const logoRes = await fetch(`${baseUrl}/branding/logo`, {
           method: 'POST',
           headers: {
             ...(token ? { Authorization: `Bearer ${token}` } : {}),
-            ...(tid ? { 'X-Tenant-ID': tid } : {}),
+            ...(!isCap && tid ? { 'X-Tenant-ID': tid } : {}),
           },
           body: formData,
         });
@@ -111,13 +113,15 @@ export default function BrandingSettingsScreen() {
       }
 
       // Save settings
+      const isCap2 = !!(window as any).Capacitor?.isNativePlatform?.();
       const tid2 = localStorage.getItem('tenant_id');
-      const settingsRes = await fetch('/api/branding/settings', {
+      const baseUrl2 = isCap2 && tid2 ? `https://${tid2}.desktop.kitchen/api` : '/api';
+      const settingsRes = await fetch(`${baseUrl2}/branding/settings`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
-          ...(tid2 ? { 'X-Tenant-ID': tid2 } : {}),
+          ...(!isCap2 && tid2 ? { 'X-Tenant-ID': tid2 } : {}),
         },
         body: JSON.stringify({ primaryColor, restaurantName, tagline, address }),
       });
