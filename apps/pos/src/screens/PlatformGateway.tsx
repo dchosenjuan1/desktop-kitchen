@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { LogIn, Rocket, ShieldCheck, ArrowLeft, Mail } from 'lucide-react';
 import { redirectToTenant } from '../lib/tenantResolver';
-import { requestPasswordReset } from '../api';
+import { ownerLogin, requestPasswordReset } from '../api';
 
 type View = 'login' | 'forgot' | 'forgot-sent';
 
@@ -22,15 +22,9 @@ const PlatformGateway: React.FC = () => {
     setError('');
 
     try {
-      const res = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Login failed');
+      const data = await ownerLogin(email, password);
 
-      // Store owner token (useful on localhost where origin stays the same)
+      // Store owner token and tenant ID
       if (data.token) localStorage.setItem('owner_token', data.token);
       if (data.tenant?.id) localStorage.setItem('tenant_id', data.tenant.id);
 

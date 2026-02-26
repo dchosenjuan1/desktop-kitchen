@@ -4,14 +4,14 @@ final class APIClient: @unchecked Sendable {
     static let shared = APIClient()
 
     private let session: URLSession
-    private let decoder: JSONDecoder
+    private let decoder: FlexibleJSONDecoder
 
     private init() {
         let config = URLSessionConfiguration.default
         config.timeoutIntervalForRequest = 15
         self.session = URLSession(configuration: config)
 
-        self.decoder = JSONDecoder()
+        self.decoder = FlexibleJSONDecoder()
     }
 
     func request<T: Decodable>(_ endpoint: Endpoint) async throws -> T {
@@ -63,7 +63,7 @@ final class APIClient: @unchecked Sendable {
     }
 
     func testConnection() async -> Bool {
-        let endpoint = Endpoint(path: "/menu/categories")
+        let endpoint = Endpoint(path: "/api/menu/categories")
         do {
             let _: [MenuCategory] = try await request(endpoint)
             return true

@@ -13,7 +13,7 @@ struct ComboDefinition: Codable, Identifiable, Sendable {
         id = try container.decode(Int.self, forKey: .id)
         name = try container.decode(String.self, forKey: .name)
         description = try container.decodeIfPresent(String.self, forKey: .description) ?? ""
-        combo_price = try container.decode(Double.self, forKey: .combo_price)
+        combo_price = try container.flexibleDouble(forKey: .combo_price)
         slots = try container.decodeIfPresent([ComboSlot].self, forKey: .slots)
 
         if let boolVal = try? container.decode(Bool.self, forKey: .active) {

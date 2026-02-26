@@ -47,7 +47,7 @@ const PORT = process.env.PORT || 3001;
 app.set('trust proxy', 1);
 
 // CORS — allow *.desktop.kitchen and localhost dev
-const CORS_ORIGIN_REGEX = /^https?:\/\/(.*\.desktop\.kitchen|localhost(:\d+)?)$/;
+const CORS_ORIGIN_REGEX = /^(https?:\/\/(.*\.desktop\.kitchen|localhost(:\d+)?)|capacitor:\/\/localhost)$/;
 app.use(cors({
   origin(origin, cb) {
     // Allow requests with no Origin header (curl, server-to-server, same-origin)
@@ -164,7 +164,7 @@ if (process.env.NODE_ENV === 'production' && !process.env.JWT_SECRET) {
     await initMigrations();
     await runMigrations('default');
     await initAI();
-    app.listen(PORT, () => {
+    app.listen(PORT, '0.0.0.0', () => {
       console.log(`Desktop Kitchen POS server running on port ${PORT}`);
       console.log(`Database: Neon Postgres`);
     });

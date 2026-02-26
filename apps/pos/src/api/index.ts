@@ -1600,6 +1600,18 @@ export async function getInvoiceToken(orderId: number): Promise<CfdiInvoiceToken
 
 /* ==================== Password Reset Endpoints (no auth) ==================== */
 
+export async function ownerLogin(email: string, password: string): Promise<{ token: string; tenant: { id: string; subdomain: string; name: string } }> {
+  const base = isCapacitor ? 'https://pos.desktop.kitchen/api' : (IOS_FALLBACK_URLS.length ? await resolveBaseUrl() : activeBaseUrl);
+  const res = await fetch(`${base}/auth/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, password }),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Login failed');
+  return data;
+}
+
 export async function requestPasswordReset(email: string): Promise<{ message: string }> {
   const base = IOS_FALLBACK_URLS.length ? await resolveBaseUrl() : activeBaseUrl;
   const res = await fetch(`${base}/auth/forgot-password`, {

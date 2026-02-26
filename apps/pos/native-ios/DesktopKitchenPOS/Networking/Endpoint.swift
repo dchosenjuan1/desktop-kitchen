@@ -34,6 +34,7 @@ struct Endpoint {
         var request = URLRequest(url: url)
         request.httpMethod = method.rawValue
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue(ServerConfig.shared.tenantID, forHTTPHeaderField: "X-Tenant-ID")
 
         if let token = AuthTokenStore.shared.token {
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")

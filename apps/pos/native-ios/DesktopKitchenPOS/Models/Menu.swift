@@ -36,7 +36,7 @@ struct MenuItem: Codable, Identifiable, Sendable {
         id = try container.decode(Int.self, forKey: .id)
         category_id = try container.decode(Int.self, forKey: .category_id)
         name = try container.decode(String.self, forKey: .name)
-        price = try container.decode(Double.self, forKey: .price)
+        price = try container.flexibleDouble(forKey: .price)
         description = try container.decodeIfPresent(String.self, forKey: .description)
         image_url = try container.decodeIfPresent(String.self, forKey: .image_url)
 
