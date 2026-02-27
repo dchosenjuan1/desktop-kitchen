@@ -22,6 +22,8 @@ struct RootView: View {
                 EmployeeScreen()
             case .menuManagement:
                 MenuManagementScreen()
+            case .kiosk:
+                KioskScreen()
             }
         }
         .preferredColorScheme(.dark)

@@ -2,6 +2,14 @@ import SwiftUI
 
 @Observable @MainActor
 final class POSViewModel {
+    // MARK: - Mode
+
+    let isKioskMode: Bool
+
+    init(isKioskMode: Bool = false) {
+        self.isKioskMode = isKioskMode
+    }
+
     // MARK: - Data
 
     var categories: [MenuCategory] = []
@@ -146,8 +154,10 @@ final class POSViewModel {
         }
         isLoading = false
 
-        startTillPolling()
-        startDeliveryPolling()
+        if !isKioskMode {
+            startTillPolling()
+            startDeliveryPolling()
+        }
     }
 
     // MARK: - Item Tap (Modifier handling)

@@ -14,8 +14,12 @@ struct POSScreen: View {
 
                 Divider().background(AppColors.border)
 
-                // Horizontal category pills
-                categoryPills
+                // Horizontal category pills (extracted)
+                CategoryPillsView(
+                    categories: vm.categories,
+                    selectedCategoryId: vm.selectedCategoryId,
+                    onSelect: { vm.selectedCategoryId = $0 }
+                )
 
                 Divider().background(AppColors.border)
 
@@ -26,7 +30,13 @@ struct POSScreen: View {
 
                 // Main content: menu grid + cart
                 HStack(spacing: 0) {
-                    menuGrid
+                    MenuGridView(
+                        items: vm.filteredItems,
+                        isLoading: vm.isLoading,
+                        itemHasModifiers: { vm.itemHasModifiers($0) },
+                        onItemTap: { vm.handleItemTap(item: $0) }
+                    )
+
                     cartPanel
                         .frame(width: 380)
                 }
@@ -168,6 +178,10 @@ struct POSScreen: View {
                     Label("Menu", systemImage: "menucard")
                 }
                 Divider()
+                Button { appState.enterKioskMode() } label: {
+                    Label("Kiosk Mode", systemImage: "rectangle.and.hand.point.up.left.filled")
+                }
+                Divider()
             }
             Button { vm.showOrderHistory = true } label: {
                 Label("Order History", systemImage: "clock")
@@ -195,106 +209,10 @@ struct POSScreen: View {
         }
     }
 
-    // MARK: - Category Pills
-
-    private var categoryPills: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 8) {
-                Button { vm.selectedCategoryId = nil } label: {
-                    Text("All")
-                }
-                .buttonStyle(CategoryPillStyle(isSelected: vm.selectedCategoryId == nil))
-
-                ForEach(vm.categories) { cat in
-                    Button { vm.selectedCategoryId = cat.id } label: {
-                        Text(cat.name)
-                    }
-                    .buttonStyle(CategoryPillStyle(isSelected: vm.selectedCategoryId == cat.id))
-                }
-            }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 10)
-        }
-    }
-
     // MARK: - Delivery Banner (Phase 3)
 
     private var deliveryBanner: some View {
         DeliveryOrdersBanner(deliveryOrders: vm.deliveryOrders)
-    }
-
-    // MARK: - Menu Grid
-
-    private var menuGrid: some View {
-        VStack(spacing: 0) {
-            if vm.isLoading {
-                Spacer()
-                ProgressView().tint(.white)
-                Spacer()
-            } else {
-                ScrollView {
-                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 140), spacing: 12)], spacing: 12) {
-                        ForEach(vm.filteredItems) { item in
-                            menuItemCard(item)
-                        }
-                    }
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 12)
-                }
-            }
-        }
-    }
-
-    private func menuItemCard(_ item: MenuItem) -> some View {
-        Button {
-            vm.handleItemTap(item: item)
-        } label: {
-            VStack(spacing: 0) {
-                // Image
-                if let imageUrl = item.image_url, let url = URL(string: imageUrl) {
-                    CachedAsyncImage(url: url, placeholderIcon: "fork.knife")
-                        .frame(height: 90)
-                        .frame(maxWidth: .infinity)
-                        .clipped()
-                } else {
-                    ZStack {
-                        AppColors.surface
-                        Image(systemName: "fork.knife")
-                            .font(.system(size: 24))
-                            .foregroundStyle(AppColors.textMuted)
-                    }
-                    .frame(height: 90)
-                    .frame(maxWidth: .infinity)
-                }
-
-                // Name + price + modifier badge
-                VStack(alignment: .leading, spacing: 4) {
-                    HStack(spacing: 4) {
-                        Text(item.name)
-                            .font(AppFonts.subheadline)
-                            .fontWeight(.semibold)
-                            .foregroundStyle(.white)
-                            .lineLimit(2)
-                            .multilineTextAlignment(.leading)
-
-                        if vm.itemHasModifiers(item.id) {
-                            Image(systemName: "slider.horizontal.3")
-                                .font(.system(size: 10))
-                                .foregroundStyle(AppColors.textTertiary)
-                        }
-                    }
-
-                    Text(CurrencyFormatter.format(item.price))
-                        .font(AppFonts.subheadline)
-                        .foregroundStyle(AppColors.accentLight)
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.horizontal, 10)
-                .padding(.vertical, 8)
-            }
-            .cardStyle()
-        }
-        .buttonStyle(.plain)
     }
 
     // MARK: - Cart Panel
@@ -374,11 +292,18 @@ struct POSScreen: View {
                 }
                 Spacer()
             } else {
-                // Cart items
+                // Cart items (extracted)
                 ScrollView {
                     LazyVStack(spacing: 0) {
                         ForEach(vm.cart) { item in
-                            cartItemRow(item)
+                            CartItemRow(
+                                item: item,
+                                onQuantityChange: { cartId, qty in
+                                    vm.updateQuantity(cartId: cartId, quantity: qty)
+                                },
+                                onAddNote: { vm.notesItem = $0 },
+                                onRemove: { vm.removeFromCart(cartId: $0) }
+                            )
                         }
                     }
                 }
@@ -465,82 +390,6 @@ struct POSScreen: View {
         case .none: return ""
         case .percent: return "Discount (\(Int(vm.discountValue))%)"
         case .fixed: return "Discount"
-        }
-    }
-
-    private func cartItemRow(_ item: CartItem) -> some View {
-        HStack(spacing: 10) {
-            VStack(alignment: .leading, spacing: 2) {
-                Text(item.item_name)
-                    .font(AppFonts.subheadline)
-                    .foregroundStyle(.white)
-                    .lineLimit(1)
-
-                // Show selected modifiers
-                if let modNames = item.selectedModifierNames, !modNames.isEmpty {
-                    Text(modNames.joined(separator: ", "))
-                        .font(AppFonts.caption)
-                        .foregroundStyle(AppColors.accentLight)
-                        .lineLimit(1)
-                }
-
-                Text(CurrencyFormatter.formatShort(item.unit_price))
-                    .font(AppFonts.caption)
-                    .foregroundStyle(AppColors.textTertiary)
-
-                if let notes = item.notes {
-                    Text(notes)
-                        .font(AppFonts.caption)
-                        .foregroundStyle(AppColors.warning)
-                        .lineLimit(1)
-                }
-            }
-
-            Spacer()
-
-            // Quantity stepper — 36pt buttons with 44pt hit area
-            HStack(spacing: 6) {
-                Button { vm.updateQuantity(cartId: item.cart_id, quantity: item.quantity - 1) } label: {
-                    Image(systemName: "minus")
-                        .font(.system(size: 13, weight: .bold))
-                        .frame(width: 36, height: 36)
-                        .background(AppColors.surface)
-                        .clipShape(Circle())
-                }
-                .foregroundStyle(.white)
-                .frame(width: 44, height: 44)
-
-                Text("\(item.quantity)")
-                    .font(AppFonts.headline)
-                    .foregroundStyle(.white)
-                    .frame(minWidth: 24)
-
-                Button { vm.updateQuantity(cartId: item.cart_id, quantity: item.quantity + 1) } label: {
-                    Image(systemName: "plus")
-                        .font(.system(size: 13, weight: .bold))
-                        .frame(width: 36, height: 36)
-                        .background(AppColors.surface)
-                        .clipShape(Circle())
-                }
-                .foregroundStyle(.white)
-                .frame(width: 44, height: 44)
-            }
-
-            Text(CurrencyFormatter.formatShort(item.lineTotal))
-                .font(AppFonts.headline)
-                .foregroundStyle(.white)
-                .frame(width: 70, alignment: .trailing)
-        }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 8)
-        .contentShape(Rectangle())
-        .contextMenu {
-            Button { vm.notesItem = item } label: {
-                Label("Add Note", systemImage: "note.text")
-            }
-            Button(role: .destructive) { vm.removeFromCart(cartId: item.cart_id) } label: {
-                Label("Remove", systemImage: "trash")
-            }
         }
     }
 
@@ -697,163 +546,5 @@ struct POSScreen: View {
         case .error: return AppColors.error
         case .info: return AppColors.info
         }
-    }
-}
-
-// MARK: - Payment Sheet (2-tap design)
-
-private struct PaymentSheet: View {
-    let vm: POSViewModel
-    let employeeId: Int
-    @Environment(\.dismiss) private var dismiss
-
-    @State private var selectedTip: TipOption = .none
-
-    enum TipOption: Hashable {
-        case none, ten, fifteen, twenty, custom
-    }
-
-    @State private var customTipPercent = ""
-
-    private var tipPercent: Double {
-        switch selectedTip {
-        case .none: return 0
-        case .ten: return 10
-        case .fifteen: return 15
-        case .twenty: return 20
-        case .custom: return Double(customTipPercent) ?? 0
-        }
-    }
-
-    private var tip: Double {
-        vm.total * tipPercent / 100
-    }
-
-    var body: some View {
-        NavigationStack {
-            ZStack {
-                AppColors.background.ignoresSafeArea()
-
-                VStack(spacing: 20) {
-                    // Total display
-                    VStack(spacing: 4) {
-                        Text("Total")
-                            .font(AppFonts.subheadline)
-                            .foregroundStyle(AppColors.textSecondary)
-                        Text(CurrencyFormatter.format(vm.total + tip))
-                            .font(AppFonts.price)
-                            .foregroundStyle(.white)
-                        if tip > 0 {
-                            Text("Tip \(Int(tipPercent))% — \(CurrencyFormatter.format(tip))")
-                                .font(AppFonts.caption)
-                                .foregroundStyle(AppColors.accentLight)
-                        }
-                    }
-                    .padding(.top, 16)
-
-                    // Tip presets (percentage)
-                    HStack(spacing: 8) {
-                        tipPill("None", option: .none)
-                        tipPill("10%", option: .ten)
-                        tipPill("15%", option: .fifteen)
-                        tipPill("20%", option: .twenty)
-                        tipPill("Custom", option: .custom)
-                    }
-                    .padding(.horizontal, 20)
-
-                    if selectedTip == .custom {
-                        HStack(spacing: 8) {
-                            TextField("Tip %", text: $customTipPercent)
-                                .keyboardType(.decimalPad)
-                                .font(AppFonts.title3)
-                                .foregroundStyle(.white)
-                                .padding(12)
-                                .background(AppColors.surface)
-                                .clipShape(RoundedRectangle(cornerRadius: 10))
-
-                            Text("%")
-                                .font(AppFonts.title3)
-                                .foregroundStyle(AppColors.textSecondary)
-                        }
-                        .padding(.horizontal, 20)
-                    }
-
-                    Spacer()
-
-                    // Big payment buttons
-                    VStack(spacing: 12) {
-                        Button {
-                            Task {
-                                await vm.processCashPayment(employeeId: employeeId, tip: tip)
-                                if !vm.isProcessingPayment { dismiss() }
-                            }
-                        } label: {
-                            if vm.isProcessingPayment {
-                                ProgressView().tint(.white)
-                            } else {
-                                VStack(spacing: 4) {
-                                    Image(systemName: "banknote.fill")
-                                        .font(.system(size: 28))
-                                    Text("Cash")
-                                        .font(.system(size: 18, weight: .bold))
-                                }
-                            }
-                        }
-                        .buttonStyle(PaymentMethodButtonStyle(color: AppColors.success))
-                        .disabled(vm.isProcessingPayment)
-
-                        Button {
-                            Task {
-                                await vm.processCardPayment(employeeId: employeeId, tip: tip)
-                                if !vm.isProcessingPayment { dismiss() }
-                            }
-                        } label: {
-                            if vm.isProcessingPayment {
-                                ProgressView().tint(.white)
-                            } else {
-                                VStack(spacing: 4) {
-                                    Image(systemName: "creditcard.fill")
-                                        .font(.system(size: 28))
-                                    Text("Card")
-                                        .font(.system(size: 18, weight: .bold))
-                                }
-                            }
-                        }
-                        .buttonStyle(PaymentMethodButtonStyle(color: AppColors.info))
-                        .disabled(vm.isProcessingPayment)
-
-                        // Split button
-                        Button {
-                            Task {
-                                await vm.startSplitPayment(employeeId: employeeId)
-                                dismiss()
-                            }
-                        } label: {
-                            Label("Split Payment", systemImage: "divide")
-                        }
-                        .buttonStyle(SecondaryButtonStyle())
-                        .disabled(vm.isProcessingPayment)
-                    }
-                    .padding(.horizontal, 20)
-                    .padding(.bottom, 20)
-                }
-            }
-            .navigationTitle("Payment")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { dismiss() }
-                        .foregroundStyle(AppColors.textSecondary)
-                }
-            }
-        }
-        .presentationDetents([.fraction(0.55)])
-    }
-
-    private func tipPill(_ label: String, option: TipOption) -> some View {
-        Button { selectedTip = option } label: {
-            Text(label)
-        }
-        .buttonStyle(TipPillStyle(isSelected: selectedTip == option))
     }
 }

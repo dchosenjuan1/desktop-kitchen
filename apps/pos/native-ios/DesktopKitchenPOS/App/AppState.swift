@@ -4,6 +4,7 @@ import SwiftUI
 final class AppState {
     var currentEmployee: Employee?
     var currentScreen: Screen = .login
+    var kioskEmployeeId: Int?
 
     var isLoggedIn: Bool { currentEmployee != nil }
 
@@ -29,6 +30,22 @@ final class AppState {
             currentScreen = .pos
         }
     }
+
+    func enterKioskMode() {
+        kioskEmployeeId = currentEmployee?.id
+        withAnimation(.easeInOut(duration: 0.2)) {
+            currentScreen = .kiosk
+        }
+    }
+
+    func exitKioskMode(employee: Employee) {
+        currentEmployee = employee
+        AuthTokenStore.shared.token = employee.token
+        kioskEmployeeId = nil
+        withAnimation(.easeInOut(duration: 0.2)) {
+            currentScreen = .pos
+        }
+    }
 }
 
 enum Screen: Sendable {
@@ -40,4 +57,5 @@ enum Screen: Sendable {
     case inventory
     case employees
     case menuManagement
+    case kiosk
 }
