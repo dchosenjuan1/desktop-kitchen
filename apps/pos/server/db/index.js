@@ -64,6 +64,15 @@ export function getConn() {
   return adminSql;
 }
 
+/**
+ * Get the current tenant ID from AsyncLocalStorage.
+ * Returns null if no tenant context is active.
+ */
+export function getTenantId() {
+  const store = tenantContext.getStore();
+  return store?.tenantId || null;
+}
+
 // ==================== Query Helpers ====================
 
 /**

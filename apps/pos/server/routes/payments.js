@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import crypto from 'crypto';
 import rateLimit from 'express-rate-limit';
-import { all, get, run, adminSql } from '../db/index.js';
+import { all, get, run, adminSql, getTenantId } from '../db/index.js';
 import { createPaymentIntent, createRefund, getPaymentIntent } from '../stripe.js';
 import {
   createCryptoPayment as npCreatePayment,
@@ -231,12 +231,13 @@ router.post('/split', paymentLimiter, requireAuth('pos_access'), async (req, res
     if (order.payment_status === 'paid') return res.status(400).json({ error: 'Order is already paid' });
 
     // Process each split
+    const tid = getTenantId();
     for (const split of splits) {
       const tipAmount = split.tip || 0;
       await run(`
-        INSERT INTO order_payments (order_id, payment_method, amount, tip, status)
-        VALUES ($1, $2, $3, $4, 'paid')
-      `, [order_id, split.payment_method, split.amount, tipAmount]);
+        INSERT INTO order_payments (tenant_id, order_id, payment_method, amount, tip, status)
+        VALUES ($1, $2, $3, $4, $5, 'paid')
+      `, [tid, order_id, split.payment_method, split.amount, tipAmount]);
     }
 
     // Calculate total tip from all splits
@@ -364,10 +365,11 @@ router.post('/refund', refundLimiter, requireAuth('process_refunds'), async (req
 
     // Insert refund record
     const employeeId = req.employee?.id || null;
+    const refundTid = getTenantId();
     const result = await run(`
-      INSERT INTO refunds (order_id, stripe_refund_id, amount, reason, refund_type, refunded_by, items_json, inventory_restored)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-    `, [order_id, stripeRefundId, refundAmount, reason || null, refundType, employeeId, itemsJson, refundItems.length > 0]);
+      INSERT INTO refunds (tenant_id, order_id, stripe_refund_id, amount, reason, refund_type, refunded_by, items_json, inventory_restored)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+    `, [refundTid, order_id, stripeRefundId, refundAmount, reason || null, refundType, employeeId, itemsJson, refundItems.length > 0]);
 
     // Update order refund_total
     const newRefundTotal = existingRefundTotal + refundAmount;
@@ -506,10 +508,12 @@ router.post('/crypto/create', requireAuth('pos_access'), async (req, res) => {
     });
 
     // Insert into crypto_payments table
+    const cryptoTid = getTenantId();
     const result = await run(`
-      INSERT INTO crypto_payments (order_id, nowpayments_payment_id, pay_address, pay_amount, pay_currency, price_amount, status)
-      VALUES ($1, $2, $3, $4, $5, $6, $7)
+      INSERT INTO crypto_payments (tenant_id, order_id, nowpayments_payment_id, pay_address, pay_amount, pay_currency, price_amount, status)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
     `, [
+      cryptoTid,
       order_id,
       String(npPayment.payment_id),
       npPayment.pay_address,

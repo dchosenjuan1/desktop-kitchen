@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import crypto from 'crypto';
-import { all, get, run, getConn } from '../db/index.js';
+import { all, get, run, getConn, getTenantId } from '../db/index.js';
 import { requireAuth } from '../middleware/auth.js';
 import { getPlanLimits, requirePlanFeature } from '../planLimits.js';
 import { getServiceCredentials } from '../helpers/tenantCredentials.js';
@@ -271,9 +271,9 @@ async function ensurePlatform(name) {
   if (!platform) {
     const defaults = PLATFORM_DEFAULTS[name] || { display_name: name, commission_percent: 0 };
     const result = await run(
-      `INSERT INTO delivery_platforms (name, display_name, commission_percent, active)
-       VALUES ($1, $2, $3, true)`,
-      [name, defaults.display_name, defaults.commission_percent]
+      `INSERT INTO delivery_platforms (tenant_id, name, display_name, commission_percent, active)
+       VALUES ($1, $2, $3, $4, true)`,
+      [getTenantId(), name, defaults.display_name, defaults.commission_percent]
     );
     platform = await get('SELECT * FROM delivery_platforms WHERE id = $1', [result.lastInsertRowid]);
   }
@@ -399,19 +399,20 @@ async function processUberOrder(tenantId, externalOrderId, rawWebhookData) {
   const orderNumber = await generateOrderNumber();
 
   // Create internal order
+  const tid = getTenantId();
   const orderResult = await run(`
-    INSERT INTO orders (order_number, employee_id, status, subtotal, tax, total, payment_status, payment_method, source)
-    VALUES ($1, $2, 'confirmed', $3, $4, $5, 'paid', 'uber_eats', 'uber_eats')
-  `, [orderNumber, employee.id, subtotal, tax, total]);
+    INSERT INTO orders (tenant_id, order_number, employee_id, status, subtotal, tax, total, payment_status, payment_method, source)
+    VALUES ($1, $2, $3, 'confirmed', $4, $5, $6, 'paid', 'uber_eats', 'uber_eats')
+  `, [tid, orderNumber, employee.id, subtotal, tax, total]);
 
   const orderId = orderResult.lastInsertRowid;
 
   // Insert order items
   for (const item of orderItems) {
     await run(`
-      INSERT INTO order_items (order_id, menu_item_id, item_name, quantity, unit_price, notes)
-      VALUES ($1, $2, $3, $4, $5, $6)
-    `, [orderId, item.menu_item_id, item.item_name, item.quantity, item.unit_price, item.notes]);
+      INSERT INTO order_items (tenant_id, order_id, menu_item_id, item_name, quantity, unit_price, notes)
+      VALUES ($1, $2, $3, $4, $5, $6, $7)
+    `, [tid, orderId, item.menu_item_id, item.item_name, item.quantity, item.unit_price, item.notes]);
   }
 
   // Parse delivery fee and commission from Uber
@@ -432,9 +433,10 @@ async function processUberOrder(tenantId, externalOrderId, rawWebhookData) {
 
   // Create delivery_order record
   const deliveryResult = await run(`
-    INSERT INTO delivery_orders (order_id, platform_id, external_order_id, platform_status, delivery_fee, platform_commission, customer_name, delivery_address, raw_webhook_data)
-    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+    INSERT INTO delivery_orders (tenant_id, order_id, platform_id, external_order_id, platform_status, delivery_fee, platform_commission, customer_name, delivery_address, raw_webhook_data)
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
   `, [
+    tid,
     orderId,
     platform.id,
     externalOrderId,
@@ -632,19 +634,20 @@ async function processRappiOrder(tenantId, payload, rawWebhookData) {
   const orderNumber = await generateOrderNumber();
 
   // Create internal order
+  const tid2 = getTenantId();
   const orderResult = await run(`
-    INSERT INTO orders (order_number, employee_id, status, subtotal, tax, total, payment_status, payment_method, source)
-    VALUES ($1, $2, 'confirmed', $3, $4, $5, 'paid', 'rappi', 'rappi')
-  `, [orderNumber, employee.id, subtotal, tax, total]);
+    INSERT INTO orders (tenant_id, order_number, employee_id, status, subtotal, tax, total, payment_status, payment_method, source)
+    VALUES ($1, $2, $3, 'confirmed', $4, $5, $6, 'paid', 'rappi', 'rappi')
+  `, [tid2, orderNumber, employee.id, subtotal, tax, total]);
 
   const orderId = orderResult.lastInsertRowid;
 
   // Insert order items
   for (const item of orderItems) {
     await run(`
-      INSERT INTO order_items (order_id, menu_item_id, item_name, quantity, unit_price, notes)
-      VALUES ($1, $2, $3, $4, $5, $6)
-    `, [orderId, item.menu_item_id, item.item_name, item.quantity, item.unit_price, item.notes]);
+      INSERT INTO order_items (tenant_id, order_id, menu_item_id, item_name, quantity, unit_price, notes)
+      VALUES ($1, $2, $3, $4, $5, $6, $7)
+    `, [tid2, orderId, item.menu_item_id, item.item_name, item.quantity, item.unit_price, item.notes]);
   }
 
   // Parse delivery fee and commission
@@ -660,9 +663,10 @@ async function processRappiOrder(tenantId, payload, rawWebhookData) {
 
   // Create delivery_order record
   const deliveryResult = await run(`
-    INSERT INTO delivery_orders (order_id, platform_id, external_order_id, platform_status, delivery_fee, platform_commission, customer_name, delivery_address, raw_webhook_data)
-    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+    INSERT INTO delivery_orders (tenant_id, order_id, platform_id, external_order_id, platform_status, delivery_fee, platform_commission, customer_name, delivery_address, raw_webhook_data)
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
   `, [
+    tid2,
     orderId,
     platform.id,
     externalOrderId,
@@ -871,19 +875,20 @@ async function processDidiOrder(tenantId, payload, rawWebhookData) {
   const orderNumber = await generateOrderNumber();
 
   // Create internal order
+  const tid3 = getTenantId();
   const orderResult = await run(`
-    INSERT INTO orders (order_number, employee_id, status, subtotal, tax, total, payment_status, payment_method, source)
-    VALUES ($1, $2, 'confirmed', $3, $4, $5, 'paid', 'didi_food', 'didi_food')
-  `, [orderNumber, employee.id, subtotal, tax, total]);
+    INSERT INTO orders (tenant_id, order_number, employee_id, status, subtotal, tax, total, payment_status, payment_method, source)
+    VALUES ($1, $2, $3, 'confirmed', $4, $5, $6, 'paid', 'didi_food', 'didi_food')
+  `, [tid3, orderNumber, employee.id, subtotal, tax, total]);
 
   const orderId = orderResult.lastInsertRowid;
 
   // Insert order items
   for (const item of orderItems) {
     await run(`
-      INSERT INTO order_items (order_id, menu_item_id, item_name, quantity, unit_price, notes)
-      VALUES ($1, $2, $3, $4, $5, $6)
-    `, [orderId, item.menu_item_id, item.item_name, item.quantity, item.unit_price, item.notes]);
+      INSERT INTO order_items (tenant_id, order_id, menu_item_id, item_name, quantity, unit_price, notes)
+      VALUES ($1, $2, $3, $4, $5, $6, $7)
+    `, [tid3, orderId, item.menu_item_id, item.item_name, item.quantity, item.unit_price, item.notes]);
   }
 
   // Parse delivery fee and commission
@@ -901,9 +906,10 @@ async function processDidiOrder(tenantId, payload, rawWebhookData) {
 
   // Create delivery_order record
   const deliveryResult = await run(`
-    INSERT INTO delivery_orders (order_id, platform_id, external_order_id, platform_status, delivery_fee, platform_commission, customer_name, delivery_address, raw_webhook_data)
-    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+    INSERT INTO delivery_orders (tenant_id, order_id, platform_id, external_order_id, platform_status, delivery_fee, platform_commission, customer_name, delivery_address, raw_webhook_data)
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
   `, [
+    tid3,
     orderId,
     platform.id,
     externalOrderId,

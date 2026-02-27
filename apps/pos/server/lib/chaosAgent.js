@@ -162,14 +162,14 @@ async function createOrdersForTenant(tenantInfo, count, emit) {
         const orderNumber = datePrefix + counter.last_seq;
 
         const [order] = await conn`
-          INSERT INTO orders (order_number, employee_id, status, subtotal, tax, total, payment_status, source)
-          VALUES (${orderNumber}, ${employeeId}, 'pending', ${subtotal}, ${tax}, ${total}, 'unpaid', ${CHAOS_SOURCE})
+          INSERT INTO orders (tenant_id, order_number, employee_id, status, subtotal, tax, total, payment_status, source)
+          VALUES (${tenantInfo.id}, ${orderNumber}, ${employeeId}, 'pending', ${subtotal}, ${tax}, ${total}, 'unpaid', ${CHAOS_SOURCE})
           RETURNING id`;
 
         for (const item of items) {
           await conn`
-            INSERT INTO order_items (order_id, menu_item_id, item_name, quantity, unit_price)
-            VALUES (${order.id}, ${item.menu_item_id}, ${item.item_name}, ${item.quantity}, ${item.unit_price})`;
+            INSERT INTO order_items (tenant_id, order_id, menu_item_id, item_name, quantity, unit_price)
+            VALUES (${tenantInfo.id}, ${order.id}, ${item.menu_item_id}, ${item.item_name}, ${item.quantity}, ${item.unit_price})`;
         }
 
         orderIds.push(order.id);

@@ -131,10 +131,10 @@ async function insertOrderWithNumber(conn, { employee_id, subtotal, tax, total, 
   const orderNumber = datePrefix + counter.last_seq;
 
   const [inserted] = await conn.unsafe(`
-    INSERT INTO orders (order_number, employee_id, status, subtotal, tax, total, payment_status, offline_temp_id)
-    VALUES ($1, $2, 'pending', $3, $4, $5, 'unpaid', $6)
+    INSERT INTO orders (tenant_id, order_number, employee_id, status, subtotal, tax, total, payment_status, offline_temp_id)
+    VALUES ($1, $2, $3, 'pending', $4, $5, $6, 'unpaid', $7)
     RETURNING id, order_number
-  `, [orderNumber, employee_id, subtotal, tax, total, offline_temp_id || null]);
+  `, [tid, orderNumber, employee_id, subtotal, tax, total, offline_temp_id || null]);
 
   return { orderId: inserted.id, orderNumber: inserted.order_number };
 }
@@ -342,11 +342,12 @@ router.post('/', orderCreateLimiter, requireAuth('pos_access'), async (req, res)
     );
 
     // Insert order items and their modifiers
+    const tenantId = req.tenant?.id || null;
     for (const item of orderItems) {
       const itemResult = await run(`
-        INSERT INTO order_items (order_id, menu_item_id, item_name, quantity, unit_price, notes, combo_instance_id, virtual_brand_id)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-      `, [orderId, item.menu_item_id, item.item_name, item.quantity, item.unit_price, item.notes, item.combo_instance_id, item.virtual_brand_id || null]);
+        INSERT INTO order_items (tenant_id, order_id, menu_item_id, item_name, quantity, unit_price, notes, combo_instance_id, virtual_brand_id)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+      `, [tenantId, orderId, item.menu_item_id, item.item_name, item.quantity, item.unit_price, item.notes, item.combo_instance_id, item.virtual_brand_id || null]);
 
       const orderItemId = itemResult.lastInsertRowid;
 
@@ -354,9 +355,9 @@ router.post('/', orderCreateLimiter, requireAuth('pos_access'), async (req, res)
       if (item.modifiers && item.modifiers.length > 0) {
         for (const mod of item.modifiers) {
           await run(`
-            INSERT INTO order_item_modifiers (order_item_id, modifier_id, modifier_name, price_adjustment)
-            VALUES ($1, $2, $3, $4)
-          `, [orderItemId, mod.id, mod.name, mod.price_adjustment]);
+            INSERT INTO order_item_modifiers (tenant_id, order_item_id, modifier_id, modifier_name, price_adjustment)
+            VALUES ($1, $2, $3, $4, $5)
+          `, [tenantId, orderItemId, mod.id, mod.name, mod.price_adjustment]);
         }
       }
     }
