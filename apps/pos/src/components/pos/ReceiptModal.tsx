@@ -81,7 +81,7 @@ const ReceiptModal: React.FC<ReceiptModalProps> = ({ order, onClose, onPrint }) 
 
             <div className="space-y-2 border-b pb-3">
               {order.items?.map((item) => (
-                <div key={item.id || item.item_id} className="flex justify-between">
+                <div key={item.id || item.menu_item_id} className="flex justify-between">
                   <div className="flex-1">
                     <p className="font-semibold">{item.item_name}</p>
                     {item.notes && (

@@ -295,8 +295,8 @@ router.post('/tenants', async (req, res) => {
       VALUES (${id}, ${owner_email}, ${hashedPin}, 'admin', true)
     `;
 
-    // Fire-and-forget email with PIN
-    sendPinEmail(owner_email, pin, name).catch(() => {});
+    // Fire-and-forget email with PIN (include subdomain for correct login URL)
+    sendPinEmail(owner_email, pin, name, subdomain || id).catch(() => {});
 
     audit({
       tenantId: id,
@@ -515,6 +515,7 @@ router.delete('/tenants/:id', async (req, res) => {
         'ai_category_roles', 'inventory_counts', 'shrinkage_alerts', 'refunds', 'crypto_payments',
         'cfdi_invoice_tokens', 'cfdi_invoices', 'price_history', 'pricing_experiments',
         'pricing_guardrails', 'waste_log',
+        'bank_transactions', 'bank_sync_logs',
       ];
       for (const t of layer1) {
         await sql.unsafe(`DELETE FROM ${t} WHERE tenant_id = $1`, [tid]);
@@ -524,6 +525,7 @@ router.delete('/tenants/:id', async (req, res) => {
       const layer2 = [
         'stamp_cards', 'order_items', 'order_payments', 'delivery_orders',
         'combo_slots', 'modifiers', 'purchase_orders',
+        'bank_accounts',
       ];
       for (const t of layer2) {
         await sql.unsafe(`DELETE FROM ${t} WHERE tenant_id = $1`, [tid]);
@@ -552,6 +554,7 @@ router.delete('/tenants/:id', async (req, res) => {
         'financial_targets', 'financial_actuals', 'loyalty_config',
         'role_permissions', 'order_templates',
         'cfdi_config', 'pricing_rules', 'tenant_credentials', 'audit_log',
+        'bank_connections', 'leads',
       ];
       for (const t of config) {
         await sql.unsafe(`DELETE FROM ${t} WHERE tenant_id = $1`, [tid]);
