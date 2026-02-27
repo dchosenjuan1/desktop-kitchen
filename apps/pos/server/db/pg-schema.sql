@@ -15,12 +15,24 @@ CREATE TABLE IF NOT EXISTS tenants (
   stripe_customer_id TEXT,
   stripe_subscription_id TEXT,
   subscription_status TEXT DEFAULT 'active',
+  subscription_cancelled_at TIMESTAMPTZ,
   owner_email TEXT NOT NULL,
   owner_password_hash TEXT NOT NULL,
   branding_json TEXT,
   active BOOLEAN DEFAULT true,
+  reset_token TEXT,
+  reset_token_expires TIMESTAMPTZ,
+  mp_access_token TEXT,
+  mp_refresh_token TEXT,
+  mp_user_id TEXT,
+  mp_token_expires_at TIMESTAMPTZ,
+  mp_default_terminal_id TEXT,
+  signup_promo_code TEXT DEFAULT NULL,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_tenants_owner_email ON tenants(owner_email);
+CREATE INDEX IF NOT EXISTS idx_tenants_reset_token ON tenants(reset_token) WHERE reset_token IS NOT NULL;
 
 CREATE TABLE IF NOT EXISTS schema_version (
   version INTEGER PRIMARY KEY,
@@ -61,7 +73,8 @@ CREATE TABLE IF NOT EXISTS menu_items (
   price NUMERIC(10,2) NOT NULL,
   description TEXT,
   image_url TEXT,
-  active BOOLEAN DEFAULT true
+  active BOOLEAN DEFAULT true,
+  prep_time_minutes INTEGER DEFAULT 5
 );
 
 -- Orders
@@ -85,7 +98,13 @@ CREATE TABLE IF NOT EXISTS orders (
   delivery_order_id INTEGER DEFAULT NULL,
   refund_total NUMERIC(10,2) DEFAULT 0,
   crypto_payment_id INTEGER DEFAULT NULL,
-  loyalty_customer_id INTEGER DEFAULT NULL
+  loyalty_customer_id INTEGER DEFAULT NULL,
+  cfdi_invoice_id INTEGER,
+  invoice_token TEXT,
+  paid_at TIMESTAMPTZ DEFAULT NULL,
+  mp_order_id TEXT,
+  ready_at TIMESTAMPTZ,
+  estimated_ready_minutes INTEGER
 );
 
 -- Order Items
@@ -644,6 +663,268 @@ CREATE TABLE IF NOT EXISTS order_templates (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- Waste Log (migration 0005)
+CREATE TABLE IF NOT EXISTS waste_log (
+  id SERIAL PRIMARY KEY,
+  tenant_id TEXT NOT NULL DEFAULT current_setting('app.tenant_id', true),
+  inventory_item_id INTEGER NOT NULL REFERENCES inventory_items(id),
+  quantity REAL NOT NULL CHECK (quantity > 0),
+  unit TEXT,
+  reason TEXT NOT NULL CHECK (reason IN ('spoilage','prep_error','dropped','expired','other')),
+  cost_at_time NUMERIC(10,2) DEFAULT 0,
+  notes TEXT,
+  logged_by INTEGER REFERENCES employees(id),
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- CFDI Config (migration 0006)
+CREATE TABLE IF NOT EXISTS cfdi_config (
+  id SERIAL PRIMARY KEY,
+  tenant_id TEXT NOT NULL UNIQUE,
+  facturapi_org_id TEXT,
+  rfc TEXT,
+  legal_name TEXT,
+  tax_regime TEXT,
+  postal_code TEXT,
+  csd_uploaded BOOLEAN DEFAULT false,
+  csd_valid_until TIMESTAMPTZ,
+  default_uso_cfdi TEXT DEFAULT 'G03',
+  invoice_series TEXT DEFAULT 'DK',
+  invoice_link_expiry_hours INTEGER DEFAULT 72,
+  active BOOLEAN DEFAULT false,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- CFDI Invoices (migration 0006)
+CREATE TABLE IF NOT EXISTS cfdi_invoices (
+  id SERIAL PRIMARY KEY,
+  tenant_id TEXT NOT NULL DEFAULT current_setting('app.tenant_id', true),
+  order_id INTEGER NOT NULL,
+  facturapi_invoice_id TEXT NOT NULL UNIQUE,
+  uuid_fiscal TEXT,
+  series TEXT,
+  folio TEXT,
+  cfdi_type TEXT DEFAULT 'I',
+  receptor_rfc TEXT NOT NULL,
+  receptor_name TEXT NOT NULL,
+  receptor_tax_regime TEXT,
+  receptor_postal_code TEXT,
+  receptor_uso_cfdi TEXT DEFAULT 'G03',
+  subtotal NUMERIC(12,2),
+  tax_total NUMERIC(12,2),
+  total NUMERIC(12,2),
+  forma_pago TEXT,
+  metodo_pago TEXT DEFAULT 'PUE',
+  xml_url TEXT,
+  pdf_url TEXT,
+  status TEXT DEFAULT 'valid',
+  cancellation_reason TEXT,
+  cancelled_at TIMESTAMPTZ,
+  substitute_invoice_id INTEGER,
+  requested_by TEXT DEFAULT 'staff',
+  issued_at TIMESTAMPTZ DEFAULT NOW(),
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- CFDI Invoice Tokens — NO RLS (public access via token)
+CREATE TABLE IF NOT EXISTS cfdi_invoice_tokens (
+  id SERIAL PRIMARY KEY,
+  token TEXT NOT NULL UNIQUE,
+  tenant_id TEXT NOT NULL,
+  order_id INTEGER NOT NULL,
+  expires_at TIMESTAMPTZ NOT NULL,
+  used BOOLEAN DEFAULT false,
+  used_at TIMESTAMPTZ,
+  cfdi_invoice_id INTEGER,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Price History (migration 0008)
+CREATE TABLE IF NOT EXISTS price_history (
+  id SERIAL PRIMARY KEY,
+  tenant_id TEXT NOT NULL DEFAULT current_setting('app.tenant_id', true),
+  menu_item_id INTEGER NOT NULL REFERENCES menu_items(id),
+  old_price NUMERIC(10,2) NOT NULL,
+  new_price NUMERIC(10,2) NOT NULL,
+  change_percent REAL,
+  reason TEXT,
+  source TEXT NOT NULL DEFAULT 'manual',
+  pricing_rule_id INTEGER,
+  experiment_id INTEGER,
+  created_by INTEGER REFERENCES employees(id),
+  reverted_at TIMESTAMPTZ,
+  reverted_by INTEGER REFERENCES employees(id),
+  revenue_before_daily NUMERIC(10,2),
+  revenue_after_daily NUMERIC(10,2),
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Pricing Rules (migration 0008)
+CREATE TABLE IF NOT EXISTS pricing_rules (
+  id SERIAL PRIMARY KEY,
+  tenant_id TEXT NOT NULL DEFAULT current_setting('app.tenant_id', true),
+  name TEXT NOT NULL,
+  rule_type TEXT NOT NULL,
+  description TEXT,
+  conditions JSONB NOT NULL DEFAULT '{}',
+  adjustment_type TEXT NOT NULL DEFAULT 'percent',
+  adjustment_value REAL NOT NULL,
+  applies_to JSONB NOT NULL DEFAULT '{"scope":"all"}',
+  priority INTEGER DEFAULT 0,
+  max_stack BOOLEAN DEFAULT false,
+  active BOOLEAN DEFAULT true,
+  auto_apply BOOLEAN DEFAULT false,
+  created_by INTEGER REFERENCES employees(id),
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Pricing Experiments (migration 0008)
+CREATE TABLE IF NOT EXISTS pricing_experiments (
+  id SERIAL PRIMARY KEY,
+  tenant_id TEXT NOT NULL DEFAULT current_setting('app.tenant_id', true),
+  name TEXT NOT NULL,
+  description TEXT,
+  menu_item_id INTEGER NOT NULL REFERENCES menu_items(id),
+  variant_a_price NUMERIC(10,2) NOT NULL,
+  variant_b_price NUMERIC(10,2) NOT NULL,
+  split_percent INTEGER DEFAULT 50,
+  status TEXT DEFAULT 'draft',
+  start_date TIMESTAMPTZ,
+  end_date TIMESTAMPTZ,
+  results JSONB DEFAULT '{}',
+  created_by INTEGER REFERENCES employees(id),
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Pricing Guardrails (migration 0008)
+CREATE TABLE IF NOT EXISTS pricing_guardrails (
+  id SERIAL PRIMARY KEY,
+  tenant_id TEXT NOT NULL DEFAULT current_setting('app.tenant_id', true),
+  min_change_percent REAL DEFAULT -20,
+  max_change_percent REAL DEFAULT 15,
+  max_daily_changes INTEGER DEFAULT 10,
+  require_approval_above REAL DEFAULT 10,
+  protected_item_ids JSONB DEFAULT '[]',
+  notification_email TEXT,
+  cooldown_hours INTEGER DEFAULT 24,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(tenant_id)
+);
+
+ALTER TABLE price_history ADD CONSTRAINT fk_price_history_rule FOREIGN KEY (pricing_rule_id) REFERENCES pricing_rules(id) ON DELETE SET NULL;
+ALTER TABLE price_history ADD CONSTRAINT fk_price_history_experiment FOREIGN KEY (experiment_id) REFERENCES pricing_experiments(id) ON DELETE SET NULL;
+
+-- Tenant Credentials (migration 0011)
+CREATE TABLE IF NOT EXISTS tenant_credentials (
+  id SERIAL PRIMARY KEY,
+  tenant_id TEXT NOT NULL,
+  service TEXT NOT NULL,
+  key TEXT NOT NULL,
+  value TEXT NOT NULL,
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(tenant_id, service, key)
+);
+
+-- Audit Log — NO RLS (written via adminSql, fire-and-forget)
+CREATE TABLE IF NOT EXISTS audit_log (
+  id BIGSERIAL PRIMARY KEY,
+  tenant_id TEXT NOT NULL,
+  actor_type TEXT NOT NULL,
+  actor_id TEXT,
+  action TEXT NOT NULL,
+  resource TEXT NOT NULL,
+  resource_id TEXT,
+  details JSONB,
+  ip_address TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Leads (migration 0014)
+CREATE TABLE IF NOT EXISTS leads (
+  id SERIAL PRIMARY KEY,
+  restaurant_name TEXT,
+  name TEXT,
+  email TEXT NOT NULL,
+  phone TEXT,
+  promo_code TEXT,
+  source TEXT DEFAULT 'mexico50_flyer',
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  converted_at TIMESTAMPTZ DEFAULT NULL,
+  tenant_id TEXT DEFAULT NULL
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS leads_tenant_email_unique ON leads (tenant_id, email);
+
+-- Bank Connections (migration 0019)
+CREATE TABLE IF NOT EXISTS bank_connections (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id TEXT NOT NULL DEFAULT current_setting('app.tenant_id', true),
+  provider TEXT NOT NULL CHECK (provider IN ('belvo', 'plaid')),
+  external_link_id TEXT NOT NULL,
+  institution_name TEXT,
+  institution_logo_url TEXT,
+  country_code CHAR(2) NOT NULL,
+  status TEXT DEFAULT 'active' CHECK (status IN ('active', 'disconnected', 'error', 'pending')),
+  last_synced_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Bank Accounts (migration 0019)
+CREATE TABLE IF NOT EXISTS bank_accounts (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id TEXT NOT NULL DEFAULT current_setting('app.tenant_id', true),
+  connection_id UUID NOT NULL REFERENCES bank_connections(id) ON DELETE CASCADE,
+  external_account_id TEXT NOT NULL,
+  name TEXT NOT NULL,
+  type TEXT CHECK (type IN ('checking', 'savings', 'credit_card', 'loan', 'investment', 'other')),
+  currency CHAR(3) DEFAULT 'MXN',
+  balance_current NUMERIC(14,2),
+  balance_available NUMERIC(14,2),
+  last_four TEXT,
+  is_primary BOOLEAN DEFAULT false,
+  synced_at TIMESTAMPTZ,
+  UNIQUE(connection_id, external_account_id)
+);
+
+-- Bank Transactions (migration 0019)
+CREATE TABLE IF NOT EXISTS bank_transactions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id TEXT NOT NULL DEFAULT current_setting('app.tenant_id', true),
+  account_id UUID NOT NULL REFERENCES bank_accounts(id) ON DELETE CASCADE,
+  external_transaction_id TEXT,
+  amount NUMERIC(14,2) NOT NULL,
+  currency CHAR(3) DEFAULT 'MXN',
+  description TEXT,
+  merchant_name TEXT,
+  category TEXT,
+  subcategory TEXT,
+  transaction_date DATE NOT NULL,
+  transaction_type TEXT CHECK (transaction_type IN ('INFLOW', 'OUTFLOW', 'TRANSFER')),
+  status TEXT DEFAULT 'posted' CHECK (status IN ('posted', 'pending')),
+  raw_data JSONB,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(account_id, external_transaction_id)
+);
+
+-- Bank Sync Logs (migration 0019)
+CREATE TABLE IF NOT EXISTS bank_sync_logs (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id TEXT NOT NULL DEFAULT current_setting('app.tenant_id', true),
+  connection_id UUID REFERENCES bank_connections(id) ON DELETE SET NULL,
+  sync_type TEXT CHECK (sync_type IN ('manual', 'scheduled', 'webhook')),
+  status TEXT CHECK (status IN ('success', 'partial', 'failed')),
+  accounts_synced INTEGER DEFAULT 0,
+  transactions_synced INTEGER DEFAULT 0,
+  error_message TEXT,
+  started_at TIMESTAMPTZ DEFAULT NOW(),
+  completed_at TIMESTAMPTZ
+);
+
 -- ==================== Indexes ====================
 -- tenant_id is the first column in every composite index for RLS filter efficiency
 
@@ -695,6 +976,36 @@ CREATE INDEX IF NOT EXISTS idx_stamp_events_tenant ON stamp_events(tenant_id);
 CREATE INDEX IF NOT EXISTS idx_loyalty_messages_tenant ON loyalty_messages(tenant_id);
 CREATE INDEX IF NOT EXISTS idx_order_templates_tenant ON order_templates(tenant_id);
 
+-- Indexes from migrations
+CREATE INDEX IF NOT EXISTS idx_orders_payment_status ON orders (tenant_id, payment_status, paid_at);
+CREATE INDEX IF NOT EXISTS idx_orders_mp_order_id ON orders (mp_order_id) WHERE mp_order_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_waste_log_tenant ON waste_log(tenant_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_waste_log_item ON waste_log(tenant_id, inventory_item_id);
+CREATE INDEX IF NOT EXISTS idx_cfdi_invoices_tenant_date ON cfdi_invoices(tenant_id, issued_at DESC);
+CREATE INDEX IF NOT EXISTS idx_cfdi_invoices_tenant_order ON cfdi_invoices(tenant_id, order_id);
+CREATE INDEX IF NOT EXISTS idx_cfdi_invoices_uuid ON cfdi_invoices(uuid_fiscal);
+CREATE INDEX IF NOT EXISTS idx_cfdi_invoice_tokens_token ON cfdi_invoice_tokens(token);
+CREATE INDEX IF NOT EXISTS idx_price_history_tenant ON price_history(tenant_id);
+CREATE INDEX IF NOT EXISTS idx_price_history_item ON price_history(tenant_id, menu_item_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_price_history_source ON price_history(tenant_id, source);
+CREATE INDEX IF NOT EXISTS idx_pricing_rules_tenant ON pricing_rules(tenant_id);
+CREATE INDEX IF NOT EXISTS idx_pricing_rules_active ON pricing_rules(tenant_id, active) WHERE active = true;
+CREATE INDEX IF NOT EXISTS idx_pricing_experiments_tenant ON pricing_experiments(tenant_id);
+CREATE INDEX IF NOT EXISTS idx_pricing_experiments_active ON pricing_experiments(tenant_id, status) WHERE status = 'running';
+CREATE INDEX IF NOT EXISTS idx_pricing_experiments_item ON pricing_experiments(tenant_id, menu_item_id);
+CREATE INDEX IF NOT EXISTS idx_pricing_guardrails_tenant ON pricing_guardrails(tenant_id);
+CREATE INDEX IF NOT EXISTS idx_tenant_credentials_tenant ON tenant_credentials(tenant_id);
+CREATE INDEX IF NOT EXISTS idx_audit_log_tenant ON audit_log(tenant_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_audit_log_resource ON audit_log(tenant_id, resource, resource_id);
+CREATE INDEX IF NOT EXISTS idx_bank_connections_tenant ON bank_connections(tenant_id);
+CREATE INDEX IF NOT EXISTS idx_bank_accounts_tenant ON bank_accounts(tenant_id);
+CREATE INDEX IF NOT EXISTS idx_bank_accounts_connection ON bank_accounts(connection_id);
+CREATE INDEX IF NOT EXISTS idx_bank_transactions_tenant ON bank_transactions(tenant_id);
+CREATE INDEX IF NOT EXISTS idx_bank_transactions_account ON bank_transactions(account_id);
+CREATE INDEX IF NOT EXISTS idx_bank_transactions_date ON bank_transactions(tenant_id, transaction_date DESC);
+CREATE INDEX IF NOT EXISTS idx_bank_sync_logs_tenant ON bank_sync_logs(tenant_id);
+CREATE INDEX IF NOT EXISTS idx_bank_sync_logs_connection ON bank_sync_logs(connection_id);
+
 -- ==================== Row-Level Security ====================
 -- Enable RLS on every tenant-scoped table.
 -- Policy: app_user can only see/modify rows matching current_setting('app.tenant_id').
@@ -721,7 +1032,12 @@ BEGIN
       'purchase_orders', 'purchase_order_items', 'financial_targets',
       'financial_actuals', 'loyalty_customers', 'stamp_cards',
       'stamp_events', 'referral_events', 'loyalty_messages',
-      'loyalty_config', 'order_templates'
+      'loyalty_config', 'order_templates',
+      -- Added by migrations
+      'waste_log', 'cfdi_config', 'cfdi_invoices',
+      'price_history', 'pricing_rules', 'pricing_experiments', 'pricing_guardrails',
+      'tenant_credentials', 'leads',
+      'bank_connections', 'bank_accounts', 'bank_transactions', 'bank_sync_logs'
     ])
   LOOP
     EXECUTE format('ALTER TABLE %I ENABLE ROW LEVEL SECURITY', tbl);

@@ -23,5 +23,17 @@ export default defineConfig({
   },
   build: {
     outDir: 'dist',
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'react-vendor': ['react', 'react-dom', 'react-router-dom'],
+          'ui-vendor': ['lucide-react'],
+          'stripe': ['@stripe/stripe-js'],
+          'offline': ['dexie'],
+          'i18n': ['i18next', 'react-i18next'],
+          'recharts': ['recharts'],
+        },
+      },
+    },
   },
 })

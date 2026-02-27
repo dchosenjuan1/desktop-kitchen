@@ -2,7 +2,7 @@ import { Router } from 'express';
 import bcrypt from 'bcrypt';
 import { createTenant, getTenant, listTenants, updateTenant } from '../tenants.js';
 import { run, adminSql } from '../db/index.js';
-import { sendPinEmail } from '../helpers/email.js';
+import { sendPinEmail, sendWelcomeEmail } from '../helpers/email.js';
 import { audit } from '../lib/auditLog.js';
 import os from 'os';
 
@@ -301,8 +301,8 @@ router.post('/tenants', async (req, res) => {
       VALUES (${id}, ${owner_email}, ${hashedPin}, 'admin', true)
     `;
 
-    // Fire-and-forget email with PIN (include subdomain for correct login URL)
-    sendPinEmail(owner_email, pin, name, subdomain || id).catch(() => {});
+    // Fire-and-forget welcome email with PIN and setup guide
+    sendWelcomeEmail(owner_email, name, subdomain || id, pin).catch(() => {});
 
     audit({
       tenantId: id,
