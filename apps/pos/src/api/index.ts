@@ -190,9 +190,10 @@ async function apiRequest<T>(
   if (currentEmployeeToken) {
     defaultHeaders['Authorization'] = `Bearer ${currentEmployeeToken}`;
   }
-  // On Capacitor, tenant is resolved via subdomain in the base URL — don't send header
-  // (production requires X-Admin-Secret alongside X-Tenant-ID)
-  if (!isCapacitor) {
+  // Only send X-Tenant-ID header in development (localhost).
+  // In production, tenant is resolved via subdomain — sending the header
+  // without X-Admin-Secret triggers a 403.
+  if (!isCapacitor && window.location.hostname === 'localhost') {
     const tenantId = localStorage.getItem('tenant_id');
     if (tenantId) {
       defaultHeaders['X-Tenant-ID'] = tenantId;
@@ -1417,7 +1418,8 @@ export async function getMenuBoardData(): Promise<any> {
 
 function ownerHeaders(): Record<string, string> {
   const token = localStorage.getItem('owner_token');
-  const tenantId = !isCapacitor ? localStorage.getItem('tenant_id') : null;
+  const isDev = window.location.hostname === 'localhost';
+  const tenantId = !isCapacitor && isDev ? localStorage.getItem('tenant_id') : null;
   return {
     'Content-Type': 'application/json',
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
@@ -1537,7 +1539,7 @@ export async function uploadCSD(formData: FormData): Promise<{ config: CfdiConfi
   if (currentEmployeeToken) {
     headers['Authorization'] = `Bearer ${currentEmployeeToken}`;
   }
-  if (!isCapacitor) {
+  if (!isCapacitor && window.location.hostname === 'localhost') {
     const tenantId = localStorage.getItem('tenant_id');
     if (tenantId) {
       headers['X-Tenant-ID'] = tenantId;
@@ -1747,7 +1749,7 @@ export async function getCredentials(): Promise<Record<string, Record<string, st
   const ownerToken = localStorage.getItem('owner_token');
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
   if (ownerToken) headers['Authorization'] = `Bearer ${ownerToken}`;
-  if (!isCapacitor) { const tenantId = localStorage.getItem('tenant_id'); if (tenantId) headers['X-Tenant-ID'] = tenantId; }
+  if (!isCapacitor && window.location.hostname === 'localhost') { const tenantId = localStorage.getItem('tenant_id'); if (tenantId) headers['X-Tenant-ID'] = tenantId; }
 
   const res = await fetch(`${base}/credentials`, { headers });
   if (!res.ok) {
@@ -1762,7 +1764,7 @@ export async function saveCredentials(service: string, values: Record<string, st
   const ownerToken = localStorage.getItem('owner_token');
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
   if (ownerToken) headers['Authorization'] = `Bearer ${ownerToken}`;
-  if (!isCapacitor) { const tenantId = localStorage.getItem('tenant_id'); if (tenantId) headers['X-Tenant-ID'] = tenantId; }
+  if (!isCapacitor && window.location.hostname === 'localhost') { const tenantId = localStorage.getItem('tenant_id'); if (tenantId) headers['X-Tenant-ID'] = tenantId; }
 
   const res = await fetch(`${base}/credentials/${service}`, {
     method: 'PUT',
@@ -1791,7 +1793,7 @@ export async function runStressTest(
   const base = IOS_FALLBACK_URLS.length ? await resolveBaseUrl() : activeBaseUrl;
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
   if (currentEmployeeToken) headers['Authorization'] = `Bearer ${currentEmployeeToken}`;
-  if (!isCapacitor) { const tenantId = localStorage.getItem('tenant_id'); if (tenantId) headers['X-Tenant-ID'] = tenantId; }
+  if (!isCapacitor && window.location.hostname === 'localhost') { const tenantId = localStorage.getItem('tenant_id'); if (tenantId) headers['X-Tenant-ID'] = tenantId; }
 
   const response = await fetch(`${base}/stress-test/run`, {
     method: 'POST',
@@ -2159,7 +2161,7 @@ export async function deleteCredentials(service: string): Promise<{ success: boo
   const ownerToken = localStorage.getItem('owner_token');
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
   if (ownerToken) headers['Authorization'] = `Bearer ${ownerToken}`;
-  if (!isCapacitor) { const tenantId = localStorage.getItem('tenant_id'); if (tenantId) headers['X-Tenant-ID'] = tenantId; }
+  if (!isCapacitor && window.location.hostname === 'localhost') { const tenantId = localStorage.getItem('tenant_id'); if (tenantId) headers['X-Tenant-ID'] = tenantId; }
 
   const res = await fetch(`${base}/credentials/${service}`, {
     method: 'DELETE',
