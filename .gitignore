@@ -21,6 +21,7 @@ build/
 *.ipa
 *.dSYM.zip
 *.dSYM
+apps/pos/native-ios/scripts/stress-test-*.txt
 
 # Docs
 apps/docs/.docusaurus/
