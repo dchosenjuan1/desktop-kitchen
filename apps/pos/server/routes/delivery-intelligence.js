@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { all, get, run, exec } from '../db/index.js';
+import { all, get, run, exec, getTenantId } from '../db/index.js';
 import { requireAuth } from '../middleware/auth.js';
 import { sendSMS } from '../helpers/twilio.js';
 
@@ -128,10 +128,11 @@ router.post('/markup-rules', requireAuth('manage_delivery'), async (req, res) =>
       return res.status(400).json({ error: 'Either menu_item_id or category_id required' });
     }
 
+    const tid = getTenantId();
     const result = await run(
-      `INSERT INTO delivery_markup_rules (platform_id, menu_item_id, category_id, markup_type, markup_value)
-       VALUES ($1, $2, $3, $4, $5)`,
-      [platform_id, menu_item_id || null, category_id || null, markup_type || 'percent', markup_value]
+      `INSERT INTO delivery_markup_rules (tenant_id, platform_id, menu_item_id, category_id, markup_type, markup_value)
+       VALUES ($1, $2, $3, $4, $5, $6)`,
+      [tid, platform_id, menu_item_id || null, category_id || null, markup_type || 'percent', markup_value]
     );
 
     res.status(201).json({ id: result.lastInsertRowid });
@@ -247,10 +248,11 @@ router.post('/virtual-brands', requireAuth('manage_delivery'), async (req, res) 
       return res.status(400).json({ error: 'name and platform_id required' });
     }
 
+    const tid = getTenantId();
     const result = await run(
-      `INSERT INTO virtual_brands (name, platform_id, description, logo_url, display_type, primary_color, secondary_color, font_family, dark_bg, slug, show_in_pos, template_slug, board_settings)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
-      [name, platform_id, description || null, logo_url || null, display_type || 'delivery', primary_color || null, secondary_color || null, font_family || null, dark_bg || null, slug || null, show_in_pos !== undefined ? show_in_pos : true, template_slug || null, board_settings ? JSON.stringify(board_settings) : '{}']
+      `INSERT INTO virtual_brands (tenant_id, name, platform_id, description, logo_url, display_type, primary_color, secondary_color, font_family, dark_bg, slug, show_in_pos, template_slug, board_settings)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`,
+      [tid, name, platform_id, description || null, logo_url || null, display_type || 'delivery', primary_color || null, secondary_color || null, font_family || null, dark_bg || null, slug || null, show_in_pos !== undefined ? show_in_pos : true, template_slug || null, board_settings ? JSON.stringify(board_settings) : '{}']
     );
 
     res.status(201).json({ id: result.lastInsertRowid });
@@ -348,13 +350,14 @@ router.post('/virtual-brands/:id/items', requireAuth('manage_delivery'), async (
     const brand = await get('SELECT * FROM virtual_brands WHERE id = $1', [id]);
     if (!brand) return res.status(404).json({ error: 'Virtual brand not found' });
 
+    const tid = getTenantId();
     for (const item of items) {
       const showImage = item.show_image !== undefined ? item.show_image : true;
       await run(
-        `INSERT INTO virtual_brand_items (virtual_brand_id, menu_item_id, custom_name, custom_price, show_image, active)
-         VALUES ($1, $2, $3, $4, $5, true)
+        `INSERT INTO virtual_brand_items (tenant_id, virtual_brand_id, menu_item_id, custom_name, custom_price, show_image, active)
+         VALUES ($1, $2, $3, $4, $5, $6, true)
          ON CONFLICT (tenant_id, virtual_brand_id, menu_item_id) DO UPDATE SET custom_name = EXCLUDED.custom_name, custom_price = EXCLUDED.custom_price, show_image = EXCLUDED.show_image, active = true`,
-        [id, item.menu_item_id, item.custom_name || null, item.custom_price || null, showImage]
+        [tid, id, item.menu_item_id, item.custom_name || null, item.custom_price || null, showImage]
       );
     }
 
@@ -445,10 +448,11 @@ router.post('/recapture/send', requireAuth('manage_delivery'), async (req, res) 
     const sid = await sendSMS(phone, body);
 
     // Track recapture attempt
+    const tid = getTenantId();
     await run(
-      `INSERT INTO delivery_recapture (customer_phone, customer_name, platform, last_delivery_order_id, sms_sent_at)
-       VALUES ($1, $2, $3, $4, NOW())`,
-      [phone, customer_name, platform, delivery_order_id || null]
+      `INSERT INTO delivery_recapture (tenant_id, customer_phone, customer_name, platform, last_delivery_order_id, sms_sent_at)
+       VALUES ($1, $2, $3, $4, $5, NOW())`,
+      [tid, phone, customer_name, platform, delivery_order_id || null]
     );
 
     res.json({ success: !!sid, twilio_sid: sid });

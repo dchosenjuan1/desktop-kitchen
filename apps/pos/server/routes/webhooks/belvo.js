@@ -9,7 +9,7 @@
 import { Router } from 'express';
 import crypto from 'crypto';
 import { adminSql, tenantContext } from '../../db/index.js';
-import { all, get, run } from '../../db/index.js';
+import { all, get, run, getTenantId } from '../../db/index.js';
 import { BankingService } from '../../lib/bankingService.js';
 
 const router = Router();
@@ -95,7 +95,7 @@ async function processWebhookEvent({ link_id, event_type, data, webhook_id }) {
   await adminSql.begin(async (tx) => {
     await tx`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
     await new Promise((resolve, reject) => {
-      tenantContext.run({ conn: tx }, async () => {
+      tenantContext.run({ conn: tx, tenantId }, async () => {
         try {
           await handleEvent(conn, event_type, data, webhook_id);
           resolve();
@@ -130,10 +130,11 @@ async function handleEvent(connection, eventType, data, webhookId) {
   }
 
   // Log all webhooks to bank_sync_logs
+  const tid = getTenantId();
   await run(`
-    INSERT INTO bank_sync_logs (connection_id, sync_type, status, error_message, completed_at)
-    VALUES ($1, 'webhook', 'success', $2, NOW())
-  `, [connection.id, `Webhook: ${eventType} (${webhookId || 'no-id'})`]);
+    INSERT INTO bank_sync_logs (tenant_id, connection_id, sync_type, status, error_message, completed_at)
+    VALUES ($1, $2, 'webhook', 'success', $3, NOW())
+  `, [tid, connection.id, `Webhook: ${eventType} (${webhookId || 'no-id'})`]);
 }
 
 // ─── Event Handlers ──────────────────────────────────────────────────
@@ -164,18 +165,20 @@ async function handleAccountsAvailable(connection) {
   try {
     const result = await BankingService.syncConnection(connection);
 
+    const tid = getTenantId();
     await run(`
-      INSERT INTO bank_sync_logs (connection_id, sync_type, status, accounts_synced, transactions_synced, completed_at)
-      VALUES ($1, 'webhook', 'success', $2, $3, NOW())
-    `, [connection.id, result.accountsSynced, result.transactionsSynced]);
+      INSERT INTO bank_sync_logs (tenant_id, connection_id, sync_type, status, accounts_synced, transactions_synced, completed_at)
+      VALUES ($1, $2, 'webhook', 'success', $3, $4, NOW())
+    `, [tid, connection.id, result.accountsSynced, result.transactionsSynced]);
 
     console.log(`[Belvo Webhook] Synced ${result.accountsSynced} accounts, ${result.transactionsSynced} transactions for connection ${connection.id}`);
   } catch (err) {
     console.error(`[Belvo Webhook] Sync failed for connection ${connection.id}:`, err.message);
+    const tid = getTenantId();
     await run(`
-      INSERT INTO bank_sync_logs (connection_id, sync_type, status, error_message, completed_at)
-      VALUES ($1, 'webhook', 'failed', $2, NOW())
-    `, [connection.id, err.message]);
+      INSERT INTO bank_sync_logs (tenant_id, connection_id, sync_type, status, error_message, completed_at)
+      VALUES ($1, $2, 'webhook', 'failed', $3, NOW())
+    `, [tid, connection.id, err.message]);
   }
 }
 
@@ -184,18 +187,20 @@ async function handleTransactionsAvailable(connection) {
     // syncConnection fetches both accounts and transactions — no separate method needed
     const result = await BankingService.syncConnection(connection);
 
+    const tid = getTenantId();
     await run(`
-      INSERT INTO bank_sync_logs (connection_id, sync_type, status, accounts_synced, transactions_synced, completed_at)
-      VALUES ($1, 'webhook', 'success', $2, $3, NOW())
-    `, [connection.id, result.accountsSynced, result.transactionsSynced]);
+      INSERT INTO bank_sync_logs (tenant_id, connection_id, sync_type, status, accounts_synced, transactions_synced, completed_at)
+      VALUES ($1, $2, 'webhook', 'success', $3, $4, NOW())
+    `, [tid, connection.id, result.accountsSynced, result.transactionsSynced]);
 
     console.log(`[Belvo Webhook] Transaction sync: ${result.transactionsSynced} transactions for connection ${connection.id}`);
   } catch (err) {
     console.error(`[Belvo Webhook] Transaction sync failed for connection ${connection.id}:`, err.message);
+    const tid = getTenantId();
     await run(`
-      INSERT INTO bank_sync_logs (connection_id, sync_type, status, error_message, completed_at)
-      VALUES ($1, 'webhook', 'failed', $2, NOW())
-    `, [connection.id, err.message]);
+      INSERT INTO bank_sync_logs (tenant_id, connection_id, sync_type, status, error_message, completed_at)
+      VALUES ($1, $2, 'webhook', 'failed', $3, NOW())
+    `, [tid, connection.id, err.message]);
   }
 }
 

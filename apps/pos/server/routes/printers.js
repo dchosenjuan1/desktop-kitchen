@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { all, get, run } from '../db/index.js';
+import { all, get, run, getTenantId } from '../db/index.js';
 import { requireAuth } from '../middleware/auth.js';
 import { getPlanLimits, requirePlanFeature } from '../planLimits.js';
 
@@ -22,9 +22,10 @@ router.post('/', requireAuth('manage_printers'), requirePlanFeature('printers'),
     const { name, printer_type, address } = req.body;
     if (!name) return res.status(400).json({ error: 'Name is required' });
 
+    const tid = getTenantId();
     const result = await run(
-      'INSERT INTO printers (name, printer_type, address, active) VALUES ($1, $2, $3, true)',
-      [name, printer_type || 'receipt', address || '']
+      'INSERT INTO printers (tenant_id, name, printer_type, address, active) VALUES ($1, $2, $3, $4, true)',
+      [tid, name, printer_type || 'receipt', address || '']
     );
 
     res.status(201).json({ id: result.lastInsertRowid, name, printer_type, address, active: true });
@@ -87,7 +88,8 @@ router.put('/routes', requireAuth('manage_printers'), requirePlanFeature('printe
     if (existing) {
       await run('UPDATE category_printer_routes SET printer_id = $1 WHERE category_id = $2', [printer_id, category_id]);
     } else {
-      await run('INSERT INTO category_printer_routes (category_id, printer_id) VALUES ($1, $2)', [category_id, printer_id]);
+      const tid = getTenantId();
+      await run('INSERT INTO category_printer_routes (tenant_id, category_id, printer_id) VALUES ($1, $2, $3)', [tid, category_id, printer_id]);
     }
 
     res.json({ success: true });

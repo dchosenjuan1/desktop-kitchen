@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { all, get, run } from '../db/index.js';
+import { all, get, run, getTenantId } from '../db/index.js';
 import { requireAuth } from '../middleware/auth.js';
 import { checkLimit } from '../planLimits.js';
 import { audit } from '../lib/auditLog.js';
@@ -35,10 +35,11 @@ router.post('/categories', requireAuth('manage_menu'), async (req, res) => {
     const maxSort = await get('SELECT MAX(sort_order) as max_sort FROM menu_categories');
     const order = sort_order !== undefined ? sort_order : (maxSort?.max_sort || 0) + 1;
 
+    const tid = getTenantId();
     const result = await run(`
-      INSERT INTO menu_categories (name, sort_order, active)
-      VALUES ($1, $2, true)
-    `, [name.trim(), order]);
+      INSERT INTO menu_categories (tenant_id, name, sort_order, active)
+      VALUES ($1, $2, $3, true)
+    `, [tid, name.trim(), order]);
 
     audit({
       tenantId: req.tenant?.id || 'default',
@@ -242,10 +243,11 @@ router.post('/items', requireAuth('manage_menu'), async (req, res) => {
       return res.status(403).json({ error: `Menu item limit reached (${check.limit})`, upgrade: true, limit: check.limit, current: check.current });
     }
 
+    const tid = getTenantId();
     const result = await run(`
-      INSERT INTO menu_items (category_id, name, price, description, image_url, active, prep_time_minutes)
-      VALUES ($1, $2, $3, $4, $5, true, $6)
-    `, [category_id, name, price, description || null, image_url || null, prep_time_minutes || 5]);
+      INSERT INTO menu_items (tenant_id, category_id, name, price, description, image_url, active, prep_time_minutes)
+      VALUES ($1, $2, $3, $4, $5, $6, true, $7)
+    `, [tid, category_id, name, price, description || null, image_url || null, prep_time_minutes || 5]);
 
     audit({
       tenantId: req.tenant?.id || 'default',
@@ -400,12 +402,13 @@ router.put('/items/:id/recipe', requireAuth('manage_menu'), async (req, res) => 
     await run('DELETE FROM menu_item_ingredients WHERE menu_item_id = $1', [id]);
 
     // Insert new recipe
+    const tid = getTenantId();
     for (const ing of ingredients) {
       if (!ing.inventory_item_id || !ing.quantity_used || ing.quantity_used <= 0) continue;
       await run(`
-        INSERT INTO menu_item_ingredients (menu_item_id, inventory_item_id, quantity_used)
-        VALUES ($1, $2, $3)
-      `, [id, ing.inventory_item_id, ing.quantity_used]);
+        INSERT INTO menu_item_ingredients (tenant_id, menu_item_id, inventory_item_id, quantity_used)
+        VALUES ($1, $2, $3, $4)
+      `, [tid, id, ing.inventory_item_id, ing.quantity_used]);
     }
 
     audit({

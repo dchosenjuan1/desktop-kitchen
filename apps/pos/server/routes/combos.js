@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { all, get, run } from '../db/index.js';
+import { all, get, run, getTenantId } from '../db/index.js';
 import { checkLimit } from '../planLimits.js';
 
 const router = Router();
@@ -72,18 +72,19 @@ router.post('/', async (req, res) => {
       return res.status(403).json({ error: `Combo limit reached (${check.limit})`, upgrade: true, limit: check.limit, current: check.current });
     }
 
+    const tid = getTenantId();
     const result = await run(`
-      INSERT INTO combo_definitions (name, description, combo_price, active)
-      VALUES ($1, $2, $3, true)
-    `, [name, description || '', combo_price]);
+      INSERT INTO combo_definitions (tenant_id, name, description, combo_price, active)
+      VALUES ($1, $2, $3, $4, true)
+    `, [tid, name, description || '', combo_price]);
 
     const comboId = result.lastInsertRowid;
 
     for (const slot of slots) {
       await run(`
-        INSERT INTO combo_slots (combo_id, slot_label, category_id, specific_item_id, sort_order)
-        VALUES ($1, $2, $3, $4, $5)
-      `, [comboId, slot.slot_label, slot.category_id || null, slot.specific_item_id || null, slot.sort_order || 0]);
+        INSERT INTO combo_slots (tenant_id, combo_id, slot_label, category_id, specific_item_id, sort_order)
+        VALUES ($1, $2, $3, $4, $5, $6)
+      `, [tid, comboId, slot.slot_label, slot.category_id || null, slot.specific_item_id || null, slot.sort_order || 0]);
     }
 
     res.status(201).json({ id: comboId, name, combo_price });

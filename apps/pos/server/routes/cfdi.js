@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import multer from 'multer';
-import { run, get, all } from '../db/index.js';
+import { run, get, all, getTenantId } from '../db/index.js';
 import { requireAuth } from '../middleware/auth.js';
 import {
   isFacturapiConfigured,
@@ -235,15 +235,16 @@ router.post('/invoices', requireAuth('manage_invoicing'), async (req, res) => {
     });
 
     // Save invoice record
+    const tid = getTenantId();
     const result = await run(`
       INSERT INTO cfdi_invoices (
-        order_id, facturapi_invoice_id, uuid_fiscal, series, folio,
+        tenant_id, order_id, facturapi_invoice_id, uuid_fiscal, series, folio,
         receptor_rfc, receptor_name, receptor_tax_regime, receptor_postal_code, receptor_uso_cfdi,
         subtotal, tax_total, total, forma_pago, metodo_pago,
         xml_url, pdf_url, requested_by
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)
     `, [
-      order_id, invoice.id, invoice.uuid, invoice.series, invoice.folio_number,
+      tid, order_id, invoice.id, invoice.uuid, invoice.series, invoice.folio_number,
       receptorData.rfc, receptorData.name, receptorData.tax_regime, receptorData.postal_code, receptorData.uso_cfdi,
       order.subtotal, order.tax, order.total, formaPago, 'PUE',
       invoice.xml_url || null, invoice.pdf_url || null, 'staff',

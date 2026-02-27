@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { all, get, run } from '../db/index.js';
+import { all, get, run, getTenantId } from '../db/index.js';
 import { requireAuth } from '../middleware/auth.js';
 import { checkLimit } from '../planLimits.js';
 
@@ -91,10 +91,11 @@ router.post('/groups', requireAuth('manage_modifiers'), async (req, res) => {
       return res.status(403).json({ error: `Modifier group limit reached (${check.limit})`, upgrade: true, limit: check.limit, current: check.current });
     }
 
+    const tid = getTenantId();
     const result = await run(`
-      INSERT INTO modifier_groups (name, selection_type, required, min_selections, max_selections, sort_order, active)
-      VALUES ($1, $2, $3, $4, $5, $6, true)
-    `, [name, selection_type, required ? true : false, min_selections, max_selections, sort_order]);
+      INSERT INTO modifier_groups (tenant_id, name, selection_type, required, min_selections, max_selections, sort_order, active)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, true)
+    `, [tid, name, selection_type, required ? true : false, min_selections, max_selections, sort_order]);
 
     res.status(201).json({ id: result.lastInsertRowid, name, selection_type });
   } catch (error) {
@@ -140,10 +141,11 @@ router.post('/', requireAuth('manage_modifiers'), async (req, res) => {
     const { group_id, name, price_adjustment = 0, sort_order = 0 } = req.body;
     if (!group_id || !name) return res.status(400).json({ error: 'Missing group_id or name' });
 
+    const tid = getTenantId();
     const result = await run(`
-      INSERT INTO modifiers (group_id, name, price_adjustment, sort_order, active)
-      VALUES ($1, $2, $3, $4, true)
-    `, [group_id, name, price_adjustment, sort_order]);
+      INSERT INTO modifiers (tenant_id, group_id, name, price_adjustment, sort_order, active)
+      VALUES ($1, $2, $3, $4, $5, true)
+    `, [tid, group_id, name, price_adjustment, sort_order]);
 
     res.status(201).json({ id: result.lastInsertRowid, group_id, name, price_adjustment });
   } catch (error) {
@@ -186,11 +188,12 @@ router.post('/assign', requireAuth('manage_modifiers'), async (req, res) => {
     const { menu_item_id, modifier_group_id, sort_order = 0 } = req.body;
     if (!menu_item_id || !modifier_group_id) return res.status(400).json({ error: 'Missing required fields' });
 
+    const tid = getTenantId();
     await run(`
-      INSERT INTO menu_item_modifier_groups (menu_item_id, modifier_group_id, sort_order)
-      VALUES ($1, $2, $3)
+      INSERT INTO menu_item_modifier_groups (tenant_id, menu_item_id, modifier_group_id, sort_order)
+      VALUES ($1, $2, $3, $4)
       ON CONFLICT (menu_item_id, modifier_group_id) DO UPDATE SET sort_order = EXCLUDED.sort_order
-    `, [menu_item_id, modifier_group_id, sort_order]);
+    `, [tid, menu_item_id, modifier_group_id, sort_order]);
 
     res.json({ message: 'Assigned' });
   } catch (error) {

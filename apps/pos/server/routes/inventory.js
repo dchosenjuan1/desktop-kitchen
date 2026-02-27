@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { all, get, run } from '../db/index.js';
+import { all, get, run, getTenantId } from '../db/index.js';
 import { requireAuth } from '../middleware/auth.js';
 import { logRestockEvent } from '../ai/data-pipeline.js';
 
@@ -215,10 +215,11 @@ router.post('/scan-restock', requireAuth('manage_inventory'), async (req, res) =
 
     // Log to ai_restock_log with trigger = 'scan'
     try {
+      const tid = getTenantId();
       await run(`
-        INSERT INTO ai_restock_log (inventory_item_id, quantity_before, quantity_added, quantity_after)
-        VALUES ($1, $2, $3, $4)
-      `, [item.id, quantityBefore, quantity, newQuantity]);
+        INSERT INTO ai_restock_log (tenant_id, inventory_item_id, quantity_before, quantity_added, quantity_after)
+        VALUES ($1, $2, $3, $4, $5)
+      `, [tid, item.id, quantityBefore, quantity, newQuantity]);
     } catch (err) {
       console.error('Error logging scan restock:', err.message);
     }
@@ -255,10 +256,11 @@ router.post('/:id/count', requireAuth('manage_inventory'), async (req, res) => {
     const employeeId = req.employee?.id || null;
 
     // Record the count
+    const tid = getTenantId();
     const result = await run(`
-      INSERT INTO inventory_counts (inventory_item_id, counted_quantity, system_quantity, variance, variance_percent, counted_by, notes)
-      VALUES ($1, $2, $3, $4, $5, $6, $7)
-    `, [id, counted_quantity, systemQty, variance, variancePercent, employeeId, notes || null]);
+      INSERT INTO inventory_counts (tenant_id, inventory_item_id, counted_quantity, system_quantity, variance, variance_percent, counted_by, notes)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+    `, [tid, id, counted_quantity, systemQty, variance, variancePercent, employeeId, notes || null]);
 
     // Update the system quantity to match the count
     await run('UPDATE inventory_items SET quantity = $1, last_counted_at = NOW() WHERE id = $2',
@@ -269,10 +271,10 @@ router.post('/:id/count', requireAuth('manage_inventory'), async (req, res) => {
       const severity = Math.abs(variancePercent) > 25 ? 'high' : 'medium';
       const alertType = variance < 0 ? 'shrinkage' : 'surplus';
       await run(`
-        INSERT INTO shrinkage_alerts (inventory_item_id, alert_type, severity, message, variance_amount)
-        VALUES ($1, $2, $3, $4, $5)
+        INSERT INTO shrinkage_alerts (tenant_id, inventory_item_id, alert_type, severity, message, variance_amount)
+        VALUES ($1, $2, $3, $4, $5, $6)
       `, [
-        id, alertType, severity,
+        tid, id, alertType, severity,
         `${item.name}: ${alertType} of ${Math.abs(variance).toFixed(2)} units (${Math.abs(variancePercent)}% variance)`,
         variance,
       ]);
@@ -360,10 +362,12 @@ router.post('/', requireAuth('manage_inventory'), async (req, res) => {
       return res.status(400).json({ error: 'name is required' });
     }
 
+    const tid = getTenantId();
     const result = await run(`
-      INSERT INTO inventory_items (name, quantity, unit, low_stock_threshold, category, cost_price, sku, barcode, expiry_date, lot_number)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+      INSERT INTO inventory_items (tenant_id, name, quantity, unit, low_stock_threshold, category, cost_price, sku, barcode, expiry_date, lot_number)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
     `, [
+      tid,
       name,
       quantity || 0,
       unit || null,

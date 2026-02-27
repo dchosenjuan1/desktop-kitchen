@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { all, get, run, getConn } from '../db/index.js';
+import { all, get, run, getConn, getTenantId } from '../db/index.js';
 import { requireAuth } from '../middleware/auth.js';
 
 const router = Router();
@@ -37,11 +37,12 @@ router.post('/', requireAuth('manage_inventory'), async (req, res) => {
     const wasteId = await new Promise(async (resolve, reject) => {
       try {
         // Insert waste log
+        const tid = getTenantId();
         const result = await run(`
-          INSERT INTO waste_log (inventory_item_id, quantity, unit, reason, cost_at_time, notes, logged_by)
-          VALUES ($1, $2, $3, $4, $5, $6, $7)
+          INSERT INTO waste_log (tenant_id, inventory_item_id, quantity, unit, reason, cost_at_time, notes, logged_by)
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
           RETURNING id
-        `, [inventory_item_id, quantity, item.unit, reason, costAtTime, notes || null, employeeId]);
+        `, [tid, inventory_item_id, quantity, item.unit, reason, costAtTime, notes || null, employeeId]);
 
         // Deduct from inventory (floor at 0)
         const newQty = Math.max(0, item.quantity - quantity);

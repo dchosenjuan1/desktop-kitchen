@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { run, all, get } from '../db/index.js';
+import { run, all, get, getTenantId } from '../db/index.js';
 import { requireAuth } from '../middleware/auth.js';
 import { getPlanLimits } from '../planLimits.js';
 import {
@@ -153,10 +153,11 @@ router.post('/suggestions/:id/apply', requireAuth('manage_ai'), requireDynamicPr
 // POST /api/pricing/suggestions/:id/dismiss
 router.post('/suggestions/:id/dismiss', requireAuth('manage_ai'), async (req, res) => {
   try {
+    const tid = getTenantId();
     await run(`
-      INSERT INTO ai_suggestion_events (suggestion_type, suggestion_data, action, employee_id)
-      VALUES ('dynamic_pricing', $1, 'dismissed', $2)
-    `, [JSON.stringify({ suggestion_id: req.params.id }), req.employeeId || null]);
+      INSERT INTO ai_suggestion_events (tenant_id, suggestion_type, suggestion_data, action, employee_id)
+      VALUES ($1, 'dynamic_pricing', $2, 'dismissed', $3)
+    `, [tid, JSON.stringify({ suggestion_id: req.params.id }), req.employeeId || null]);
     res.json({ success: true });
   } catch (error) {
     res.status(500).json({ error: 'Failed to dismiss' });
@@ -193,10 +194,11 @@ router.post('/rules', requireAuth('manage_ai'), requireDynamicPricing('scheduled
       return res.status(400).json({ error: 'Missing required fields' });
     }
 
+    const tid = getTenantId();
     const result = await run(`
-      INSERT INTO pricing_rules (name, rule_type, description, conditions, adjustment_type, adjustment_value, applies_to, priority, max_stack, auto_apply, created_by)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-    `, [name, rule_type, description || null, JSON.stringify(conditions || {}), adjustment_type || 'percent', adjustment_value, JSON.stringify(applies_to || { scope: 'all' }), priority || 0, max_stack || false, auto_apply || false, req.employeeId || null]);
+      INSERT INTO pricing_rules (tenant_id, name, rule_type, description, conditions, adjustment_type, adjustment_value, applies_to, priority, max_stack, auto_apply, created_by)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+    `, [tid, name, rule_type, description || null, JSON.stringify(conditions || {}), adjustment_type || 'percent', adjustment_value, JSON.stringify(applies_to || { scope: 'all' }), priority || 0, max_stack || false, auto_apply || false, req.employeeId || null]);
 
     res.json({ success: true, id: result.lastInsertRowid });
   } catch (error) {
@@ -288,10 +290,11 @@ router.put('/guardrails', requireAuth('manage_ai'), requireDynamicPricing('guard
         WHERE id = $8
       `, [min_change_percent, max_change_percent, max_daily_changes, require_approval_above, protected_item_ids ? JSON.stringify(protected_item_ids) : null, notification_email ?? null, cooldown_hours, existing.id]);
     } else {
+      const tid = getTenantId();
       await run(`
-        INSERT INTO pricing_guardrails (min_change_percent, max_change_percent, max_daily_changes, require_approval_above, protected_item_ids, notification_email, cooldown_hours)
-        VALUES ($1, $2, $3, $4, $5, $6, $7)
-      `, [min_change_percent || -20, max_change_percent || 15, max_daily_changes || 10, require_approval_above || 10, JSON.stringify(protected_item_ids || []), notification_email || null, cooldown_hours || 24]);
+        INSERT INTO pricing_guardrails (tenant_id, min_change_percent, max_change_percent, max_daily_changes, require_approval_above, protected_item_ids, notification_email, cooldown_hours)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+      `, [tid, min_change_percent || -20, max_change_percent || 15, max_daily_changes || 10, require_approval_above || 10, JSON.stringify(protected_item_ids || []), notification_email || null, cooldown_hours || 24]);
     }
 
     res.json({ success: true });
@@ -419,10 +422,11 @@ router.post('/experiments', requireAuth('manage_ai'), requireDynamicPricing('abT
       return res.status(400).json({ error: 'Missing required fields' });
     }
 
+    const tid = getTenantId();
     const result = await run(`
-      INSERT INTO pricing_experiments (name, description, menu_item_id, variant_a_price, variant_b_price, split_percent, start_date, end_date, status, created_by)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'draft', $9)
-    `, [name, description || null, menu_item_id, variant_a_price, variant_b_price, split_percent || 50, start_date || null, end_date || null, req.employeeId || null]);
+      INSERT INTO pricing_experiments (tenant_id, name, description, menu_item_id, variant_a_price, variant_b_price, split_percent, start_date, end_date, status, created_by)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'draft', $10)
+    `, [tid, name, description || null, menu_item_id, variant_a_price, variant_b_price, split_percent || 50, start_date || null, end_date || null, req.employeeId || null]);
 
     res.json({ success: true, id: result.lastInsertRowid });
   } catch (error) {

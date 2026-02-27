@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { all, get, run } from '../db/index.js';
+import { all, get, run, getTenantId } from '../db/index.js';
 import { requireAuth } from '../middleware/auth.js';
 
 const router = Router();
@@ -23,10 +23,11 @@ router.post('/vendors', requireAuth('manage_purchase_orders'), async (req, res) 
     const { name, contact_name, phone, email, address, notes } = req.body;
     if (!name) return res.status(400).json({ error: 'Vendor name is required' });
 
+    const tid = getTenantId();
     const result = await run(`
-      INSERT INTO vendors (name, contact_name, phone, email, address, notes, active)
-      VALUES ($1, $2, $3, $4, $5, $6, true)
-    `, [name, contact_name || null, phone || null, email || null, address || null, notes || null]);
+      INSERT INTO vendors (tenant_id, name, contact_name, phone, email, address, notes, active)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, true)
+    `, [tid, name, contact_name || null, phone || null, email || null, address || null, notes || null]);
 
     res.status(201).json({ id: result.lastInsertRowid, name });
   } catch (error) {
@@ -90,10 +91,11 @@ router.post('/', requireAuth('manage_purchase_orders'), async (req, res) => {
     const poNumber = await generatePONumber();
     const employeeId = req.employee?.id || null;
 
+    const tid = getTenantId();
     const result = await run(`
-      INSERT INTO purchase_orders (po_number, vendor_id, status, total_amount, notes, created_by)
-      VALUES ($1, $2, 'draft', 0, $3, $4)
-    `, [poNumber, vendor_id, notes || null, employeeId]);
+      INSERT INTO purchase_orders (tenant_id, po_number, vendor_id, status, total_amount, notes, created_by)
+      VALUES ($1, $2, $3, 'draft', 0, $4, $5)
+    `, [tid, poNumber, vendor_id, notes || null, employeeId]);
 
     const poId = result.lastInsertRowid;
     let totalAmount = 0;
@@ -104,9 +106,9 @@ router.post('/', requireAuth('manage_purchase_orders'), async (req, res) => {
         const lineTotal = (item.quantity_ordered || 0) * (item.unit_cost || 0);
         totalAmount += lineTotal;
         await run(`
-          INSERT INTO purchase_order_items (po_id, inventory_item_id, quantity_ordered, unit_cost, line_total)
-          VALUES ($1, $2, $3, $4, $5)
-        `, [poId, item.inventory_item_id, item.quantity_ordered, item.unit_cost || 0, lineTotal]);
+          INSERT INTO purchase_order_items (tenant_id, po_id, inventory_item_id, quantity_ordered, unit_cost, line_total)
+          VALUES ($1, $2, $3, $4, $5, $6)
+        `, [tid, poId, item.inventory_item_id, item.quantity_ordered, item.unit_cost || 0, lineTotal]);
       }
       await run('UPDATE purchase_orders SET total_amount = $1 WHERE id = $2', [totalAmount, poId]);
     }
@@ -190,14 +192,15 @@ router.put('/:id', requireAuth('manage_purchase_orders'), async (req, res) => {
       // Remove existing items and re-add
       await run('DELETE FROM purchase_order_items WHERE po_id = $1', [id]);
 
+      const tid = getTenantId();
       let totalAmount = 0;
       for (const item of items) {
         const lineTotal = (item.quantity_ordered || 0) * (item.unit_cost || 0);
         totalAmount += lineTotal;
         await run(`
-          INSERT INTO purchase_order_items (po_id, inventory_item_id, quantity_ordered, unit_cost, line_total)
-          VALUES ($1, $2, $3, $4, $5)
-        `, [id, item.inventory_item_id, item.quantity_ordered, item.unit_cost || 0, lineTotal]);
+          INSERT INTO purchase_order_items (tenant_id, po_id, inventory_item_id, quantity_ordered, unit_cost, line_total)
+          VALUES ($1, $2, $3, $4, $5, $6)
+        `, [tid, id, item.inventory_item_id, item.quantity_ordered, item.unit_cost || 0, lineTotal]);
       }
       await run('UPDATE purchase_orders SET total_amount = $1 WHERE id = $2', [totalAmount, id]);
     }

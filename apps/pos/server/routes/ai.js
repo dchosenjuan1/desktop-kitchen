@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { run, all, get } from '../db/index.js';
+import { run, all, get, getTenantId } from '../db/index.js';
 import { getCartSuggestions, getInventoryPush } from '../ai/heuristics.js';
 import { getAllConfig, setConfig, setMultipleConfig, getConfigNumber } from '../ai/config.js';
 import { readSuggestions } from '../ai/cache.js';
@@ -83,10 +83,12 @@ router.post('/suggestions/feedback', async (req, res) => {
       return res.status(400).json({ error: 'Action must be "accepted" or "dismissed"' });
     }
 
+    const tid = getTenantId();
     await run(`
-      INSERT INTO ai_suggestion_events (suggestion_type, suggestion_data, action, employee_id, order_id)
-      VALUES ($1, $2, $3, $4, $5)
+      INSERT INTO ai_suggestion_events (tenant_id, suggestion_type, suggestion_data, action, employee_id, order_id)
+      VALUES ($1, $2, $3, $4, $5, $6)
     `, [
+      tid,
       suggestion_type,
       suggestion_data ? JSON.stringify(suggestion_data) : null,
       action,
@@ -291,10 +293,11 @@ router.post('/pricing-suggestions/:id/apply', requireAuth('manage_ai'), async (r
     `, [new_price, menu_item_id]);
 
     // Log the event
+    const tid = getTenantId();
     await run(`
-      INSERT INTO ai_suggestion_events (suggestion_type, suggestion_data, action)
-      VALUES ('dynamic_pricing', $1, 'accepted')
-    `, [JSON.stringify({
+      INSERT INTO ai_suggestion_events (tenant_id, suggestion_type, suggestion_data, action)
+      VALUES ($1, 'dynamic_pricing', $2, 'accepted')
+    `, [tid, JSON.stringify({
       menu_item_id,
       original_price: item.price,
       new_price,
@@ -580,7 +583,8 @@ router.put('/category-roles/:categoryId', requireAuth('manage_ai'), async (req, 
     if (existing) {
       await run('UPDATE ai_category_roles SET role = $1 WHERE category_id = $2', [role, categoryId]);
     } else {
-      await run('INSERT INTO ai_category_roles (category_id, role) VALUES ($1, $2)', [categoryId, role]);
+      const tid = getTenantId();
+      await run('INSERT INTO ai_category_roles (tenant_id, category_id, role) VALUES ($1, $2, $3)', [tid, categoryId, role]);
     }
 
     res.json({ success: true, category_id: parseInt(categoryId), role });
@@ -629,12 +633,13 @@ router.post('/config/import', requireAuth('manage_ai'), async (req, res) => {
     }
 
     if (category_roles && Array.isArray(category_roles)) {
+      const tid = getTenantId();
       for (const role of category_roles) {
         const existing = await get('SELECT id FROM ai_category_roles WHERE category_id = $1', [role.category_id]);
         if (existing) {
           await run('UPDATE ai_category_roles SET role = $1 WHERE category_id = $2', [role.role, role.category_id]);
         } else {
-          await run('INSERT INTO ai_category_roles (category_id, role) VALUES ($1, $2)', [role.category_id, role.role]);
+          await run('INSERT INTO ai_category_roles (tenant_id, category_id, role) VALUES ($1, $2, $3)', [tid, role.category_id, role.role]);
         }
       }
     }

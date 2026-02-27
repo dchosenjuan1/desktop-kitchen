@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { all, get, run } from '../db/index.js';
+import { all, get, run, getTenantId } from '../db/index.js';
 import { requireAuth } from '../middleware/auth.js';
 import { getChargeFees } from '../stripe.js';
 import { getPlanLimits } from '../planLimits.js';
@@ -880,10 +880,11 @@ router.get('/financial-projection', requireAuth('view_reports'), async (req, res
       // Check if a manual override exists
       const existing = await get(`SELECT auto_calculated FROM financial_actuals WHERE category = $1 AND period = $2`, [cat, month]);
       if (!existing || existing.auto_calculated === true) {
-        await run(`INSERT INTO financial_actuals (category, period, amount, auto_calculated)
-             VALUES ($1, $2, $3, true)
-             ON CONFLICT(category, period)
-             DO UPDATE SET amount = $3, auto_calculated = true`, [cat, month, amount]);
+        const tid = getTenantId();
+        await run(`INSERT INTO financial_actuals (tenant_id, category, period, amount, auto_calculated)
+             VALUES ($1, $2, $3, $4, true)
+             ON CONFLICT(tenant_id, category, period)
+             DO UPDATE SET amount = $4, auto_calculated = true`, [tid, cat, month, amount]);
       }
     }
 
@@ -957,11 +958,12 @@ router.put('/financial-targets', requireAuth('view_reports'), async (req, res) =
 
     for (const t of targets) {
       if (!t.category || t.target_percent == null) continue;
-      await run(`INSERT INTO financial_targets (category, target_percent, updated_at)
-           VALUES ($1, $2, NOW())
-           ON CONFLICT(category)
-           DO UPDATE SET target_percent = $2, updated_at = NOW()`,
-        [t.category, t.target_percent]);
+      const tid = getTenantId();
+      await run(`INSERT INTO financial_targets (tenant_id, category, target_percent, updated_at)
+           VALUES ($1, $2, $3, NOW())
+           ON CONFLICT(tenant_id, category)
+           DO UPDATE SET target_percent = $3, updated_at = NOW()`,
+        [tid, t.category, t.target_percent]);
     }
 
     res.json({ success: true });
@@ -991,11 +993,12 @@ router.put('/financial-actuals', requireAuth('view_reports'), async (req, res) =
       return res.status(400).json({ error: 'period, category, and amount are required' });
     }
 
-    await run(`INSERT INTO financial_actuals (category, period, amount, auto_calculated)
-         VALUES ($1, $2, $3, false)
-         ON CONFLICT(category, period)
-         DO UPDATE SET amount = $3, auto_calculated = false`,
-      [category, period, amount]);
+    const tid = getTenantId();
+    await run(`INSERT INTO financial_actuals (tenant_id, category, period, amount, auto_calculated)
+         VALUES ($1, $2, $3, $4, false)
+         ON CONFLICT(tenant_id, category, period)
+         DO UPDATE SET amount = $4, auto_calculated = false`,
+      [tid, category, period, amount]);
 
     res.json({ success: true });
   } catch (error) {

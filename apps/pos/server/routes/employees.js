@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcrypt';
-import { all, get, run } from '../db/index.js';
+import { all, get, run, getTenantId } from '../db/index.js';
 import { requireAuth } from '../middleware/auth.js';
 import { checkLimit } from '../planLimits.js';
 import { audit } from '../lib/auditLog.js';
@@ -52,10 +52,11 @@ router.post('/', async (req, res) => {
 
     const hashedPin = await bcrypt.hash(pin, BCRYPT_ROUNDS);
 
+    const tid = getTenantId();
     const result = await run(`
-      INSERT INTO employees (name, pin, role, active)
-      VALUES ($1, $2, $3, true)
-    `, [name, hashedPin, role]);
+      INSERT INTO employees (tenant_id, name, pin, role, active)
+      VALUES ($1, $2, $3, $4, true)
+    `, [tid, name, hashedPin, role]);
 
     audit({
       tenantId: req.tenant?.id || 'default',
@@ -182,9 +183,10 @@ router.put('/permissions/:role', requireAuth('manage_permissions'), async (req, 
           [granted ? true : false, role, permission]
         );
       } else {
+        const tid = getTenantId();
         await run(
-          'INSERT INTO role_permissions (role, permission, granted) VALUES ($1, $2, $3)',
-          [role, permission, granted ? true : false]
+          'INSERT INTO role_permissions (tenant_id, role, permission, granted) VALUES ($1, $2, $3, $4)',
+          [tid, role, permission, granted ? true : false]
         );
       }
     }

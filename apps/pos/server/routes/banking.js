@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { all, get, run } from '../db/index.js';
+import { all, get, run, getTenantId } from '../db/index.js';
 import { requireOwner } from '../middleware/ownerAuth.js';
 import { BankingService } from '../lib/bankingService.js';
 import { reconcileDeliveryPayouts } from '../services/banking/ReconciliationService.js';
@@ -32,10 +32,11 @@ router.post('/widget-token', async (req, res) => {
     const result = await BankingService.createWidgetToken(req.tenant);
 
     // Log the attempt
+    const tid = getTenantId();
     await run(`
-      INSERT INTO bank_sync_logs (connection_id, sync_type, status, error_message)
-      VALUES (NULL, 'manual', 'success', 'Widget token created')
-    `).catch(() => {}); // non-critical
+      INSERT INTO bank_sync_logs (tenant_id, connection_id, sync_type, status, error_message)
+      VALUES ($1, NULL, 'manual', 'success', 'Widget token created')
+    `, [tid]).catch(() => {}); // non-critical
 
     res.json(result);
   } catch (err) {
@@ -79,11 +80,12 @@ router.post('/exchange-token', async (req, res) => {
     const { linkId, provider } = await BankingService.exchangeToken(req.tenant, publicToken);
 
     // Insert connection
+    const tid = getTenantId();
     const rows = await all(`
-      INSERT INTO bank_connections (provider, external_link_id, institution_name, institution_logo_url, country_code, status)
-      VALUES ($1, $2, $3, $4, $5, 'active')
+      INSERT INTO bank_connections (tenant_id, provider, external_link_id, institution_name, institution_logo_url, country_code, status)
+      VALUES ($1, $2, $3, $4, $5, $6, 'active')
       RETURNING *
-    `, [provider, linkId, institutionName, institutionLogoUrl, metadata?.countryCode || 'MX']);
+    `, [tid, provider, linkId, institutionName, institutionLogoUrl, metadata?.countryCode || 'MX']);
 
     const connection = rows[0];
 
@@ -94,15 +96,15 @@ router.post('/exchange-token', async (req, res) => {
       accountCount = syncResult.accountsSynced;
 
       await run(`
-        INSERT INTO bank_sync_logs (connection_id, sync_type, status, accounts_synced, transactions_synced, completed_at)
-        VALUES ($1, 'manual', 'success', $2, $3, NOW())
-      `, [connection.id, syncResult.accountsSynced, syncResult.transactionsSynced]);
+        INSERT INTO bank_sync_logs (tenant_id, connection_id, sync_type, status, accounts_synced, transactions_synced, completed_at)
+        VALUES ($1, $2, 'manual', 'success', $3, $4, NOW())
+      `, [tid, connection.id, syncResult.accountsSynced, syncResult.transactionsSynced]);
     } catch (syncErr) {
       console.error('Initial sync failed (connection still created):', syncErr);
       await run(`
-        INSERT INTO bank_sync_logs (connection_id, sync_type, status, error_message, completed_at)
-        VALUES ($1, 'manual', 'partial', $2, NOW())
-      `, [connection.id, syncErr.message]);
+        INSERT INTO bank_sync_logs (tenant_id, connection_id, sync_type, status, error_message, completed_at)
+        VALUES ($1, $2, 'manual', 'partial', $3, NOW())
+      `, [tid, connection.id, syncErr.message]);
     }
 
     res.status(201).json({
@@ -250,19 +252,21 @@ async function syncOne(conn) {
   try {
     const result = await BankingService.syncConnection(conn);
 
+    const tid = getTenantId();
     await run(`
-      INSERT INTO bank_sync_logs (connection_id, sync_type, status, accounts_synced, transactions_synced, completed_at)
-      VALUES ($1, 'manual', 'success', $2, $3, NOW())
-    `, [conn.id, result.accountsSynced, result.transactionsSynced]);
+      INSERT INTO bank_sync_logs (tenant_id, connection_id, sync_type, status, accounts_synced, transactions_synced, completed_at)
+      VALUES ($1, $2, 'manual', 'success', $3, $4, NOW())
+    `, [tid, conn.id, result.accountsSynced, result.transactionsSynced]);
 
     return { connectionId: conn.id, institution: conn.institution_name, success: true, ...result };
   } catch (syncErr) {
     console.error(`Sync failed for connection ${conn.id}:`, syncErr);
 
+    const tid = getTenantId();
     await run(`
-      INSERT INTO bank_sync_logs (connection_id, sync_type, status, error_message, completed_at)
-      VALUES ($1, 'manual', 'failed', $2, NOW())
-    `, [conn.id, syncErr.message]).catch(() => {});
+      INSERT INTO bank_sync_logs (tenant_id, connection_id, sync_type, status, error_message, completed_at)
+      VALUES ($1, $2, 'manual', 'failed', $3, NOW())
+    `, [tid, conn.id, syncErr.message]).catch(() => {});
 
     await run(
       "UPDATE bank_connections SET status = 'error', updated_at = NOW() WHERE id = $1",

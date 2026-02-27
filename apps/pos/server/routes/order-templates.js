@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { all, get, run } from '../db/index.js';
+import { all, get, run, getTenantId } from '../db/index.js';
 import { requireAuth } from '../middleware/auth.js';
 
 const router = Router();
@@ -35,10 +35,11 @@ router.post('/', requireAuth('manage_menu'), async (req, res) => {
     const items_json = JSON.stringify(items);
     const employeeId = req.employee?.id || null;
 
+    const tid = getTenantId();
     const result = await run(`
-      INSERT INTO order_templates (name, description, items_json, created_by, active)
-      VALUES ($1, $2, $3, $4, true)
-    `, [name.trim(), description || null, items_json, employeeId]);
+      INSERT INTO order_templates (tenant_id, name, description, items_json, created_by, active)
+      VALUES ($1, $2, $3, $4, $5, true)
+    `, [tid, name.trim(), description || null, items_json, employeeId]);
 
     res.status(201).json({
       id: result.lastInsertRowid,
