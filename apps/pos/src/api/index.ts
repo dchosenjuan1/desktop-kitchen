@@ -1849,6 +1849,123 @@ export async function cleanupStressTestData(): Promise<{ deleted: number }> {
   return apiRequest<{ deleted: number }>('/stress-test/cleanup', { method: 'DELETE' });
 }
 
+/* ==================== Chaos Agent Endpoints (Admin Secret) ==================== */
+
+export interface ChaosAgentProgress {
+  phase: string;
+  message: string;
+  percent: number;
+}
+
+export interface ChaosAgentTenantResult {
+  tenantId: string;
+  ordersCreated: number;
+  errors: number;
+  avgLatencyMs: number;
+}
+
+export interface ChaosAgentBreach {
+  type: string;
+  severity?: string;
+  tenantId?: string;
+  orderId?: number;
+  expectedTenant?: string;
+  actualTenant?: string;
+  leakedCount?: number;
+  expected?: number;
+  actual?: number;
+  message: string;
+}
+
+export interface ChaosAgentAnomaly {
+  pid: number;
+  staleTenanId: string;
+  message: string;
+}
+
+export interface ChaosAgentResults {
+  verdict: 'PASS' | 'WARN' | 'FAIL';
+  durationMs: number;
+  tenantsProvisioned: number;
+  ordersPerTenant: number;
+  tenantResults: ChaosAgentTenantResult[];
+  totalOrdersCreated: number;
+  totalErrors: number;
+  isolationBreaches: ChaosAgentBreach[];
+  connectionAnomalies: ChaosAgentAnomaly[];
+  latency: { avg: number; p50: number; p95: number; max: number };
+}
+
+export async function getChaosStatus(): Promise<{ running: boolean }> {
+  const base = IOS_FALLBACK_URLS.length ? await resolveBaseUrl() : activeBaseUrl;
+  const adminSecret = sessionStorage.getItem('admin_secret') || '';
+  const res = await fetch(`${base}/chaos/status`, {
+    headers: { 'X-Admin-Secret': adminSecret },
+  });
+  if (!res.ok) throw new Error('Failed to check chaos status');
+  return res.json();
+}
+
+export async function runChaosAgent(
+  ordersPerTenant: number,
+  onProgress: (event: ChaosAgentProgress) => void,
+  onComplete: (results: ChaosAgentResults) => void,
+  onError: (error: string) => void,
+): Promise<void> {
+  const base = IOS_FALLBACK_URLS.length ? await resolveBaseUrl() : activeBaseUrl;
+  const adminSecret = sessionStorage.getItem('admin_secret') || '';
+
+  const response = await fetch(`${base}/chaos/run`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Admin-Secret': adminSecret,
+    },
+    body: JSON.stringify({ ordersPerTenant }),
+  });
+
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}));
+    throw new Error(err.error || `API Error: ${response.status}`);
+  }
+
+  const reader = response.body?.getReader();
+  if (!reader) throw new Error('No response stream');
+
+  const decoder = new TextDecoder();
+  let buffer = '';
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split('\n');
+    buffer = lines.pop() || '';
+
+    let currentEvent = '';
+    for (const line of lines) {
+      if (line.startsWith('event: ')) {
+        currentEvent = line.slice(7).trim();
+      } else if (line.startsWith('data: ')) {
+        try {
+          const data = JSON.parse(line.slice(6));
+          if (currentEvent === 'progress') {
+            onProgress(data as ChaosAgentProgress);
+          } else if (currentEvent === 'complete') {
+            onComplete(data as ChaosAgentResults);
+          } else if (currentEvent === 'error') {
+            onError(data.message || 'Unknown error');
+          }
+        } catch {
+          // Skip malformed JSON
+        }
+        currentEvent = '';
+      }
+    }
+  }
+}
+
 /* ==================== Banking Endpoints (Owner JWT Auth) ==================== */
 
 export interface BankConnection {

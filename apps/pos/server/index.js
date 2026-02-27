@@ -36,6 +36,7 @@ import wasteRoutes from './routes/waste.js';
 import cfdiRoutes from './routes/cfdi.js';
 import credentialsRoutes from './routes/credentials.js';
 import stressTestRoutes from './routes/stress-test.js';
+import chaosRoutes from './routes/chaos.js';
 import bankingRoutes from './routes/banking.js';
 import belvoWebhook from './routes/webhooks/belvo.js';
 import plaidWebhook from './routes/webhooks/plaid.js';
@@ -91,6 +92,9 @@ app.get('/api/health', (req, res) => {
 
 // Admin routes (uses admin pool, not tenant-scoped)
 app.use('/admin', adminRoutes);
+
+// Chaos agent (admin-secret protected, uses its own tenant pool connections)
+app.use('/api/chaos', chaosRoutes);
 
 // Auth routes (uses admin pool for registration/login, not tenant-scoped)
 app.use('/api/auth', authRoutes);
