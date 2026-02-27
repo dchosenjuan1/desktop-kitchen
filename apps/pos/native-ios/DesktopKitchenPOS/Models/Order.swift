@@ -27,7 +27,7 @@ struct Order: Codable, Identifiable, Sendable {
     var payment_status: PaymentStatusType
     var payment_method: PaymentMethod?
     var source: OrderSource?
-    var created_at: String
+    var created_at: String?
     var completed_at: String?
     var items: [OrderItem]?
 }

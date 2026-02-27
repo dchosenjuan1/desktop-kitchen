@@ -18,10 +18,17 @@ final class APIClient: @unchecked Sendable {
         let baseURL = ServerConfig.shared.baseURL
         let urlRequest = try endpoint.urlRequest(baseURL: baseURL)
 
+        #if DEBUG
+        print("[API] \(endpoint.method.rawValue) \(endpoint.path)")
+        #endif
+
         let (data, response): (Data, URLResponse)
         do {
             (data, response) = try await session.data(for: urlRequest)
         } catch {
+            #if DEBUG
+            print("[API] Network error: \(error)")
+            #endif
             throw APIError.networkError(error)
         }
 
@@ -29,14 +36,30 @@ final class APIClient: @unchecked Sendable {
             throw APIError.unknown
         }
 
+        #if DEBUG
+        print("[API] \(endpoint.path) → \(httpResponse.statusCode)")
+        #endif
+
         guard (200...299).contains(httpResponse.statusCode) else {
             let message = extractErrorMessage(from: data) ?? HTTPURLResponse.localizedString(forStatusCode: httpResponse.statusCode)
+            #if DEBUG
+            print("[API] HTTP error: \(httpResponse.statusCode) \(message)")
+            if let body = String(data: data, encoding: .utf8) {
+                print("[API] Response body: \(body.prefix(500))")
+            }
+            #endif
             throw APIError.httpError(statusCode: httpResponse.statusCode, message: message)
         }
 
         do {
             return try decoder.decode(T.self, from: data)
         } catch {
+            #if DEBUG
+            print("[API] Decode error for \(T.self): \(error)")
+            if let body = String(data: data, encoding: .utf8) {
+                print("[API] Raw JSON: \(body.prefix(500))")
+            }
+            #endif
             throw APIError.decodingError(error)
         }
     }

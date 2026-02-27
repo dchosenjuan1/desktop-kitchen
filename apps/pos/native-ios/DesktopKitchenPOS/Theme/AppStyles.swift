@@ -30,7 +30,7 @@ struct PrimaryButtonStyle: ButtonStyle {
             .font(.system(size: 17, weight: .bold))
             .foregroundStyle(.white)
             .frame(maxWidth: .infinity)
-            .frame(height: 50)
+            .frame(height: 56)
             .background(isDisabled ? AppColors.surface : AppColors.accent)
             .clipShape(RoundedRectangle(cornerRadius: 12))
             .opacity(configuration.isPressed ? 0.8 : 1)
@@ -44,7 +44,7 @@ struct SecondaryButtonStyle: ButtonStyle {
             .font(.system(size: 17, weight: .bold))
             .foregroundStyle(AppColors.textSecondary)
             .frame(maxWidth: .infinity)
-            .frame(height: 50)
+            .frame(height: 56)
             .background(AppColors.surface)
             .clipShape(RoundedRectangle(cornerRadius: 12))
             .overlay(
@@ -71,6 +71,8 @@ struct NumpadButtonStyle: ButtonStyle {
     }
 }
 
+// MARK: - Category Styles
+
 struct CategoryButtonStyle: ButtonStyle {
     var isSelected: Bool
 
@@ -87,6 +89,63 @@ struct CategoryButtonStyle: ButtonStyle {
                     .frame(height: 1)
                     .foregroundStyle(AppColors.border),
                 alignment: .bottom
+            )
+    }
+}
+
+/// Horizontal category pill for top tab bar.
+struct CategoryPillStyle: ButtonStyle {
+    var isSelected: Bool
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.system(size: 15, weight: .semibold))
+            .foregroundStyle(isSelected ? .white : AppColors.textSecondary)
+            .padding(.horizontal, 18)
+            .frame(height: 44)
+            .background(isSelected ? AppColors.accent : AppColors.surface)
+            .clipShape(Capsule())
+            .overlay(
+                Capsule()
+                    .stroke(isSelected ? Color.clear : AppColors.borderLight, lineWidth: 1)
+            )
+            .opacity(configuration.isPressed ? 0.8 : 1)
+            .scaleEffect(configuration.isPressed ? 0.96 : 1)
+    }
+}
+
+/// Large payment method button (Cash / Card).
+struct PaymentMethodButtonStyle: ButtonStyle {
+    var color: Color = AppColors.accent
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.system(size: 20, weight: .bold))
+            .foregroundStyle(.white)
+            .frame(maxWidth: .infinity)
+            .frame(height: 100)
+            .background(color)
+            .clipShape(RoundedRectangle(cornerRadius: 16))
+            .opacity(configuration.isPressed ? 0.85 : 1)
+            .scaleEffect(configuration.isPressed ? 0.97 : 1)
+    }
+}
+
+/// Tip preset pill.
+struct TipPillStyle: ButtonStyle {
+    var isSelected: Bool
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.system(size: 15, weight: .semibold))
+            .foregroundStyle(isSelected ? .white : AppColors.textSecondary)
+            .padding(.horizontal, 20)
+            .frame(height: 44)
+            .background(isSelected ? AppColors.accent : AppColors.surface)
+            .clipShape(Capsule())
+            .overlay(
+                Capsule()
+                    .stroke(isSelected ? Color.clear : AppColors.borderLight, lineWidth: 1)
             )
     }
 }

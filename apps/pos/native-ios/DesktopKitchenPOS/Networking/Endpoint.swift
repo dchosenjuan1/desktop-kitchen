@@ -36,6 +36,11 @@ struct Endpoint {
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue(ServerConfig.shared.tenantID, forHTTPHeaderField: "X-Tenant-ID")
 
+        let adminSecret = ServerConfig.shared.adminSecret
+        if !adminSecret.isEmpty {
+            request.setValue(adminSecret, forHTTPHeaderField: "X-Admin-Secret")
+        }
+
         if let token = AuthTokenStore.shared.token {
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }

@@ -11,10 +11,10 @@ enum AppColors {
     static let border = Color(hex: 0x262626)          // neutral-800
     static let borderLight = Color(hex: 0x404040)     // neutral-700
 
-    // Accent
-    static let accent = Color(hex: 0xDC2626)          // red-600
-    static let accentDark = Color(hex: 0xB91C1C)      // red-700
-    static let accentLight = Color(hex: 0xEF4444)     // red-500
+    // Accent — dynamically overridable via branding
+    nonisolated(unsafe) static var accent = Color(hex: 0xDC2626)          // red-600
+    nonisolated(unsafe) static var accentDark = Color(hex: 0xB91C1C)      // red-700
+    nonisolated(unsafe) static var accentLight = Color(hex: 0xEF4444)     // red-500
 
     // Text
     static let textPrimary = Color.white
@@ -35,6 +35,28 @@ enum AppColors {
     static let roleManager = Color(hex: 0x9333EA)     // purple
     static let roleKitchen = Color(hex: 0x2563EB)     // blue
     static let roleCashier = Color(hex: 0x16A34A)     // green
+
+    // MARK: - Dynamic Branding
+
+    /// Replace the accent color from a hex string (e.g. "#0d9488").
+    static func applyBranding(hex: String) {
+        guard let rgb = parseHexString(hex) else { return }
+        accent = Color(.sRGB, red: rgb.r, green: rgb.g, blue: rgb.b, opacity: 1)
+        // Derive darker / lighter shades
+        accentDark = Color(.sRGB, red: rgb.r * 0.8, green: rgb.g * 0.8, blue: rgb.b * 0.8, opacity: 1)
+        accentLight = Color(.sRGB, red: min(rgb.r * 1.2, 1), green: min(rgb.g * 1.2, 1), blue: min(rgb.b * 1.2, 1), opacity: 1)
+    }
+
+    private static func parseHexString(_ hex: String) -> (r: Double, g: Double, b: Double)? {
+        var cleaned = hex.trimmingCharacters(in: .whitespacesAndNewlines)
+        if cleaned.hasPrefix("#") { cleaned.removeFirst() }
+        guard cleaned.count == 6, let value = UInt(cleaned, radix: 16) else { return nil }
+        return (
+            r: Double((value >> 16) & 0xFF) / 255,
+            g: Double((value >> 8) & 0xFF) / 255,
+            b: Double(value & 0xFF) / 255
+        )
+    }
 }
 
 extension Color {

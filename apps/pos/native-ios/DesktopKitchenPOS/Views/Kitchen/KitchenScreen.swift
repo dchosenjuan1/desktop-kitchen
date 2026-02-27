@@ -34,9 +34,9 @@ struct KitchenScreen: View {
                     Spacer()
                 } else {
                     ScrollView {
-                        LazyVGrid(columns: [GridItem(.adaptive(minimum: 300), spacing: 16)], spacing: 16) {
-                            ForEach(vm.orders) { order in
-                                orderCard(order)
+                        VStack(spacing: 20) {
+                            ForEach(vm.groupedOrders) { group in
+                                orderGroupSection(group)
                             }
                         }
                         .padding(16)
@@ -71,6 +71,7 @@ struct KitchenScreen: View {
                     .font(.system(size: 18, weight: .medium))
                     .foregroundStyle(AppColors.textSecondary)
             }
+            .frame(width: 44, height: 44)
 
             Image(systemName: "flame.fill")
                 .foregroundStyle(AppColors.accent)
@@ -90,10 +91,34 @@ struct KitchenScreen: View {
                 Image(systemName: "rectangle.portrait.and.arrow.right")
                     .foregroundStyle(AppColors.textSecondary)
             }
-            .padding(.leading, 12)
+            .frame(width: 44, height: 44)
         }
-        .padding(.horizontal, 20)
-        .padding(.vertical, 14)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 10)
+    }
+
+    // MARK: - Order Group Section (Phase 3)
+
+    private func orderGroupSection(_ group: KitchenViewModel.OrderGroup) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            // Group header
+            HStack(spacing: 6) {
+                Image(systemName: group.icon)
+                    .foregroundStyle(group.color)
+                Text(group.label)
+                    .font(AppFonts.headline)
+                    .foregroundStyle(.white)
+                Text("(\(group.orders.count))")
+                    .font(AppFonts.subheadline)
+                    .foregroundStyle(AppColors.textTertiary)
+            }
+
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 300), spacing: 16)], spacing: 16) {
+                ForEach(group.orders) { order in
+                    orderCard(order)
+                }
+            }
+        }
     }
 
     // MARK: - Order Card
@@ -105,6 +130,18 @@ struct KitchenScreen: View {
                 Text("#\(order.order_number)")
                     .font(AppFonts.title3)
                     .foregroundStyle(.white)
+
+                // Source badge
+                if let source = order.source, source != .pos {
+                    Text(sourceName(source))
+                        .font(AppFonts.caption)
+                        .fontWeight(.bold)
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(sourceColor(source))
+                        .clipShape(Capsule())
+                }
 
                 Spacer()
 
@@ -133,6 +170,11 @@ struct KitchenScreen: View {
                                 Text(item.item_name)
                                     .font(AppFonts.subheadline)
                                     .foregroundStyle(.white)
+                                if let modifiers = item.modifiers, !modifiers.isEmpty {
+                                    Text(modifiers.map(\.modifier_name).joined(separator: ", "))
+                                        .font(AppFonts.caption)
+                                        .foregroundStyle(AppColors.accentLight)
+                                }
                                 if let notes = item.notes, !notes.isEmpty {
                                     Text(notes)
                                         .font(AppFonts.caption)
@@ -147,38 +189,41 @@ struct KitchenScreen: View {
 
             Divider().background(AppColors.border)
 
-            // Actions
+            // Actions — bigger buttons (56pt+)
             HStack(spacing: 12) {
                 if order.status == .pending {
                     Button {
                         Task { await vm.startOrder(id: order.id) }
                     } label: {
                         Label("Start", systemImage: "play.fill")
-                            .font(AppFonts.headline)
+                            .font(.system(size: 17, weight: .bold))
                             .frame(maxWidth: .infinity)
-                            .padding(.vertical, 12)
+                            .frame(height: 56)
                     }
                     .foregroundStyle(.white)
                     .background(AppColors.info)
-                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                    .clipShape(RoundedRectangle(cornerRadius: 10))
                 } else if order.status == .preparing {
                     Button {
                         Task { await vm.markReady(id: order.id) }
                     } label: {
-                        Label("Ready", systemImage: "checkmark.circle.fill")
-                            .font(AppFonts.headline)
+                        Label("DONE", systemImage: "checkmark.circle.fill")
+                            .font(.system(size: 20, weight: .black))
                             .frame(maxWidth: .infinity)
-                            .padding(.vertical, 12)
+                            .frame(height: 56)
                     }
                     .foregroundStyle(.white)
                     .background(AppColors.success)
-                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                    .clipShape(RoundedRectangle(cornerRadius: 10))
+                    .sensoryFeedback(.success, trigger: order.status)
                 }
             }
             .padding(14)
         }
         .cardStyle()
     }
+
+    // MARK: - Helpers
 
     private func statusBadge(_ status: OrderStatus) -> some View {
         Text(status.displayName)
@@ -197,6 +242,24 @@ struct KitchenScreen: View {
         case .preparing: return AppColors.info
         case .ready: return AppColors.success
         default: return AppColors.textMuted
+        }
+    }
+
+    private func sourceName(_ source: OrderSource) -> String {
+        switch source {
+        case .pos: return "POS"
+        case .uber_eats: return "Uber Eats"
+        case .rappi: return "Rappi"
+        case .didi_food: return "DiDi"
+        }
+    }
+
+    private func sourceColor(_ source: OrderSource) -> Color {
+        switch source {
+        case .pos: return AppColors.accent
+        case .uber_eats: return Color(hex: 0x06C167)
+        case .rappi: return Color(hex: 0xFF441F)
+        case .didi_food: return Color(hex: 0xFF6600)
         }
     }
 }

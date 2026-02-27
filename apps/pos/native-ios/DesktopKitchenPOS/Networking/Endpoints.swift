@@ -83,6 +83,36 @@ enum MenuEndpoints {
             method: .put
         )
     }
+
+    static func createMenuItem(data: CreateMenuItemRequest) -> Endpoint {
+        Endpoint(
+            path: "/api/menu/items",
+            method: .post,
+            body: data
+        )
+    }
+
+    static func updateMenuItem(id: Int, data: UpdateMenuItemRequest) -> Endpoint {
+        Endpoint(
+            path: "/api/menu/items/\(id)",
+            method: .put,
+            body: data
+        )
+    }
+}
+
+struct CreateMenuItemRequest: Codable, Sendable {
+    let category_id: Int
+    let name: String
+    let price: Double
+    let description: String?
+}
+
+struct UpdateMenuItemRequest: Codable, Sendable {
+    let category_id: Int?
+    let name: String?
+    let price: Double?
+    let description: String?
 }
 
 // MARK: - Order Endpoints
@@ -617,4 +647,38 @@ struct ApplyPricingSuggestionRequest: Codable, Sendable {
 
 struct UpdateCategoryRoleRequest: Codable, Sendable {
     let role: String
+}
+
+// MARK: - Loyalty Endpoints
+
+enum LoyaltyEndpoints {
+    static func lookupByPhone(_ phone: String) -> Endpoint {
+        Endpoint(
+            path: "/api/loyalty/customers/phone/\(phone)"
+        )
+    }
+
+    static func register(request: RegisterCustomerRequest) -> Endpoint {
+        Endpoint(
+            path: "/api/loyalty/customers",
+            method: .post,
+            body: request
+        )
+    }
+
+    static func addStamps(request: AddStampsRequest) -> Endpoint {
+        Endpoint(
+            path: "/api/loyalty/stamps",
+            method: .post,
+            body: request
+        )
+    }
+}
+
+// MARK: - Branding Endpoints
+
+enum BrandingEndpoints {
+    static func get() -> Endpoint {
+        Endpoint(path: "/api/branding")
+    }
 }

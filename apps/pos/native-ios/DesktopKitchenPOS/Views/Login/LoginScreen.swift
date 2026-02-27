@@ -3,6 +3,7 @@ import SwiftUI
 struct LoginScreen: View {
     @Environment(AppState.self) private var appState
     @State private var vm = LoginViewModel()
+    @State private var showSettings = false
 
     var body: some View {
         ZStack {
@@ -62,10 +63,15 @@ struct LoginScreen: View {
                 Spacer()
 
                 // Server config hint
-                Text("Server: \(ServerConfig.shared.baseURL)")
+                Button { showSettings = true } label: {
+                    HStack(spacing: 6) {
+                        Image(systemName: "gearshape")
+                        Text(ServerConfig.shared.baseURL)
+                    }
                     .font(AppFonts.caption)
                     .foregroundStyle(AppColors.textMuted)
-                    .padding(.bottom, 20)
+                }
+                .padding(.bottom, 20)
             }
             .padding()
 
@@ -78,6 +84,9 @@ struct LoginScreen: View {
         }
         .animation(.easeInOut(duration: 0.2), value: vm.pin)
         .animation(.easeInOut(duration: 0.2), value: vm.error)
+        .sheet(isPresented: $showSettings) {
+            ServerSettingsSheet()
+        }
     }
 
     private var numpadRows: [[String]] {

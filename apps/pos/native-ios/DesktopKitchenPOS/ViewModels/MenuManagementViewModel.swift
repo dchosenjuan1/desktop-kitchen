@@ -107,6 +107,44 @@ final class MenuManagementViewModel {
         return formErrors.isEmpty
     }
 
+    func saveItem() async {
+        guard validateForm() else { return }
+        guard let price = Double(formPrice),
+              let categoryId = Int(formCategoryId) else { return }
+
+        actionLoading = true
+        let description = formDescription.trimmingCharacters(in: .whitespaces)
+
+        do {
+            switch sheetMode {
+            case .add:
+                _ = try await MenuService.createItem(
+                    categoryId: categoryId,
+                    name: formName.trimmingCharacters(in: .whitespaces),
+                    price: price,
+                    description: description.isEmpty ? nil : description
+                )
+            case .edit:
+                guard let id = editingId else { return }
+                _ = try await MenuService.updateItem(
+                    id: id,
+                    categoryId: categoryId,
+                    name: formName.trimmingCharacters(in: .whitespaces),
+                    price: price,
+                    description: description.isEmpty ? nil : description
+                )
+            }
+            showSheet = false
+            if let catId = selectedCategoryId {
+                await loadItems(categoryId: catId)
+            }
+            error = nil
+        } catch {
+            self.error = error.localizedDescription
+        }
+        actionLoading = false
+    }
+
     enum SheetMode {
         case add, edit
         var title: String {

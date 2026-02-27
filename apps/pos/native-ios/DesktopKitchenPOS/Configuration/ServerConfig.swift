@@ -6,8 +6,9 @@ final class ServerConfig: @unchecked Sendable {
 
     private let baseURLKey = "server_base_url"
     private let tenantKey = "tenant_id"
-    private let defaultURL = "http://192.168.100.32:3001"
-    private let defaultTenant = "demo"
+    private let adminSecretKey = "admin_secret"
+    private let defaultURL = "https://pos.desktop.kitchen"
+    private let defaultTenant = "juanbertos"
 
     var baseURL: String {
         didSet { UserDefaults.standard.set(baseURL, forKey: baseURLKey) }
@@ -17,13 +18,20 @@ final class ServerConfig: @unchecked Sendable {
         didSet { UserDefaults.standard.set(tenantID, forKey: tenantKey) }
     }
 
+    /// Required in production to authorize X-Tenant-ID header.
+    var adminSecret: String {
+        didSet { UserDefaults.standard.set(adminSecret, forKey: adminSecretKey) }
+    }
+
     private init() {
         self.baseURL = UserDefaults.standard.string(forKey: baseURLKey) ?? defaultURL
         self.tenantID = UserDefaults.standard.string(forKey: tenantKey) ?? defaultTenant
+        self.adminSecret = UserDefaults.standard.string(forKey: adminSecretKey) ?? ""
     }
 
     func reset() {
         baseURL = defaultURL
         tenantID = defaultTenant
+        adminSecret = ""
     }
 }

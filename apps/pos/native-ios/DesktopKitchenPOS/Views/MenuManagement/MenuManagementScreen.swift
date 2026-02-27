@@ -237,8 +237,7 @@ struct MenuManagementScreen: View {
 
                     Button {
                         Task {
-                            // Save not implemented in VM yet but form validates
-                            _ = vm.validateForm()
+                            await vm.saveItem()
                         }
                     } label: {
                         Text(vm.sheetMode.title)

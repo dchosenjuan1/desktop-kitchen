@@ -30,7 +30,7 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: com.desktopkitchen.pos
         INFOPLIST_KEY_CFBundleDisplayName: "Desktop Kitchen POS"
         PRODUCT_NAME: "DesktopKitchenPOS"
-        DEVELOPMENT_TEAM: ""
+        DEVELOPMENT_TEAM: "U76V8DL3W4"
         CODE_SIGN_STYLE: "Automatic"
         INFOPLIST_KEY_NSLocalNetworkUsageDescription: "Connect to POS server on local network"
         INFOPLIST_KEY_NSBonjourServices: "_http._tcp"

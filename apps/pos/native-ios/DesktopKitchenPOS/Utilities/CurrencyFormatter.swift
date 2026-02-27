@@ -22,7 +22,20 @@ enum CurrencyFormatter {
         String(format: "$%.2f", amount)
     }
 
-    static func calculateTax(subtotal: Double) -> Double {
-        (subtotal * taxRate * 100).rounded() / 100
+    /// Extract IVA from a tax-inclusive total (Mexican pricing: displayed prices include IVA).
+    static func extractTax(fromTotal total: Double) -> Double {
+        (total - total / (1 + taxRate)).rounded(toPlaces: 2)
+    }
+
+    /// Extract the pre-tax subtotal from a tax-inclusive total.
+    static func extractSubtotal(fromTotal total: Double) -> Double {
+        (total / (1 + taxRate)).rounded(toPlaces: 2)
+    }
+}
+
+private extension Double {
+    func rounded(toPlaces places: Int) -> Double {
+        let multiplier = pow(10, Double(places))
+        return (self * multiplier).rounded() / multiplier
     }
 }

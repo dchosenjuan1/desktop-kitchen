@@ -112,14 +112,14 @@ struct ContributionMarginReport: Codable, Sendable {
 }
 
 struct LiveDashboardKPIs: Codable, Sendable {
-    var order_count: Int
-    var revenue: Double
-    var avg_ticket: Double
-    var tips: Double
-    var cash_orders: Int
-    var card_orders: Int
-    var cash_revenue: Double
-    var card_revenue: Double
+    var order_count: Int?
+    var revenue: Double?
+    var avg_ticket: Double?
+    var tips: Double?
+    var cash_orders: Int?
+    var card_orders: Int?
+    var cash_revenue: Double?
+    var card_revenue: Double?
 }
 
 struct LiveHourlyEntry: Codable, Sendable {

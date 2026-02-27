@@ -16,6 +16,45 @@ final class KitchenViewModel {
         orders.filter { $0.status == .pending }.count
     }
 
+    // MARK: - Grouped Orders (Phase 3)
+
+    struct OrderGroup: Identifiable {
+        let id: String
+        let label: String
+        let icon: String
+        let color: Color
+        let orders: [Order]
+    }
+
+    var groupedOrders: [OrderGroup] {
+        let sourceGroups = Dictionary(grouping: orders) { order -> String in
+            order.source?.rawValue ?? "pos"
+        }
+
+        var result: [OrderGroup] = []
+
+        // POS orders first
+        if let posOrders = sourceGroups["pos"], !posOrders.isEmpty {
+            result.append(OrderGroup(id: "pos", label: "POS", icon: "desktopcomputer", color: AppColors.accent, orders: posOrders))
+        }
+
+        let deliverySources: [(key: String, label: String, icon: String, color: Color)] = [
+            ("uber_eats", "Uber Eats", "bicycle", Color(hex: 0x06C167)),
+            ("rappi", "Rappi", "bicycle", Color(hex: 0xFF441F)),
+            ("didi_food", "DiDi Food", "bicycle", Color(hex: 0xFF6600)),
+        ]
+
+        for source in deliverySources {
+            if let orders = sourceGroups[source.key], !orders.isEmpty {
+                result.append(OrderGroup(id: source.key, label: source.label, icon: source.icon, color: source.color, orders: orders))
+            }
+        }
+
+        return result
+    }
+
+    // MARK: - Polling
+
     func startPolling() {
         pollingTask = Task { @MainActor [weak self] in
             guard let self else { return }
@@ -52,7 +91,7 @@ final class KitchenViewModel {
                     let aRank = statusRank[a.status] ?? 2
                     let bRank = statusRank[b.status] ?? 2
                     if aRank != bRank { return aRank < bRank }
-                    return a.created_at > b.created_at
+                    return (a.created_at ?? "") > (b.created_at ?? "")
                 }
 
             let newPendingCount = activeOrders.filter { $0.status == .pending }.count
@@ -88,7 +127,7 @@ final class KitchenViewModel {
     }
 
     func elapsedSeconds(for order: Order) -> Int {
-        guard let created = DateFormatters.parseISO(order.created_at) else { return 0 }
+        guard let dateStr = order.created_at, let created = DateFormatters.parseISO(dateStr) else { return 0 }
         return Int(currentTime.timeIntervalSince(created))
     }
 
