@@ -119,72 +119,68 @@ async function createOrdersForTenant(tenantInfo, count, emit) {
   const errorMessages = [];
 
   try {
-    // Set tenant context on this reserved connection
-    await conn`SELECT set_config('app.tenant_id', ${tenantInfo.id}, false)`;
-
     for (let i = 0; i < count; i++) {
       const start = Date.now();
       try {
-        const employeeId = pick(tenantInfo.employeeIds);
-        const numItems = Math.floor(Math.random() * 3) + 1;
-        let itemsTotal = 0;
-        const items = [];
+        // Each order in its own explicit transaction with transaction-scoped
+        // set_config. This is critical for Neon's PgBouncer (transaction mode):
+        // session-scoped set_config can be lost between autocommit queries
+        // because PgBouncer may route them to different backend connections.
+        const orderId = await conn.begin(async (tx) => {
+          await tx`SELECT set_config('app.tenant_id', ${tenantInfo.id}, true)`;
 
-        for (let j = 0; j < numItems; j++) {
-          const itemId = pick(tenantInfo.itemIds);
-          const qty = Math.floor(Math.random() * 2) + 1;
-          // Read item price through RLS-enforced connection
-          const [item] = await conn`SELECT id, name, price FROM menu_items WHERE id = ${itemId}`;
-          if (!item) {
-            if (errorMessages.length < 3) errorMessages.push(`menu_item ${itemId} not visible via RLS`);
-            continue;
+          const employeeId = pick(tenantInfo.employeeIds);
+          const numItems = Math.floor(Math.random() * 3) + 1;
+          let itemsTotal = 0;
+          const items = [];
+
+          for (let j = 0; j < numItems; j++) {
+            const itemId = pick(tenantInfo.itemIds);
+            const qty = Math.floor(Math.random() * 2) + 1;
+            const [item] = await tx`SELECT id, name, price FROM menu_items WHERE id = ${itemId}`;
+            if (!item) {
+              if (errorMessages.length < 3) errorMessages.push(`menu_item ${itemId} not visible via RLS`);
+              continue;
+            }
+            const unitPrice = Number(item.price);
+            itemsTotal += unitPrice * qty;
+            items.push({ menu_item_id: item.id, item_name: item.name, quantity: qty, unit_price: unitPrice });
           }
-          const unitPrice = Number(item.price);
-          itemsTotal += unitPrice * qty;
-          items.push({ menu_item_id: item.id, item_name: item.name, quantity: qty, unit_price: unitPrice });
-        }
 
-        if (items.length === 0) {
-          errors++;
-          if (errorMessages.length < 3) errorMessages.push('no menu items visible through RLS');
-          timings.push(Date.now() - start);
-          continue;
-        }
+          if (items.length === 0) {
+            throw new Error('no menu items visible through RLS');
+          }
 
-        const total = itemsTotal;
-        const tax = Math.round((total - total / (1 + TAX_RATE)) * 100) / 100;
-        const subtotal = Math.round((total - tax) * 100) / 100;
+          const total = itemsTotal;
+          const tax = Math.round((total - total / (1 + TAX_RATE)) * 100) / 100;
+          const subtotal = Math.round((total - tax) * 100) / 100;
 
-        const dateStr = new Date().toISOString().split('T')[0];
-        const datePrefix = parseInt(dateStr.replace(/-/g, '')) * 1000;
+          const dateStr = new Date().toISOString().split('T')[0];
+          const datePrefix = parseInt(dateStr.replace(/-/g, '')) * 1000;
 
-        const [counter] = await conn`
-          INSERT INTO daily_order_counter (tenant_id, date_key, last_seq)
-          VALUES (${tenantInfo.id}, ${dateStr}::date, 1)
-          ON CONFLICT (tenant_id, date_key) DO UPDATE SET last_seq = daily_order_counter.last_seq + 1
-          RETURNING last_seq`;
+          const [counter] = await tx`
+            INSERT INTO daily_order_counter (tenant_id, date_key, last_seq)
+            VALUES (${tenantInfo.id}, ${dateStr}::date, 1)
+            ON CONFLICT (tenant_id, date_key) DO UPDATE SET last_seq = daily_order_counter.last_seq + 1
+            RETURNING last_seq`;
 
-        const orderNumber = datePrefix + counter.last_seq;
+          const orderNumber = datePrefix + counter.last_seq;
 
-        // Insert order — track immediately to avoid count_mismatch false positives
-        const [order] = await conn`
-          INSERT INTO orders (tenant_id, order_number, employee_id, status, subtotal, tax, total, payment_status, source)
-          VALUES (${tenantInfo.id}, ${orderNumber}, ${employeeId}, 'pending', ${subtotal}, ${tax}, ${total}, 'unpaid', ${CHAOS_SOURCE})
-          RETURNING id`;
+          const [order] = await tx`
+            INSERT INTO orders (tenant_id, order_number, employee_id, status, subtotal, tax, total, payment_status, source)
+            VALUES (${tenantInfo.id}, ${orderNumber}, ${employeeId}, 'pending', ${subtotal}, ${tax}, ${total}, 'unpaid', ${CHAOS_SOURCE})
+            RETURNING id`;
 
-        orderIds.push(order.id);
-
-        // Insert items — errors here don't affect isolation testing
-        for (const item of items) {
-          try {
-            await conn`
+          for (const item of items) {
+            await tx`
               INSERT INTO order_items (tenant_id, order_id, menu_item_id, item_name, quantity, unit_price)
               VALUES (${tenantInfo.id}, ${order.id}, ${item.menu_item_id}, ${item.item_name}, ${item.quantity}, ${item.unit_price})`;
-          } catch (itemErr) {
-            if (errorMessages.length < 3) errorMessages.push(`order_item insert: ${itemErr.message}`);
           }
-        }
 
+          return order.id;
+        });
+
+        orderIds.push(orderId);
         timings.push(Date.now() - start);
       } catch (err) {
         errors++;
@@ -216,13 +212,16 @@ async function verifyIsolation(tenants, orderResults, emit) {
     });
 
     // 1. Query via tenant-scoped connection — should see only its own orders
+    //    Use explicit transaction with transaction-scoped set_config (PgBouncer-safe)
     const conn = await tenantSql.reserve();
     let scopedCount = 0;
     try {
-      await conn`SELECT set_config('app.tenant_id', ${tenantId}, false)`;
-      const [row] = await conn`
-        SELECT COUNT(*)::int AS cnt FROM orders WHERE source = ${CHAOS_SOURCE}`;
-      scopedCount = row.cnt;
+      scopedCount = await conn.begin(async (tx) => {
+        await tx`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
+        const [row] = await tx`
+          SELECT COUNT(*)::int AS cnt FROM orders WHERE source = ${CHAOS_SOURCE}`;
+        return row.cnt;
+      });
     } finally {
       conn.release();
     }
@@ -260,18 +259,20 @@ async function verifyIsolation(tenants, orderResults, emit) {
     const otherTenantIds = tenants.map(t => t.id).filter(id => id !== tenantId);
     const conn2 = await tenantSql.reserve();
     try {
-      await conn2`SELECT set_config('app.tenant_id', ${tenantId}, false)`;
-      // This should return 0 — if RLS is working, we can't see other tenants' orders
-      const [leaked] = await conn2`
-        SELECT COUNT(*)::int AS cnt FROM orders
-        WHERE source = ${CHAOS_SOURCE} AND tenant_id = ANY(${otherTenantIds})`;
-      if (leaked.cnt > 0) {
+      const leakedCnt = await conn2.begin(async (tx) => {
+        await tx`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
+        const [leaked] = await tx`
+          SELECT COUNT(*)::int AS cnt FROM orders
+          WHERE source = ${CHAOS_SOURCE} AND tenant_id = ANY(${otherTenantIds})`;
+        return leaked.cnt;
+      });
+      if (leakedCnt > 0) {
         breaches.push({
           type: 'rls_leak',
           severity: 'CRITICAL',
           tenantId,
-          leakedCount: leaked.cnt,
-          message: `CRITICAL: Tenant ${tenantId} can see ${leaked.cnt} orders from other tenants through RLS`,
+          leakedCount: leakedCnt,
+          message: `CRITICAL: Tenant ${tenantId} can see ${leakedCnt} orders from other tenants through RLS`,
         });
       }
     } finally {
@@ -290,32 +291,36 @@ async function checkConnectionPool(tenants, emit) {
   const tenantIds = tenants.map(t => t.id);
   const anomalies = [];
 
-  // Reserve all idle connections from the pool, check for stale tenant_id, and reset
-  const poolSize = tenantSql.options?.max || 30;
+  // With Neon's PgBouncer (transaction mode), session-level settings aren't
+  // reliably tied to client connections. Still check a few connections for
+  // any stale tenant_id that might persist within a transaction scope.
+  const checkCount = Math.min(tenantSql.options?.max || 30, 10);
   const checked = new Set();
 
-  for (let i = 0; i < poolSize; i++) {
+  for (let i = 0; i < checkCount; i++) {
     try {
       const conn = await tenantSql.reserve({ timeout: 1 });
       try {
-        const [cfg] = await conn`SELECT pg_backend_pid() AS pid, current_setting('app.tenant_id', true) AS tid`;
-        if (!checked.has(cfg.pid)) {
-          checked.add(cfg.pid);
-          if (cfg.tid && tenantIds.includes(cfg.tid)) {
+        const result = await conn.begin(async (tx) => {
+          const [cfg] = await tx`SELECT pg_backend_pid() AS pid, current_setting('app.tenant_id', true) AS tid`;
+          // Reset stale tenant_id within the transaction
+          await tx`SELECT set_config('app.tenant_id', '', true)`;
+          return cfg;
+        });
+        if (!checked.has(result.pid)) {
+          checked.add(result.pid);
+          if (result.tid && tenantIds.includes(result.tid)) {
             anomalies.push({
-              pid: cfg.pid,
-              staleTenantId: cfg.tid,
-              message: `Connection PID ${cfg.pid} still has app.tenant_id=${cfg.tid} after chaos run`,
+              pid: result.pid,
+              staleTenantId: result.tid,
+              message: `Connection PID ${result.pid} still has app.tenant_id=${result.tid} after chaos run`,
             });
           }
         }
-        // Always reset stale tenant_id
-        await conn`SELECT set_config('app.tenant_id', '', false)`;
       } finally {
         conn.release();
       }
     } catch {
-      // No more idle connections available — done checking
       break;
     }
   }
