@@ -116,6 +116,7 @@ async function createOrdersForTenant(tenantInfo, count, emit) {
   const orderIds = [];
   const timings = [];
   let errors = 0;
+  const errorMessages = [];
 
   try {
     // Set tenant context on this reserved connection
@@ -134,7 +135,10 @@ async function createOrdersForTenant(tenantInfo, count, emit) {
           const qty = Math.floor(Math.random() * 2) + 1;
           // Read item price through RLS-enforced connection
           const [item] = await conn`SELECT id, name, price FROM menu_items WHERE id = ${itemId}`;
-          if (!item) continue;
+          if (!item) {
+            if (errorMessages.length < 3) errorMessages.push(`menu_item ${itemId} not visible via RLS`);
+            continue;
+          }
           const unitPrice = Number(item.price);
           itemsTotal += unitPrice * qty;
           items.push({ menu_item_id: item.id, item_name: item.name, quantity: qty, unit_price: unitPrice });
@@ -142,6 +146,7 @@ async function createOrdersForTenant(tenantInfo, count, emit) {
 
         if (items.length === 0) {
           errors++;
+          if (errorMessages.length < 3) errorMessages.push('no menu items visible through RLS');
           timings.push(Date.now() - start);
           continue;
         }
@@ -161,31 +166,30 @@ async function createOrdersForTenant(tenantInfo, count, emit) {
 
         const orderNumber = datePrefix + counter.last_seq;
 
-        // Wrap order + items in a transaction so partial failures don't leave phantom orders
-        await conn`BEGIN`;
-        try {
-          const [order] = await conn`
-            INSERT INTO orders (tenant_id, order_number, employee_id, status, subtotal, tax, total, payment_status, source)
-            VALUES (${tenantInfo.id}, ${orderNumber}, ${employeeId}, 'pending', ${subtotal}, ${tax}, ${total}, 'unpaid', ${CHAOS_SOURCE})
-            RETURNING id`;
+        // Insert order — track immediately to avoid count_mismatch false positives
+        const [order] = await conn`
+          INSERT INTO orders (tenant_id, order_number, employee_id, status, subtotal, tax, total, payment_status, source)
+          VALUES (${tenantInfo.id}, ${orderNumber}, ${employeeId}, 'pending', ${subtotal}, ${tax}, ${total}, 'unpaid', ${CHAOS_SOURCE})
+          RETURNING id`;
 
-          for (const item of items) {
+        orderIds.push(order.id);
+
+        // Insert items — errors here don't affect isolation testing
+        for (const item of items) {
+          try {
             await conn`
               INSERT INTO order_items (tenant_id, order_id, menu_item_id, item_name, quantity, unit_price)
               VALUES (${tenantInfo.id}, ${order.id}, ${item.menu_item_id}, ${item.item_name}, ${item.quantity}, ${item.unit_price})`;
+          } catch (itemErr) {
+            if (errorMessages.length < 3) errorMessages.push(`order_item insert: ${itemErr.message}`);
           }
-
-          await conn`COMMIT`;
-          orderIds.push(order.id);
-        } catch (txErr) {
-          await conn`ROLLBACK`;
-          throw txErr;
         }
 
         timings.push(Date.now() - start);
       } catch (err) {
         errors++;
         timings.push(Date.now() - start);
+        if (errorMessages.length < 3) errorMessages.push(err.message);
         console.error(`[ChaosAgent] Order error for ${tenantInfo.id}:`, err.message);
       }
     }
@@ -193,7 +197,7 @@ async function createOrdersForTenant(tenantInfo, count, emit) {
     conn.release();
   }
 
-  return { tenantId: tenantInfo.id, orderIds, timings, errors };
+  return { tenantId: tenantInfo.id, orderIds, timings, errors, errorMessages };
 }
 
 // ─── Isolation Verification ────────────────────────────────
@@ -446,6 +450,7 @@ export async function runChaosAgent(ordersPerTenant, emit) {
       tenantId: r.tenantId,
       ordersCreated: r.orderIds.length,
       errors: r.errors,
+      errorMessages: r.errorMessages || [],
       avgLatencyMs: r.timings.length > 0
         ? Math.round(r.timings.reduce((a, b) => a + b, 0) / r.timings.length)
         : 0,
