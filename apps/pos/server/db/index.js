@@ -38,11 +38,22 @@ export const adminSql = postgres(DATABASE_URL, {
 const PG_APP_USER = process.env.PG_APP_USER || 'app_user';
 const PG_APP_PASSWORD = process.env.PG_APP_PASSWORD || '';
 
-// Build tenant connection URL by replacing credentials in DATABASE_URL
+// Build tenant connection URL by replacing credentials in DATABASE_URL.
+// Also strips '-pooler' from Neon hostname to force DIRECT connections.
+// PgBouncer (transaction mode) breaks session-scoped set_config because
+// it routes each autocommit query to potentially different backend connections.
+// Direct connections guarantee set_config('app.tenant_id', ...) persists
+// across all queries on the same reserved connection.
 function buildTenantUrl() {
   const url = new URL(DATABASE_URL);
   url.username = PG_APP_USER;
   url.password = PG_APP_PASSWORD;
+  // Neon pooled: ep-xxx-pooler.region.aws.neon.tech
+  // Neon direct: ep-xxx.region.aws.neon.tech
+  if (url.hostname.includes('-pooler')) {
+    url.hostname = url.hostname.replace('-pooler', '');
+    console.log('[DB] Tenant pool using DIRECT connection (stripped -pooler for RLS compatibility)');
+  }
   return url.toString();
 }
 
