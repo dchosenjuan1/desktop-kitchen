@@ -86,7 +86,7 @@ final class APIClient: @unchecked Sendable {
     }
 
     func testConnection() async -> Bool {
-        let endpoint = Endpoint(path: "/api/menu/categories")
+        let endpoint = Endpoint(path: "/menu/categories")
         do {
             let _: [MenuCategory] = try await request(endpoint)
             return true

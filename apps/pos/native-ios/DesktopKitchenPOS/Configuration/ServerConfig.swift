@@ -11,7 +11,11 @@ final class ServerConfig: @unchecked Sendable {
     private let defaultTenant = "juanbertos"
 
     var baseURL: String {
-        didSet { UserDefaults.standard.set(baseURL, forKey: baseURLKey) }
+        didSet {
+            let cleaned = Self.stripAPIPath(baseURL)
+            if cleaned != baseURL { baseURL = cleaned; return }
+            UserDefaults.standard.set(baseURL, forKey: baseURLKey)
+        }
     }
 
     var tenantID: String {
@@ -24,9 +28,18 @@ final class ServerConfig: @unchecked Sendable {
     }
 
     private init() {
-        self.baseURL = UserDefaults.standard.string(forKey: baseURLKey) ?? defaultURL
+        let savedURL = UserDefaults.standard.string(forKey: baseURLKey) ?? defaultURL
+        self.baseURL = Self.stripAPIPath(savedURL)
         self.tenantID = UserDefaults.standard.string(forKey: tenantKey) ?? defaultTenant
         self.adminSecret = UserDefaults.standard.string(forKey: adminSecretKey) ?? ""
+    }
+
+    /// Remove trailing `/api` or `/api/` so the app can prepend it consistently.
+    private static func stripAPIPath(_ url: String) -> String {
+        var u = url
+        if u.hasSuffix("/") { u = String(u.dropLast()) }
+        if u.hasSuffix("/api") { u = String(u.dropLast(4)) }
+        return u
     }
 
     func reset() {

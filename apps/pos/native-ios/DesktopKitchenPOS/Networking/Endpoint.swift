@@ -19,7 +19,7 @@ struct Endpoint {
     }
 
     func urlRequest(baseURL: String) throws -> URLRequest {
-        guard var components = URLComponents(string: baseURL + path) else {
+        guard var components = URLComponents(string: baseURL + "/api" + path) else {
             throw APIError.invalidURL
         }
 
