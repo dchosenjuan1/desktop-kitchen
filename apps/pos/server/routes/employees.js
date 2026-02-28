@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcrypt';
-import rateLimit from 'express-rate-limit';
+import rateLimit, { ipKeyGenerator } from 'express-rate-limit';
 import { all, get, run, getTenantId } from '../db/index.js';
 import { requireAuth } from '../middleware/auth.js';
 import { checkLimit } from '../planLimits.js';
@@ -11,7 +11,7 @@ import { BCRYPT_ROUNDS, JWT_SECRET } from '../lib/constants.js';
 const pinLoginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 15,
-  keyGenerator: (req) => `pin-login:${req.ip}:${req.tenant?.id || 'unknown'}`,
+  keyGenerator: (req) => `pin-login:${ipKeyGenerator(req.ip)}:${req.tenant?.id || 'unknown'}`,
   message: { error: 'Too many login attempts, please try again later' },
 });
 

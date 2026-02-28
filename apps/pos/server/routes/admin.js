@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import bcrypt from 'bcrypt';
-import rateLimit from 'express-rate-limit';
+import rateLimit, { ipKeyGenerator } from 'express-rate-limit';
 import { createTenant, getTenant, listTenants, updateTenant } from '../tenants.js';
 import { run, adminSql } from '../db/index.js';
 import { sendPinEmail, sendWelcomeEmail } from '../helpers/email.js';
@@ -14,7 +14,7 @@ const router = Router();
 const adminLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 100,
-  keyGenerator: (req) => `admin:${req.ip}`,
+  keyGenerator: (req) => `admin:${ipKeyGenerator(req.ip)}`,
   message: { error: 'Too many admin requests, please try again later' },
 });
 
