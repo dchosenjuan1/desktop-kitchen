@@ -15,6 +15,6 @@
     "isolatedModules": true,
     "jsx": "react-jsx"
   },
-  "include": ["next-env.d.ts", "pages/**/*.ts", "pages/**/*.tsx"],
+  "include": ["next-env.d.ts", "pages/**/*.ts", "pages/**/*.tsx", "lib/**/*.ts", "lib/**/*.tsx", "components/**/*.ts", "components/**/*.tsx"],
   "exclude": ["node_modules"]
 }

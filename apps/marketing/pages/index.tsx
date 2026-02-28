@@ -608,6 +608,13 @@ const Home: NextPage = () => {
             </a>
             <span className="text-white/10">|</span>
             <a
+              href="/blog"
+              className="hover:text-teal-500 transition-colors duration-200"
+            >
+              {(t as any).footerBlog || "Blog"}
+            </a>
+            <span className="text-white/10">|</span>
+            <a
               href="https://pos.desktop.kitchen/#/onboarding"
               className="hover:text-teal-500 transition-colors duration-200"
             >

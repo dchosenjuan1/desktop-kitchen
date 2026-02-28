@@ -163,5 +163,24 @@
   "footerBrand": "Desktop Kitchen",
   "footerDocs": "Documentation",
   "footerDemo": "Live Demo",
-  "footerRights": "All rights reserved."
+  "footerBlog": "Blog",
+  "footerRights": "All rights reserved.",
+
+  "blogTitle": "Blog — Desktop Kitchen",
+  "blogDescription": "Tips, guides, and strategies for ghost kitchen operators, restaurants, and delivery businesses.",
+  "blogHeadline": "BLOG",
+  "blogSub": "Tips, guides, and strategies for your kitchen.",
+  "blogFeatured": "Featured",
+  "blogReadMore": "Read more",
+  "blogReadTime": "min read",
+  "blogAllCategories": "All",
+  "blogShareTitle": "Share",
+  "blogShareCopy": "Copy link",
+  "blogShareCopied": "Copied!",
+  "blogToc": "Table of Contents",
+  "blogRelated": "Related Articles",
+  "blogCtaTitle": "Ready to modernize your kitchen?",
+  "blogCtaSub": "Try Desktop Kitchen free — no credit card required.",
+  "blogCtaButton": "Start Free Trial",
+  "blogBack": "Back to Blog"
 }
