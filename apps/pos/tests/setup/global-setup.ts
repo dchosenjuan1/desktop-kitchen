@@ -85,7 +85,7 @@ async function fetchJsonRetry(path: string, opts: RequestInit = {}, retries = 3)
   return retry(() => fetchJson(path, opts), retries, 1500);
 }
 
-async function waitForServer(proc: ChildProcess, timeoutMs = 30_000): Promise<void> {
+async function waitForServer(proc: ChildProcess, timeoutMs = 60_000): Promise<void> {
   const start = Date.now();
   while (Date.now() - start < timeoutMs) {
     // Check that the child process is still running

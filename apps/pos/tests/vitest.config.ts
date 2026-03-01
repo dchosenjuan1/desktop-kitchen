@@ -1,7 +1,12 @@
 import { defineConfig } from 'vitest/config';
+import { resolve, dirname } from 'path';
+import { fileURLToPath } from 'url';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
 
 export default defineConfig({
   test: {
+    root: resolve(__dirname, '..'),
     testTimeout: 30_000,
     hookTimeout: 60_000,
     // All tests share a single database — must run sequentially
