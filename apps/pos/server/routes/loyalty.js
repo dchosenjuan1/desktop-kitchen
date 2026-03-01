@@ -31,7 +31,7 @@ router.get('/customers', requireAuth('manage_loyalty'), async (req, res) => {
     if (search) {
       // Escape LIKE special characters to prevent pattern injection
       const escaped = search.replace(/[%_\\]/g, '\\$&');
-      where = `WHERE (name LIKE $1 OR phone LIKE $2) ESCAPE '\\'`;
+      where = `WHERE (name LIKE $1 ESCAPE '\\' OR phone LIKE $2 ESCAPE '\\')`;
       params.push(`%${escaped}%`, `%${escaped}%`);
     }
 

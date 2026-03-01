@@ -201,7 +201,7 @@ router.get('/markup-preview/:platformId', requireAuth('manage_delivery'), async 
         END as delivery_price
       FROM menu_items mi
       JOIN menu_categories mc ON mc.id = mi.category_id
-      CROSS JOIN delivery_platforms dp ON dp.id = $1
+      JOIN delivery_platforms dp ON dp.id = $1
       LEFT JOIN delivery_markup_rules dmr_item ON dmr_item.platform_id = dp.id AND dmr_item.menu_item_id = mi.id AND dmr_item.active = true
       LEFT JOIN delivery_markup_rules dmr_cat ON dmr_cat.platform_id = dp.id AND dmr_cat.category_id = mi.category_id AND dmr_cat.active = true
       WHERE mi.active = true

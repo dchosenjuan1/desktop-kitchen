@@ -858,6 +858,7 @@ CREATE TABLE IF NOT EXISTS leads (
   tenant_id TEXT DEFAULT NULL
 );
 
+CREATE UNIQUE INDEX IF NOT EXISTS leads_email_unique ON leads (email);
 CREATE UNIQUE INDEX IF NOT EXISTS leads_tenant_email_unique ON leads (tenant_id, email);
 
 -- Bank Connections (migration 0019)

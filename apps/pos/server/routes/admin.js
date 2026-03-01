@@ -2,6 +2,7 @@ import { Router } from 'express';
 import bcrypt from 'bcrypt';
 import rateLimit, { ipKeyGenerator } from 'express-rate-limit';
 import { createTenant, getTenant, listTenants, updateTenant } from '../tenants.js';
+import { tenantCache } from '../lib/tenantCache.js';
 import { run, adminSql } from '../db/index.js';
 import { sendPinEmail, sendWelcomeEmail } from '../helpers/email.js';
 import { audit } from '../lib/auditLog.js';
@@ -555,7 +556,10 @@ router.delete('/tenants/:id', async (req, res) => {
         await sql.unsafe(`DELETE FROM ${t} WHERE tenant_id = $1`, [tid]);
       }
 
-      // Layer 4
+      // Layer 4 — re-delete AI tables to handle race with background AI scheduler
+      await sql.unsafe(`DELETE FROM ai_restock_log WHERE tenant_id = $1`, [tid]);
+      await sql.unsafe(`DELETE FROM ai_item_pairs WHERE tenant_id = $1`, [tid]);
+      await sql.unsafe(`DELETE FROM ai_inventory_velocity WHERE tenant_id = $1`, [tid]);
       const layer4 = [
         'menu_categories', 'inventory_items', 'vendors', 'employees', 'loyalty_customers',
       ];
@@ -578,6 +582,9 @@ router.delete('/tenants/:id', async (req, res) => {
       // Finally delete the tenant record
       await sql`DELETE FROM tenants WHERE id = ${tid}`;
     });
+
+    // Invalidate tenant cache so subsequent lookups return 404
+    tenantCache.invalidate(tid);
 
     audit({
       tenantId: tid,
@@ -632,8 +639,9 @@ router.post('/tenants/:id/seed', async (req, res) => {
       'combo_slots', 'combo_definitions',
       'modifiers', 'modifier_groups',
       'menu_items', 'menu_categories',
+      'ai_restock_log', 'ai_inventory_velocity', 'inventory_counts',
       'inventory_items',
-      'delivery_markup_rules', 'delivery_platforms',
+      'delivery_markup_rules', 'virtual_brand_items', 'virtual_brands', 'delivery_platforms',
       'ai_category_roles', 'ai_config',
     ];
     for (const t of clearTables) {

@@ -29,23 +29,31 @@ router.post('/', leadLimiter, async (req, res) => {
       return res.status(400).json({ error: 'Valid email is required' });
     }
 
-    await adminSql`
-      INSERT INTO leads (restaurant_name, name, email, phone, promo_code, source)
-      VALUES (
-        ${restaurant_name || null},
-        ${name || null},
-        ${email.trim().toLowerCase()},
-        ${phone || null},
-        ${promo_code || null},
-        ${source || 'mexico50_flyer'}
-      )
-      ON CONFLICT (email) DO UPDATE SET
-        restaurant_name = COALESCE(EXCLUDED.restaurant_name, leads.restaurant_name),
-        name = COALESCE(EXCLUDED.name, leads.name),
-        phone = COALESCE(EXCLUDED.phone, leads.phone),
-        promo_code = COALESCE(EXCLUDED.promo_code, leads.promo_code),
-        source = COALESCE(EXCLUDED.source, leads.source)
-    `;
+    const cleanEmail = email.trim().toLowerCase();
+    const existing = await adminSql`SELECT id FROM leads WHERE email = ${cleanEmail}`;
+    if (existing.length > 0) {
+      await adminSql`
+        UPDATE leads SET
+          restaurant_name = COALESCE(${restaurant_name || null}, restaurant_name),
+          name = COALESCE(${name || null}, leads.name),
+          phone = COALESCE(${phone || null}, phone),
+          promo_code = COALESCE(${promo_code || null}, promo_code),
+          source = COALESCE(${source || null}, source)
+        WHERE email = ${cleanEmail}
+      `;
+    } else {
+      await adminSql`
+        INSERT INTO leads (restaurant_name, name, email, phone, promo_code, source)
+        VALUES (
+          ${restaurant_name || null},
+          ${name || null},
+          ${cleanEmail},
+          ${phone || null},
+          ${promo_code || null},
+          ${source || 'mexico50_flyer'}
+        )
+      `;
+    }
 
     res.json({ success: true });
   } catch (error) {

@@ -759,7 +759,7 @@ router.get('/refund-summary', requireAuth('view_reports'), async (req, res) => {
       FROM refunds r
       LEFT JOIN employees e ON r.refunded_by = e.id
       WHERE r.created_at::date >= $1
-      GROUP BY r.refunded_by
+      GROUP BY r.refunded_by, e.name
       ORDER BY refund_count DESC
     `, [startDate]);
 

@@ -20,3 +20,4 @@ build/
 *.ipa
 *.dSYM.zip
 *.dSYM
+tests/.test-state.json
