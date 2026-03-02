@@ -245,14 +245,14 @@ export async function generateDemoData(adminSql, {
     if (isDelivery && platform) {
       const commission = Math.round(total * (Number(platform.commission_percent) / 100) * 100) / 100;
       await adminSql.unsafe(`
-        INSERT INTO delivery_orders (tenant_id, order_id, platform_id, platform_order_id,
-                                     customer_name, status, commission_amount, platform_total, created_at)
-        VALUES ($1, $2, $3, $4, $5, 'delivered', $6, $7, $8)
+        INSERT INTO delivery_orders (tenant_id, order_id, platform_id, external_order_id,
+                                     customer_name, platform_status, platform_commission, created_at)
+        VALUES ($1, $2, $3, $4, $5, 'delivered', $6, $7)
       `, [
         tenantId, orderId, platform.id,
         `DEL-${platform.name.toUpperCase()}-${randInt(10000, 99999)}`,
         `${pick(FIRST_NAMES)} ${pick(LAST_NAMES)}`,
-        commission, total, created_at.toISOString(),
+        commission, created_at.toISOString(),
       ]);
       summary.delivery_orders++;
     }
@@ -275,7 +275,7 @@ export async function generateDemoData(adminSql, {
       const firstName = pick(FIRST_NAMES);
       const lastName = pick(LAST_NAMES);
       const [cust] = await adminSql.unsafe(`
-        INSERT INTO loyalty_customers (tenant_id, name, phone, sms_opt_in, total_visits, total_spent, demo_batch_id)
+        INSERT INTO loyalty_customers (tenant_id, name, phone, sms_opt_in, orders_count, total_spent, demo_batch_id)
         VALUES ($1, $2, $3, $4, $5, $6, $7)
         RETURNING id
       `, [
@@ -300,7 +300,7 @@ export async function generateDemoData(adminSql, {
         const isComplete = stamps >= 10;
         const isRedeemed = isComplete && Math.random() < 0.5;
         const [card] = await adminSql.unsafe(`
-          INSERT INTO stamp_cards (tenant_id, customer_id, stamps_collected, completed, redeemed, demo_batch_id)
+          INSERT INTO stamp_cards (tenant_id, customer_id, stamps_earned, completed, redeemed, demo_batch_id)
           VALUES ($1, $2, $3, $4, $5, $6)
           RETURNING id
         `, [tenantId, custId, Math.min(stamps, 10), isComplete, isRedeemed, batchId]);
@@ -311,9 +311,9 @@ export async function generateDemoData(adminSql, {
         for (let e = 0; e < eventCount; e++) {
           const order = pick(generatedOrders);
           await adminSql.unsafe(`
-            INSERT INTO stamp_events (tenant_id, customer_id, card_id, order_id, event_type, stamps, demo_batch_id, created_at)
-            VALUES ($1, $2, $3, $4, 'purchase', 1, $5, $6)
-          `, [tenantId, custId, card.id, order.id, batchId, order.created_at.toISOString()]);
+            INSERT INTO stamp_events (tenant_id, stamp_card_id, order_id, stamps_added, event_type, demo_batch_id, created_at)
+            VALUES ($1, $2, $3, 1, 'purchase', $4, $5)
+          `, [tenantId, card.id, order.id, batchId, order.created_at.toISOString()]);
           summary.stamp_events++;
         }
       }
@@ -326,8 +326,8 @@ export async function generateDemoData(adminSql, {
       const referred = pick(customers);
       if (referrer !== referred) {
         await adminSql.unsafe(`
-          INSERT INTO referral_events (tenant_id, referrer_id, referred_id, status, demo_batch_id)
-          VALUES ($1, $2, $3, 'completed', $4)
+          INSERT INTO referral_events (tenant_id, referrer_id, referee_id, demo_batch_id)
+          VALUES ($1, $2, $3, $4)
         `, [tenantId, referrer, referred, batchId]);
         summary.referral_events++;
       }
@@ -352,7 +352,7 @@ export async function generateDemoData(adminSql, {
     for (const [hourKey, data] of hourlyMap) {
       const avgTicket = data.count > 0 ? Math.round((data.revenue / data.count) * 100) / 100 : 0;
       await adminSql.unsafe(`
-        INSERT INTO ai_hourly_snapshots (tenant_id, hour, order_count, revenue, avg_ticket, demo_batch_id)
+        INSERT INTO ai_hourly_snapshots (tenant_id, snapshot_hour, order_count, revenue, avg_ticket, demo_batch_id)
         VALUES ($1, $2, $3, $4, $5, $6)
       `, [tenantId, data.date.toISOString(), data.count, Math.round(data.revenue * 100) / 100, avgTicket, batchId]);
       summary.ai_hourly_snapshots++;
@@ -380,27 +380,7 @@ export async function generateDemoData(adminSql, {
       summary.ai_item_pairs++;
     }
 
-    // Inventory velocity — daily consumption per menu item
-    const dailyMap = new Map();
-    for (const order of generatedOrders) {
-      const dayKey = order.created_at.toISOString().slice(0, 10);
-      for (const item of order.items) {
-        const key = `${dayKey}:${item.menu_item_id}`;
-        if (!dailyMap.has(key)) {
-          dailyMap.set(key, { date: dayKey, itemId: item.menu_item_id, qty: 0 });
-        }
-        dailyMap.get(key).qty += item.quantity;
-      }
-    }
-
-    for (const entry of dailyMap.values()) {
-      await adminSql.unsafe(`
-        INSERT INTO ai_inventory_velocity (tenant_id, menu_item_id, date, daily_quantity, demo_batch_id)
-        VALUES ($1, $2, $3::date, $4, $5)
-        ON CONFLICT DO NOTHING
-      `, [tenantId, entry.itemId, entry.date, entry.qty, batchId]);
-      summary.ai_inventory_velocity++;
-    }
+    // Inventory velocity — skipped (requires inventory_item_id FK, not menu_item_id)
   }
 
   // ─── Generate Financial Data ──────────────────────────
@@ -416,7 +396,7 @@ export async function generateDemoData(adminSql, {
       for (const line of FINANCIAL_LINES) {
         const amount = randFloat(line.min, line.max);
         await adminSql.unsafe(`
-          INSERT INTO financial_actuals (tenant_id, month, category, amount, demo_batch_id)
+          INSERT INTO financial_actuals (tenant_id, period, category, amount, demo_batch_id)
           VALUES ($1, $2, $3, $4, $5)
           ON CONFLICT DO NOTHING
         `, [tenantId, yearMonth, line.category, amount, batchId]);
