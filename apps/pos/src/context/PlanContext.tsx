@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo, ReactNode } from 'react';
 
 export type PlanTier = 'trial' | 'starter' | 'pro' | 'ghost_kitchen';
 
@@ -31,6 +31,9 @@ interface PlanContextType {
   mpDefaultTerminalId: string | null;
   isPaid: boolean;
   isMpConnected: boolean;
+  trialEndsAt: string | null;
+  trialDaysRemaining: number | null;
+  isTrialExpired: boolean;
   isAtLimit: (resource: 'menuItems' | 'inventoryItems' | 'employees' | 'modifierGroups' | 'combos', currentCount: number) => boolean;
   isFeatureLocked: (feature: 'printers' | 'delivery' | 'permissions' | 'loyalty' | 'prepForecast' | 'banking' | 'bankReconciliation') => boolean;
   refresh: () => Promise<void>;
@@ -61,6 +64,7 @@ export const PlanProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [ownerEmail, setOwnerEmail] = useState<string | null>(null);
   const [mpUserId, setMpUserId] = useState<string | null>(null);
   const [mpDefaultTerminalId, setMpDefaultTerminalId] = useState<string | null>(null);
+  const [trialEndsAt, setTrialEndsAt] = useState<string | null>(null);
 
   const fetchPlan = useCallback(async () => {
     try {
@@ -79,6 +83,7 @@ export const PlanProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         if (data.ownerEmail !== undefined) setOwnerEmail(data.ownerEmail);
         if (data.mpUserId !== undefined) setMpUserId(data.mpUserId);
         if (data.mpDefaultTerminalId !== undefined) setMpDefaultTerminalId(data.mpDefaultTerminalId);
+        if (data.trialEndsAt !== undefined) setTrialEndsAt(data.trialEndsAt);
       }
     } catch {
       // Server unreachable — keep defaults
@@ -89,6 +94,15 @@ export const PlanProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const isPaid = plan === 'starter' || plan === 'pro' || plan === 'ghost_kitchen';
   const isMpConnected = !!mpUserId && (plan === 'pro' || plan === 'ghost_kitchen');
+
+  const trialDaysRemaining = useMemo(() => {
+    if (!trialEndsAt) return null;
+    const diff = new Date(trialEndsAt).getTime() - Date.now();
+    if (diff <= 0) return 0;
+    return Math.ceil(diff / (1000 * 60 * 60 * 24));
+  }, [trialEndsAt]);
+
+  const isTrialExpired = plan === 'trial' && trialDaysRemaining !== null && trialDaysRemaining <= 0;
 
   const isAtLimit = useCallback((resource: string, currentCount: number) => {
     const max = (limits as unknown as Record<string, unknown>)[resource];
@@ -108,7 +122,7 @@ export const PlanProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   }, [limits]);
 
   return (
-    <PlanContext.Provider value={{ plan, limits, ownerEmail, mpUserId, mpDefaultTerminalId, isPaid, isMpConnected, isAtLimit, isFeatureLocked, refresh: fetchPlan }}>
+    <PlanContext.Provider value={{ plan, limits, ownerEmail, mpUserId, mpDefaultTerminalId, isPaid, isMpConnected, trialEndsAt, trialDaysRemaining, isTrialExpired, isAtLimit, isFeatureLocked, refresh: fetchPlan }}>
       {children}
     </PlanContext.Provider>
   );

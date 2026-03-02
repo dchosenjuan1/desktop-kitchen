@@ -6,14 +6,16 @@ import OverviewTab from '../components/super-admin/OverviewTab';
 import TenantsTab from '../components/super-admin/TenantsTab';
 import RevenueTab from '../components/super-admin/RevenueTab';
 import HealthTab from '../components/super-admin/HealthTab';
+import StressTestTab from '../components/super-admin/StressTestTab';
 
-type TabId = 'overview' | 'tenants' | 'revenue' | 'health';
+type TabId = 'overview' | 'tenants' | 'revenue' | 'health' | 'stress-test';
 
 const TABS: { id: TabId; label: string }[] = [
   { id: 'overview', label: 'Overview' },
   { id: 'tenants', label: 'Tenants' },
   { id: 'revenue', label: 'Revenue' },
   { id: 'health', label: 'Health' },
+  { id: 'stress-test', label: 'Stress Test' },
 ];
 
 export default function SuperAdminDashboard() {
@@ -73,6 +75,7 @@ export default function SuperAdminDashboard() {
         {tab === 'tenants' && <TenantsTab />}
         {tab === 'revenue' && <RevenueTab />}
         {tab === 'health' && <HealthTab />}
+        {tab === 'stress-test' && <StressTestTab />}
       </div>
     </div>
   );

@@ -25,6 +25,7 @@ import purchaseOrdersRoutes from './routes/purchase-orders.js';
 import loyaltyRoutes from './routes/loyalty.js';
 import orderTemplatesRoutes from './routes/order-templates.js';
 import adminRoutes from './routes/admin.js';
+import adminStressTestRoutes from './routes/admin-stress-test.js';
 import authRoutes from './routes/auth.js';
 import brandingRoutes from './routes/branding.js';
 import billingRoutes, { stripeWebhook, promoValidateHandler } from './routes/billing.js';
@@ -119,6 +120,7 @@ app.get('/api/health', async (req, res) => {
 
 // Admin routes (uses admin pool, not tenant-scoped)
 app.use('/admin', adminRoutes);
+app.use('/admin/stress-test', adminStressTestRoutes);
 
 // Chaos agent (admin-secret protected, uses its own tenant pool connections)
 app.use('/api/chaos', chaosRoutes);

@@ -4,6 +4,8 @@ import bcrypt from 'bcrypt';
 import rateLimit from 'express-rate-limit';
 import { adminSql } from '../db/index.js';
 import { BCRYPT_ROUNDS } from '../lib/constants.js';
+import { getTenant } from '../tenants.js';
+import { generateDemoData } from '../lib/demoDataGenerator.js';
 
 const router = Router();
 const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret';
@@ -205,7 +207,7 @@ router.patch('/prospects/:id', async (req, res) => {
       return res.status(404).json({ error: 'Prospect not found' });
     }
 
-    const { status, notes, contact_name, phone, email, address, neighborhood, business_name } = req.body;
+    const { status, notes, contact_name, phone, email, address, neighborhood, business_name, converted_tenant_id } = req.body;
 
     const validStatuses = ['visited', 'interested', 'demo_scheduled', 'trial', 'converted', 'not_interested'];
     if (status && !validStatuses.includes(status)) {
@@ -222,6 +224,7 @@ router.patch('/prospects/:id', async (req, res) => {
         address = COALESCE(${address || null}, address),
         neighborhood = COALESCE(${neighborhood || null}, neighborhood),
         business_name = COALESCE(${business_name || null}, business_name),
+        converted_tenant_id = COALESCE(${converted_tenant_id || null}, converted_tenant_id),
         updated_at = NOW()
       WHERE id = ${id}
       RETURNING *
@@ -260,6 +263,221 @@ router.get('/commissions', async (req, res) => {
   } catch (error) {
     console.error('[sales] GET /commissions error:', error);
     res.status(500).json({ error: 'Failed to fetch commissions' });
+  }
+});
+
+// ==================== Demo Data Endpoints ====================
+
+const DEMO_SOURCE = 'demo_generator';
+
+/**
+ * Helper: look up a prospect, verify it belongs to the requesting rep,
+ * and optionally require a linked tenant.
+ */
+async function getOwnedProspect(repId, prospectId, { requireTenant = false } = {}) {
+  const [prospect] = await adminSql`
+    SELECT id, sales_rep_id, status, converted_tenant_id
+    FROM prospects WHERE id = ${prospectId} AND sales_rep_id = ${repId}
+  `;
+  if (!prospect) return { error: 'Prospect not found', status: 404 };
+  if (requireTenant && !prospect.converted_tenant_id) {
+    return { error: 'No tenant linked to this prospect', status: 400 };
+  }
+  return { prospect };
+}
+
+// POST /api/sales/demo/generate — generate demo data for a prospect's tenant
+router.post('/demo/generate', async (req, res) => {
+  try {
+    const { prospect_id } = req.body;
+    if (!prospect_id) return res.status(400).json({ error: 'prospect_id is required' });
+
+    const result = await getOwnedProspect(req.salesRep.id, prospect_id, { requireTenant: true });
+    if (result.error) return res.status(result.status).json({ error: result.error });
+
+    const { prospect } = result;
+    const tenantId = prospect.converted_tenant_id;
+
+    const tenant = await getTenant(tenantId);
+    if (!tenant) return res.status(404).json({ error: 'Linked tenant not found' });
+
+    // Check for existing demo data
+    const [existing] = await adminSql`
+      SELECT COUNT(*)::int AS c FROM orders
+      WHERE tenant_id = ${tenantId} AND source = ${DEMO_SOURCE}
+    `;
+    if (existing.c > 0) {
+      return res.status(409).json({ error: 'Demo data already exists. Delete it first.' });
+    }
+
+    // Create tracking record
+    const [run] = await adminSql`
+      INSERT INTO stress_test_runs (tenant_id, config)
+      VALUES (${tenantId}, ${JSON.stringify({ volume: 'medium', date_range_days: 30, source: 'sales_rep', sales_rep_id: req.salesRep.id })})
+      RETURNING id
+    `;
+
+    const summary = await generateDemoData(adminSql, {
+      tenantId,
+      batchId: run.id,
+      volume: 'medium',
+      dateRangeDays: 30,
+      includeDelivery: true,
+      includeLoyalty: true,
+      includeAi: true,
+      includeFinancials: true,
+    });
+
+    await adminSql`
+      UPDATE stress_test_runs SET summary = ${JSON.stringify(summary)} WHERE id = ${run.id}
+    `;
+
+    res.json({ run_id: run.id, summary });
+  } catch (error) {
+    console.error('[sales] POST /demo/generate error:', error);
+    res.status(500).json({ error: error.message || 'Failed to generate demo data' });
+  }
+});
+
+// GET /api/sales/demo/status/:prospectId — check demo data status
+router.get('/demo/status/:prospectId', async (req, res) => {
+  try {
+    const result = await getOwnedProspect(req.salesRep.id, req.params.prospectId);
+    if (result.error) return res.status(result.status).json({ error: result.error });
+
+    const { prospect } = result;
+    if (!prospect.converted_tenant_id) {
+      return res.json({ hasTenant: false, tenant_id: null, tenant_name: null, hasDemo: false, counts: null });
+    }
+
+    const tenantId = prospect.converted_tenant_id;
+    const tenant = await getTenant(tenantId);
+
+    const [[orderCount], [customerCount], [deliveryCount], [snapshotCount], [financialCount]] = await Promise.all([
+      adminSql`SELECT COUNT(*)::int AS c FROM orders WHERE tenant_id = ${tenantId} AND source = ${DEMO_SOURCE}`,
+      adminSql`SELECT COUNT(*)::int AS c FROM loyalty_customers WHERE tenant_id = ${tenantId} AND demo_batch_id IS NOT NULL`,
+      adminSql`SELECT COUNT(*)::int AS c FROM delivery_orders WHERE tenant_id = ${tenantId} AND order_id IN (SELECT id FROM orders WHERE tenant_id = ${tenantId} AND source = ${DEMO_SOURCE})`,
+      adminSql`SELECT COUNT(*)::int AS c FROM ai_hourly_snapshots WHERE tenant_id = ${tenantId} AND demo_batch_id IS NOT NULL`,
+      adminSql`SELECT COUNT(*)::int AS c FROM financial_actuals WHERE tenant_id = ${tenantId} AND demo_batch_id IS NOT NULL`,
+    ]);
+
+    res.json({
+      hasTenant: true,
+      tenant_id: tenantId,
+      tenant_name: tenant?.name || tenantId,
+      hasDemo: orderCount.c > 0 || customerCount.c > 0,
+      counts: {
+        orders: orderCount.c,
+        customers: customerCount.c,
+        delivery_orders: deliveryCount.c,
+        ai_snapshots: snapshotCount.c,
+        financial_actuals: financialCount.c,
+      },
+    });
+  } catch (error) {
+    console.error('[sales] GET /demo/status error:', error);
+    res.status(500).json({ error: 'Failed to fetch demo status' });
+  }
+});
+
+// DELETE /api/sales/demo/:prospectId — delete demo data for a prospect's tenant
+router.delete('/demo/:prospectId', async (req, res) => {
+  try {
+    const result = await getOwnedProspect(req.salesRep.id, req.params.prospectId, { requireTenant: true });
+    if (result.error) return res.status(result.status).json({ error: result.error });
+
+    const tenantId = result.prospect.converted_tenant_id;
+    const deleted = {};
+
+    await adminSql.begin(async (sql) => {
+      const r1 = await sql.unsafe(`
+        DELETE FROM order_item_modifiers WHERE tenant_id = $1
+          AND order_item_id IN (
+            SELECT oi.id FROM order_items oi
+            JOIN orders o ON o.id = oi.order_id
+            WHERE o.tenant_id = $1 AND o.source = $2
+          )
+      `, [tenantId, DEMO_SOURCE]);
+      deleted.order_item_modifiers = r1.count;
+
+      const r2 = await sql.unsafe(
+        `DELETE FROM stamp_events WHERE tenant_id = $1 AND demo_batch_id IS NOT NULL`, [tenantId]
+      );
+      deleted.stamp_events = r2.count;
+
+      const r3 = await sql.unsafe(
+        `DELETE FROM referral_events WHERE tenant_id = $1 AND demo_batch_id IS NOT NULL`, [tenantId]
+      );
+      deleted.referral_events = r3.count;
+
+      const r4 = await sql.unsafe(`
+        DELETE FROM order_items WHERE tenant_id = $1
+          AND order_id IN (SELECT id FROM orders WHERE tenant_id = $1 AND source = $2)
+      `, [tenantId, DEMO_SOURCE]);
+      deleted.order_items = r4.count;
+
+      const r5 = await sql.unsafe(`
+        DELETE FROM order_payments WHERE tenant_id = $1
+          AND order_id IN (SELECT id FROM orders WHERE tenant_id = $1 AND source = $2)
+      `, [tenantId, DEMO_SOURCE]);
+      deleted.order_payments = r5.count;
+
+      const r6 = await sql.unsafe(`
+        DELETE FROM delivery_orders WHERE tenant_id = $1
+          AND order_id IN (SELECT id FROM orders WHERE tenant_id = $1 AND source = $2)
+      `, [tenantId, DEMO_SOURCE]);
+      deleted.delivery_orders = r6.count;
+
+      const r7 = await sql.unsafe(
+        `DELETE FROM stamp_cards WHERE tenant_id = $1 AND demo_batch_id IS NOT NULL`, [tenantId]
+      );
+      deleted.stamp_cards = r7.count;
+
+      const r8 = await sql.unsafe(
+        `DELETE FROM ai_suggestion_cache WHERE tenant_id = $1 AND demo_batch_id IS NOT NULL`, [tenantId]
+      );
+      deleted.ai_suggestion_cache = r8.count;
+
+      const r9 = await sql.unsafe(
+        `DELETE FROM ai_item_pairs WHERE tenant_id = $1 AND demo_batch_id IS NOT NULL`, [tenantId]
+      );
+      deleted.ai_item_pairs = r9.count;
+
+      const r10 = await sql.unsafe(
+        `DELETE FROM ai_inventory_velocity WHERE tenant_id = $1 AND demo_batch_id IS NOT NULL`, [tenantId]
+      );
+      deleted.ai_inventory_velocity = r10.count;
+
+      const r11 = await sql.unsafe(
+        `DELETE FROM ai_hourly_snapshots WHERE tenant_id = $1 AND demo_batch_id IS NOT NULL`, [tenantId]
+      );
+      deleted.ai_hourly_snapshots = r11.count;
+
+      const r12 = await sql.unsafe(
+        `DELETE FROM financial_actuals WHERE tenant_id = $1 AND demo_batch_id IS NOT NULL`, [tenantId]
+      );
+      deleted.financial_actuals = r12.count;
+
+      const r13 = await sql.unsafe(
+        `DELETE FROM loyalty_customers WHERE tenant_id = $1 AND demo_batch_id IS NOT NULL`, [tenantId]
+      );
+      deleted.loyalty_customers = r13.count;
+
+      const r14 = await sql.unsafe(
+        `DELETE FROM orders WHERE tenant_id = $1 AND source = $2`, [tenantId, DEMO_SOURCE]
+      );
+      deleted.orders = r14.count;
+
+      const r15 = await sql.unsafe(
+        `DELETE FROM stress_test_runs WHERE tenant_id = $1`, [tenantId]
+      );
+      deleted.stress_test_runs = r15.count;
+    });
+
+    res.json({ deleted });
+  } catch (error) {
+    console.error('[sales] DELETE /demo error:', error);
+    res.status(500).json({ error: 'Failed to delete demo data' });
   }
 });
 

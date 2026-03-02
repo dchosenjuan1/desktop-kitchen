@@ -238,3 +238,67 @@ export async function verifySecret(): Promise<boolean> {
     return false;
   }
 }
+
+// ==================== Demo Data / Stress Test ====================
+
+export interface DemoDataConfig {
+  tenant_id: string;
+  volume?: 'low' | 'medium' | 'high';
+  date_range_days?: number;
+  include_delivery?: boolean;
+  include_loyalty?: boolean;
+  include_ai?: boolean;
+  include_financials?: boolean;
+}
+
+export interface DemoDataSummary {
+  orders: number;
+  order_items: number;
+  order_item_modifiers: number;
+  order_payments: number;
+  delivery_orders: number;
+  loyalty_customers: number;
+  stamp_cards: number;
+  stamp_events: number;
+  referral_events: number;
+  ai_hourly_snapshots: number;
+  ai_item_pairs: number;
+  ai_inventory_velocity: number;
+  financial_actuals: number;
+}
+
+export interface DemoRun {
+  id: string;
+  config: Record<string, any>;
+  summary: DemoDataSummary | null;
+  created_at: string;
+}
+
+export interface DemoStatus {
+  hasDemo: boolean;
+  runs: DemoRun[];
+  counts: {
+    orders: number;
+    customers: number;
+    delivery_orders: number;
+    ai_snapshots: number;
+    financial_actuals: number;
+  };
+}
+
+export function generateDemoData(config: DemoDataConfig) {
+  return adminRequest<{ run_id: string; summary: DemoDataSummary }>('/stress-test/generate', {
+    method: 'POST',
+    body: JSON.stringify(config),
+  });
+}
+
+export function getDemoStatus(tenantId: string) {
+  return adminRequest<DemoStatus>(`/stress-test/status/${tenantId}`);
+}
+
+export function deleteDemoData(tenantId: string) {
+  return adminRequest<{ deleted: Record<string, number> }>(`/stress-test/${tenantId}`, {
+    method: 'DELETE',
+  });
+}

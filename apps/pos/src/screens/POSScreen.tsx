@@ -40,6 +40,7 @@ import CryptoPaymentModal from '../components/CryptoPaymentModal';
 import CustomerLookupModal from '../components/CustomerLookupModal';
 import BrandLogo from '../components/BrandLogo';
 import { usePlan } from '../context/PlanContext';
+import TrialBanner from '../components/TrialBanner';
 import { useNetworkStatus } from '../hooks/useNetworkStatus';
 import { useDeviceType } from '../hooks/useDeviceType';
 import { createOfflineOrder, toReceiptOrder } from '../lib/offlineOrderQueue';
@@ -734,6 +735,8 @@ const POSScreen: React.FC = () => {
           onCloseNavMenu={() => setShowNavMenu(false)}
           onLogout={handleLogout}
         />
+
+        <TrialBanner />
 
         {currentEmployee && ['admin', 'manager'].includes(currentEmployee.role) && (
           <SetupChecklistBanner />

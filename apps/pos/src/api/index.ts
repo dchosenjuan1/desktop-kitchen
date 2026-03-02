@@ -210,13 +210,23 @@ async function apiRequest<T>(
 
   if (!response.ok) {
     let errorMessage = `API Error: ${response.status} ${response.statusText}`;
+    let trialExpired = false;
     try {
       const errorData = await response.json();
       errorMessage = errorData.error || errorData.message || errorMessage;
+      if (response.status === 402 && errorData.trial_expired) {
+        trialExpired = true;
+      }
     } catch {
       // Use default error message if response is not JSON
     }
-    throw new Error(errorMessage);
+    const err = new Error(errorMessage) as Error & { trialExpired?: boolean };
+    if (trialExpired) {
+      err.trialExpired = true;
+      // Dispatch a custom event so the UI can react (e.g., show upgrade prompt)
+      window.dispatchEvent(new CustomEvent('trial-expired'));
+    }
+    throw err;
   }
 
   const data = await response.json();

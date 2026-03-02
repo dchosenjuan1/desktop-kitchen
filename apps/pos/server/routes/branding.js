@@ -76,6 +76,7 @@ router.get('/', (req, res) => {
     ownerEmail: tenant.owner_email || null,
     mpUserId: tenant.mp_user_id || null,
     mpDefaultTerminalId: tenant.mp_default_terminal_id || null,
+    trialEndsAt: tenant.trial_ends_at || null,
   });
 });
 

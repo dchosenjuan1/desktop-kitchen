@@ -109,3 +109,16 @@ export const getVelocity = (months?: number) => {
   const qs = q.toString()
   return request<import('./types').VelocityData>(`/api/sales/manager/velocity${qs ? `?${qs}` : ''}`)
 }
+
+// Demo data
+export const generateDemo = (prospectId: string) =>
+  request<{ run_id: string; summary: Record<string, number> }>('/api/sales/demo/generate', {
+    method: 'POST',
+    body: JSON.stringify({ prospect_id: prospectId }),
+  })
+
+export const getDemoStatus = (prospectId: string) =>
+  request<import('./types').DemoStatusResponse>(`/api/sales/demo/status/${prospectId}`)
+
+export const deleteDemo = (prospectId: string) =>
+  request<{ deleted: Record<string, number> }>(`/api/sales/demo/${prospectId}`, { method: 'DELETE' })

@@ -132,6 +132,20 @@ export interface VelocityData {
   cohort_data: CohortRow[]
 }
 
+export interface DemoStatusResponse {
+  hasTenant: boolean
+  tenant_id: string | null
+  tenant_name: string | null
+  hasDemo: boolean
+  counts: {
+    orders: number
+    customers: number
+    delivery_orders: number
+    ai_snapshots: number
+    financial_actuals: number
+  } | null
+}
+
 export interface LoginResponse {
   token: string
   rep: SalesRep
