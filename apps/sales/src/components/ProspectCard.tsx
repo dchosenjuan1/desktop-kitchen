@@ -15,10 +15,11 @@ const statusOptions: { value: ProspectStatus; label: string }[] = [
 interface Props {
   prospect: Prospect
   onStatusChange: (id: string, status: ProspectStatus) => void
+  onProspectUpdated?: (updated: Prospect) => void
   showRep?: boolean
 }
 
-export default function ProspectCard({ prospect, onStatusChange, showRep }: Props) {
+export default function ProspectCard({ prospect, onStatusChange, onProspectUpdated, showRep }: Props) {
   const timeAgo = formatTimeAgo(prospect.updated_at)
 
   return (
@@ -57,7 +58,7 @@ export default function ProspectCard({ prospect, onStatusChange, showRep }: Prop
         ))}
       </select>
 
-      <DemoDataButton prospect={prospect} />
+      <DemoDataButton prospect={prospect} onProspectUpdated={onProspectUpdated} />
     </div>
   )
 }

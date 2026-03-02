@@ -266,6 +266,21 @@ router.get('/commissions', async (req, res) => {
   }
 });
 
+// GET /api/sales/tenants — list tenants for linking to prospects
+router.get('/tenants', async (req, res) => {
+  try {
+    const tenants = await adminSql`
+      SELECT id, name, subdomain, plan FROM tenants
+      WHERE status = 'active'
+      ORDER BY name
+    `;
+    res.json(tenants);
+  } catch (error) {
+    console.error('[sales] GET /tenants error:', error);
+    res.status(500).json({ error: 'Failed to fetch tenants' });
+  }
+});
+
 // ==================== Demo Data Endpoints ====================
 
 const DEMO_SOURCE = 'demo_generator';

@@ -132,6 +132,13 @@ export interface VelocityData {
   cohort_data: CohortRow[]
 }
 
+export interface TenantSummary {
+  id: string
+  name: string
+  subdomain: string
+  plan: string
+}
+
 export interface DemoStatusResponse {
   hasTenant: boolean
   tenant_id: string | null

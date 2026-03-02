@@ -110,6 +110,10 @@ export const getVelocity = (months?: number) => {
   return request<import('./types').VelocityData>(`/api/sales/manager/velocity${qs ? `?${qs}` : ''}`)
 }
 
+// Tenants
+export const getTenants = () =>
+  request<import('./types').TenantSummary[]>('/api/sales/tenants')
+
 // Demo data
 export const generateDemo = (prospectId: string) =>
   request<{ run_id: string; summary: Record<string, number> }>('/api/sales/demo/generate', {
