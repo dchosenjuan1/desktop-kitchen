@@ -1,0 +1,146 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
+        xmlns:xhtml="http://www.w3.org/1999/xhtml">
+
+  <!-- Homepage — English -->
+  <url>
+    <loc>https://www.desktop.kitchen</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://www.desktop.kitchen" />
+    <xhtml:link rel="alternate" hreflang="es" href="https://es.desktop.kitchen" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://www.desktop.kitchen" />
+    <changefreq>weekly</changefreq>
+    <priority>1.0</priority>
+  </url>
+
+  <!-- Homepage — Spanish (Mexico target) -->
+  <url>
+    <loc>https://es.desktop.kitchen</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://www.desktop.kitchen" />
+    <xhtml:link rel="alternate" hreflang="es" href="https://es.desktop.kitchen" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://www.desktop.kitchen" />
+    <changefreq>weekly</changefreq>
+    <priority>1.0</priority>
+  </url>
+
+  <!-- Blog index — English -->
+  <url>
+    <loc>https://www.desktop.kitchen/blog</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://www.desktop.kitchen/blog" />
+    <xhtml:link rel="alternate" hreflang="es" href="https://es.desktop.kitchen/blog" />
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+
+  <!-- Blog index — Spanish -->
+  <url>
+    <loc>https://es.desktop.kitchen/blog</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://www.desktop.kitchen/blog" />
+    <xhtml:link rel="alternate" hreflang="es" href="https://es.desktop.kitchen/blog" />
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+
+  <!-- Blog posts — Spanish (high-value SEO content) -->
+  <url>
+    <loc>https://es.desktop.kitchen/blog/que-es-ghost-kitchen</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://es.desktop.kitchen/blog/guia-completa-desktop-kitchen</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://es.desktop.kitchen/blog/comisiones-rappi-uber-didi</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://es.desktop.kitchen/blog/pos-tradicional-vs-moderno</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://es.desktop.kitchen/blog/marcas-virtuales-delivery</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://es.desktop.kitchen/blog/ia-en-la-cocina</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://es.desktop.kitchen/blog/reducir-merma-restaurante</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://es.desktop.kitchen/blog/fidelizar-clientes-delivery</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://es.desktop.kitchen/blog/pantalla-cocina-eficiente</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://es.desktop.kitchen/blog/automatizar-inventario-ia</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.6</priority>
+  </url>
+
+  <!-- Blog posts — English -->
+  <url>
+    <loc>https://www.desktop.kitchen/blog/que-es-ghost-kitchen</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://www.desktop.kitchen/blog/guia-completa-desktop-kitchen</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://www.desktop.kitchen/blog/comisiones-rappi-uber-didi</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://www.desktop.kitchen/blog/pos-tradicional-vs-moderno</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://www.desktop.kitchen/blog/marcas-virtuales-delivery</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://www.desktop.kitchen/blog/ia-en-la-cocina</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
+  </url>
+  <url>
+    <loc>https://www.desktop.kitchen/blog/reducir-merma-restaurante</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
+  </url>
+  <url>
+    <loc>https://www.desktop.kitchen/blog/fidelizar-clientes-delivery</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
+  </url>
+  <url>
+    <loc>https://www.desktop.kitchen/blog/pantalla-cocina-eficiente</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
+  </url>
+  <url>
+    <loc>https://www.desktop.kitchen/blog/automatizar-inventario-ia</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
+  </url>
+</urlset>

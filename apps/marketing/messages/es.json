@@ -1,46 +1,46 @@
 {
-  "title": "Desktop Kitchen — POS para Restaurantes QSR y Fast-Casual",
-  "description": "Desktop Kitchen es un sistema de punto de venta moderno para restaurantes de servicio rápido y fast-casual. POS, pantalla de cocina, inteligencia de delivery, inventario, lealtad e IA — todo en una plataforma.",
-  "ogDescription": "POS moderno para restaurantes QSR y fast-casual. POS, pantalla de cocina, delivery, inventario, lealtad e inteligencia IA.",
-  "ogTitle": "Desktop Kitchen — Tu Cocina. Tus Reglas.",
-  "twitterDescription": "POS moderno para restaurantes QSR y fast-casual. Empieza tu prueba gratis hoy.",
+  "title": "Sistema Punto de Venta para Restaurantes en México | Desktop Kitchen",
+  "description": "Desktop Kitchen es el software punto de venta (POS) para restaurantes, ghost kitchens y cocinas fantasma en México. Gestiona pedidos, delivery (Rappi, Uber Eats, DiDi), inventario, lealtad e IA desde una sola plataforma. Prueba gratis 14 días.",
+  "ogDescription": "El mejor sistema punto de venta para restaurantes y ghost kitchens en México. POS, pantalla de cocina, delivery, inventario, lealtad e IA — todo en uno.",
+  "ogTitle": "Desktop Kitchen — Software Punto de Venta para Restaurantes y Ghost Kitchens en México",
+  "twitterDescription": "Sistema punto de venta moderno para restaurantes y cocinas fantasma en México. Integración con Rappi, Uber Eats y DiDi. Prueba gratis.",
   "langSwitch": "English",
   "langSwitchDomain": "www.desktop.kitchen",
 
   "heroHeadline1": "TU COCINA.",
   "heroHeadline2": "TUS REGLAS.",
-  "heroSub": "La plataforma POS todo-en-uno para restaurantes de servicio rápido y fast-casual.",
-  "heroCta": "Prueba Gratis",
-  "heroCtaSecondary": "Ver en acción",
+  "heroSub": "El sistema punto de venta todo-en-uno para restaurantes, ghost kitchens y cocinas fantasma en México. Gestiona pedidos, delivery e inventario desde una sola plataforma.",
+  "heroCta": "Prueba Gratis 14 Días",
+  "heroCtaSecondary": "Ver funciones",
 
-  "featuresLabel": "Funciones",
-  "featuresHeadline": "TODO LO QUE TU COCINA NECESITA.",
-  "featuresSub": "Seis módulos poderosos. Una plataforma. Cero fricción.",
+  "featuresLabel": "Funciones del Sistema Punto de Venta",
+  "featuresHeadline": "TODO LO QUE TU RESTAURANTE NECESITA.",
+  "featuresSub": "Seis módulos de software POS para restaurantes. Una plataforma. Cero fricción.",
 
-  "feature1Title": "Punto de Venta",
-  "feature1Desc": "Toma de pedidos rápida e intuitiva con modificadores, combos, pagos divididos e integración con Stripe. Hecho para velocidad en mostrador.",
-  "feature2Title": "Pantalla de Cocina",
-  "feature2Desc": "Flujo de pedidos en tiempo real del mostrador a la cocina. Rastrea tiempos de preparación, gestiona estaciones y nunca pierdas un ticket.",
+  "feature1Title": "Punto de Venta (POS)",
+  "feature1Desc": "Toma de pedidos rápida e intuitiva con modificadores, combos, pagos divididos e integración con Stripe. Sistema punto de venta hecho para velocidad en mostrador y servicio rápido.",
+  "feature2Title": "Pantalla de Cocina (KDS)",
+  "feature2Desc": "Flujo de pedidos en tiempo real del mostrador a la cocina. Rastrea tiempos de preparación, gestiona estaciones y nunca pierdas un ticket. Kitchen Display System integrado.",
   "feature3Title": "Inteligencia de Delivery",
-  "feature3Desc": "Gestiona Uber Eats, Rappi y DiDi desde una pantalla. Reglas de markup por plataforma, marcas virtuales y analítica P&L.",
+  "feature3Desc": "Gestiona Uber Eats, Rappi y DiDi Food desde una pantalla. Reglas de markup por plataforma, marcas virtuales y analítica P&L de delivery para tu ghost kitchen.",
   "feature4Title": "Gestión de Inventario",
-  "feature4Desc": "Rastrea niveles de stock, configura alertas de bajo inventario, gestiona proveedores y órdenes de compra. Sabe exactamente qué tienes.",
+  "feature4Desc": "Rastrea niveles de stock, configura alertas de bajo inventario, gestiona proveedores y órdenes de compra. Control de inventario en tiempo real para tu restaurante.",
   "feature5Title": "Lealtad y CRM",
-  "feature5Desc": "Tarjetas de sellos, campañas SMS y perfiles de clientes. Convierte visitantes en clientes frecuentes automáticamente.",
-  "feature6Title": "Inteligencia IA",
-  "feature6Desc": "Sugerencias de upsell, precios dinámicos, recomendaciones de combos y detección de merma — impulsado por datos en tiempo real.",
+  "feature5Desc": "Tarjetas de sellos, campañas SMS y perfiles de clientes. Programa de lealtad que convierte visitantes en clientes frecuentes automáticamente.",
+  "feature6Title": "Inteligencia Artificial",
+  "feature6Desc": "Sugerencias de upsell con IA, precios dinámicos, recomendaciones de combos y detección de merma — impulsado por datos de tu restaurante en tiempo real.",
 
   "howLabel": "Cómo Funciona",
-  "howHeadline": "LISTO EN MINUTOS.",
-  "howSub": "Tres pasos. Sin hardware. Sin contratos.",
-  "howStep1Title": "Regístrate",
-  "howStep1Desc": "Crea tu cuenta y obtén acceso inmediato. Sin tarjeta de crédito para tu prueba de 14 días.",
-  "howStep2Title": "Personaliza",
-  "howStep2Desc": "Agrega tu menú, sube tu logo, elige tus colores. Tu POS se ve como tu restaurante.",
+  "howHeadline": "TU POS LISTO EN MINUTOS.",
+  "howSub": "Tres pasos para tener tu sistema punto de venta funcionando. Sin hardware especial. Sin contratos.",
+  "howStep1Title": "Regístrate Gratis",
+  "howStep1Desc": "Crea tu cuenta y obtén acceso inmediato al sistema punto de venta. Sin tarjeta de crédito para tu prueba de 14 días.",
+  "howStep2Title": "Personaliza Tu POS",
+  "howStep2Desc": "Agrega tu menú, sube tu logo, elige tus colores de marca. Tu sistema punto de venta se ve como tu restaurante.",
   "howStep3Title": "Empieza a Vender",
-  "howStep3Desc": "Toma pedidos, rastrea inventario y crece tu negocio desde el día uno. Funciona en cualquier dispositivo con navegador.",
+  "howStep3Desc": "Toma pedidos, rastrea inventario y crece tu negocio desde el día uno. Funciona en cualquier dispositivo con navegador — tablet, laptop o celular.",
 
-  "pricingLabel": "Precios",
+  "pricingLabel": "Precios del Software POS",
   "pricingHeadline": "PRECIOS SIMPLES Y TRANSPARENTES.",
   "pricingSub": "Sin cuotas ocultas. Sin cobros por transacción. Cancela cuando quieras.",
 
@@ -127,9 +127,9 @@
   "pricingFooter1": "Todos los planes se cobran mensualmente. Sin contratos. Cancela cuando quieras.",
   "pricingFooter2": "Precios en MXN son aproximados según el tipo de cambio actual. Pagos procesados en USD vía Stripe.",
 
-  "comparisonLabel": "Por Qué Operadores Cambian",
-  "comparisonHeadline": "LA MAYORÍA DE LOS POS NO FUERON HECHOS PARA ESTO.",
-  "comparisonSub": "El software POS tradicional fue diseñado para restaurantes con meseros y números de mesa. Si más del 50% de tus ingresos viene de plataformas de delivery, has estado usando la herramienta equivocada.",
+  "comparisonLabel": "POS Tradicional vs Desktop Kitchen",
+  "comparisonHeadline": "LA MAYORÍA DE LOS POS NO FUERON HECHOS PARA DELIVERY.",
+  "comparisonSub": "El software punto de venta tradicional fue diseñado para restaurantes con meseros y números de mesa. Si más del 50% de tus ingresos viene de Rappi, Uber Eats o DiDi, necesitas un sistema POS hecho para delivery y ghost kitchens.",
   "comparisonTraditional": "POS Tradicional",
   "comparisonDesktopKitchen": "Desktop Kitchen",
   "comparisonBadge": "Hecho para delivery",
@@ -145,7 +145,7 @@
   "comparisonDesktop": [
     "Rastrea ganancia real después de comisiones de Rappi, Uber Eats y DiDi",
     "Marcas virtuales ilimitadas desde una sola cocina",
-    "Hecho para operadores delivery-first",
+    "Hecho para operadores delivery-first y ghost kitchens",
     "Importación automática de pedidos y reconciliación de ingresos",
     "P&L de ghost kitchen por marca, por plataforma, por hora",
     "Herramientas de recaptura de clientes para ser dueño de tu audiencia",
@@ -154,20 +154,50 @@
   "comparisonQuote": "Estaba pagando por un POS que no tenía idea de que yo existía en cuatro plataformas de delivery. Mi contador me odiaba. Ahora todo se reconcilia automáticamente y por fin sé qué marca realmente está ganando dinero.",
   "comparisonQuoteAuthor": "Operador de ghost kitchen, Ciudad de México",
   "comparisonCtaText": "¿Listo para ver tus números reales?",
-  "comparisonCtaButton": "Acceso Anticipado",
+  "comparisonCtaButton": "Prueba Gratis",
 
-  "ctaHeadline": "¿LISTO PARA MANEJAR TU COCINA A TU MANERA?",
-  "ctaSub": "Únete a los restaurantes que ya usan Desktop Kitchen para optimizar operaciones y crecer ingresos.",
+  "ctaHeadline": "¿LISTO PARA MANEJAR TU COCINA CON EL MEJOR POS?",
+  "ctaSub": "Únete a los restaurantes en México que ya usan Desktop Kitchen para optimizar operaciones, controlar delivery y crecer ingresos.",
   "ctaButton": "Empieza Tu Prueba Gratis",
 
+  "faqLabel": "Preguntas Frecuentes",
+  "faqHeadline": "RESOLVEMOS TUS DUDAS.",
+  "faqItems": [
+    {
+      "q": "¿Qué es un sistema punto de venta (POS) para restaurantes?",
+      "a": "Un sistema punto de venta (POS) para restaurantes es un software que permite gestionar pedidos, cobros, inventario y reportes de ventas desde una sola plataforma. Desktop Kitchen es un POS moderno diseñado específicamente para restaurantes de servicio rápido, ghost kitchens y cocinas fantasma en México."
+    },
+    {
+      "q": "¿Desktop Kitchen funciona con Rappi, Uber Eats y DiDi Food?",
+      "a": "Sí. Desktop Kitchen integra pedidos de Rappi, Uber Eats y DiDi Food en una sola pantalla. Puedes ver comisiones por plataforma, configurar reglas de markup y obtener reportes P&L de delivery en tiempo real."
+    },
+    {
+      "q": "¿Necesito hardware especial para usar el sistema POS?",
+      "a": "No. Desktop Kitchen funciona en cualquier dispositivo con navegador — tablet, laptop, PC o celular. No necesitas comprar hardware especial ni terminales punto de venta dedicadas."
+    },
+    {
+      "q": "¿Cuánto cuesta el software punto de venta Desktop Kitchen?",
+      "a": "Desktop Kitchen ofrece un plan gratuito para siempre con hasta 50 transacciones diarias. Los planes de pago empiezan desde $29 USD/mes (aproximadamente $565 MXN) con transacciones ilimitadas, integración con plataformas de delivery y gestión de inventario."
+    },
+    {
+      "q": "¿Qué es una ghost kitchen o cocina fantasma?",
+      "a": "Una ghost kitchen (cocina fantasma o dark kitchen) es un restaurante que opera exclusivamente para delivery, sin comedor físico. Desktop Kitchen es el POS ideal para ghost kitchens porque permite gestionar múltiples marcas virtuales, rastrear comisiones por plataforma y analizar la rentabilidad por marca."
+    },
+    {
+      "q": "¿Desktop Kitchen incluye facturación electrónica (CFDI)?",
+      "a": "Desktop Kitchen está preparado para integrarse con servicios de facturación electrónica CFDI para cumplir con los requisitos del SAT en México. Contacta a nuestro equipo para más detalles sobre la integración fiscal."
+    }
+  ],
+
   "footerBrand": "Desktop Kitchen",
+  "footerTagline": "Software punto de venta para restaurantes y ghost kitchens en México",
   "footerDocs": "Documentación",
   "footerDemo": "Demo en Vivo",
   "footerBlog": "Blog",
   "footerRights": "Todos los derechos reservados.",
 
-  "blogTitle": "Blog — Desktop Kitchen",
-  "blogDescription": "Consejos, guías y estrategias para operadores de ghost kitchens, restaurantes y negocios de delivery.",
+  "blogTitle": "Blog — Desktop Kitchen | Punto de Venta para Restaurantes",
+  "blogDescription": "Consejos, guías y estrategias sobre sistemas punto de venta, ghost kitchens, delivery y gestión de restaurantes en México.",
   "blogHeadline": "BLOG",
   "blogSub": "Consejos, guías y estrategias para tu cocina.",
   "blogFeatured": "Destacado",

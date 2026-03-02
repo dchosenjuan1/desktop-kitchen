@@ -196,7 +196,7 @@ function PricingCard({
         ))}
         {missing.map((f) => (
           <li key={f} className="flex items-start gap-2 text-sm">
-            <span className="text-white/10 mt-0.5 shrink-0">✗</span>
+            <span className="text-white/10 mt-0.5 shrink-0">&#10007;</span>
             <span className="text-white/20">{f}</span>
           </li>
         ))}
@@ -218,14 +218,14 @@ function PricingSection({ t }: { t: typeof en }) {
   const [currency, setCurrency] = useState("USD");
 
   return (
-    <section id="pricing" className="py-24 md:py-40 px-6 bg-neutral-950">
+    <section id="precios" className="py-24 md:py-40 px-6 bg-neutral-950" aria-labelledby="pricing-heading">
       <div className="max-w-7xl mx-auto">
         <FadeIn>
           <div className="text-center">
             <p className="text-xs uppercase tracking-[0.3em] text-teal-500/60 font-mono mb-6">
               {t.pricingLabel}
             </p>
-            <h2 className="text-4xl sm:text-5xl md:text-6xl font-black tracking-tighter text-white leading-[0.85]">
+            <h2 id="pricing-heading" className="text-4xl sm:text-5xl md:text-6xl font-black tracking-tighter text-white leading-[0.85]">
               {t.pricingHeadline}
             </h2>
             <p className="mt-6 text-lg text-white/40 max-w-xl mx-auto">
@@ -286,11 +286,206 @@ function PricingSection({ t }: { t: typeof en }) {
   );
 }
 
+/* ── FAQ Section ── */
+
+function FAQSection({ t, locale }: { t: any; locale: string }) {
+  const faqItems = t.faqItems;
+  if (!faqItems || !Array.isArray(faqItems)) return null;
+
+  const [openIndex, setOpenIndex] = useState<number | null>(null);
+
+  return (
+    <section id="preguntas-frecuentes" className="py-24 md:py-40 px-6 bg-neutral-900" aria-labelledby="faq-heading">
+      <div className="max-w-3xl mx-auto">
+        <FadeIn>
+          <div className="text-center mb-16">
+            <p className="text-xs uppercase tracking-[0.3em] text-teal-500/60 font-mono mb-6">
+              {t.faqLabel}
+            </p>
+            <h2 id="faq-heading" className="text-4xl sm:text-5xl md:text-6xl font-black tracking-tighter text-white leading-[0.85]">
+              {t.faqHeadline}
+            </h2>
+          </div>
+        </FadeIn>
+
+        <div className="space-y-4">
+          {faqItems.map((item: { q: string; a: string }, i: number) => (
+            <FadeIn key={i} delay={i * 0.05}>
+              <div className="border border-white/10 rounded-xl overflow-hidden">
+                <button
+                  onClick={() => setOpenIndex(openIndex === i ? null : i)}
+                  className="w-full text-left px-6 py-5 flex items-center justify-between gap-4 hover:bg-white/[0.03] transition-colors"
+                  aria-expanded={openIndex === i}
+                >
+                  <h3 className="text-white font-semibold text-base sm:text-lg pr-4">{item.q}</h3>
+                  <svg
+                    className={`w-5 h-5 text-teal-500 shrink-0 transition-transform duration-300 ${openIndex === i ? "rotate-180" : ""}`}
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                    strokeWidth={2}
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+                {openIndex === i && (
+                  <div className="px-6 pb-5">
+                    <p className="text-white/50 text-sm sm:text-base leading-relaxed">{item.a}</p>
+                  </div>
+                )}
+              </div>
+            </FadeIn>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/* ── Structured Data (JSON-LD) ── */
+
+function StructuredData({ locale, t }: { locale: string; t: typeof en }) {
+  const isSpanish = locale === "es";
+  const domain = isSpanish ? "es.desktop.kitchen" : "www.desktop.kitchen";
+  const url = `https://${domain}`;
+
+  const organizationSchema = {
+    "@context": "https://schema.org",
+    "@type": "Organization",
+    name: "Desktop Kitchen",
+    url: "https://www.desktop.kitchen",
+    logo: `${url}/logo.svg`,
+    description: isSpanish
+      ? "Software punto de venta para restaurantes y ghost kitchens en México"
+      : "POS software for restaurants and ghost kitchens",
+    sameAs: [],
+    contactPoint: {
+      "@type": "ContactPoint",
+      contactType: "sales",
+      availableLanguage: ["Spanish", "English"],
+    },
+  };
+
+  const softwareSchema = {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    name: "Desktop Kitchen POS",
+    applicationCategory: "BusinessApplication",
+    operatingSystem: "Web Browser",
+    url: url,
+    description: t.description,
+    offers: [
+      {
+        "@type": "Offer",
+        price: "0",
+        priceCurrency: "USD",
+        name: isSpanish ? "Plan Gratis" : "Free Plan",
+        description: isSpanish ? "50 transacciones/día, 1 marca virtual" : "50 transactions/day, 1 virtual brand",
+      },
+      {
+        "@type": "Offer",
+        price: "29",
+        priceCurrency: "USD",
+        name: "Starter",
+        priceValidUntil: "2026-12-31",
+        description: isSpanish
+          ? "Transacciones ilimitadas, integración con Rappi, Uber Eats y DiDi"
+          : "Unlimited transactions, Rappi, Uber Eats & DiDi integration",
+      },
+      {
+        "@type": "Offer",
+        price: "79",
+        priceCurrency: "USD",
+        name: "Pro",
+        priceValidUntil: "2026-12-31",
+        description: isSpanish
+          ? "IA, marcas virtuales, P&L multi-marca por plataforma"
+          : "AI, virtual brands, multi-brand P&L by platform",
+      },
+    ],
+    featureList: isSpanish
+      ? "Punto de Venta, Pantalla de Cocina, Inteligencia de Delivery, Gestión de Inventario, Lealtad y CRM, Inteligencia Artificial"
+      : "Point of Sale, Kitchen Display, Delivery Intelligence, Inventory Management, Loyalty & CRM, AI Intelligence",
+    screenshot: `${url}/logo.svg`,
+    aggregateRating: undefined,
+  };
+
+  const webPageSchema = {
+    "@context": "https://schema.org",
+    "@type": "WebPage",
+    name: t.title,
+    description: t.description,
+    url: url,
+    inLanguage: isSpanish ? "es-MX" : "en",
+    isPartOf: {
+      "@type": "WebSite",
+      name: "Desktop Kitchen",
+      url: "https://www.desktop.kitchen",
+    },
+  };
+
+  // FAQ schema for Spanish (where we have FAQ items)
+  const tAny = t as any;
+  const faqSchema = tAny.faqItems
+    ? {
+        "@context": "https://schema.org",
+        "@type": "FAQPage",
+        mainEntity: tAny.faqItems.map((item: { q: string; a: string }) => ({
+          "@type": "Question",
+          name: item.q,
+          acceptedAnswer: {
+            "@type": "Answer",
+            text: item.a,
+          },
+        })),
+      }
+    : null;
+
+  const breadcrumbSchema = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: [
+      {
+        "@type": "ListItem",
+        position: 1,
+        name: "Desktop Kitchen",
+        item: "https://www.desktop.kitchen",
+      },
+      ...(isSpanish
+        ? [
+            {
+              "@type": "ListItem",
+              position: 2,
+              name: "Sistema Punto de Venta para Restaurantes en México",
+              item: "https://es.desktop.kitchen",
+            },
+          ]
+        : []),
+    ],
+  };
+
+  const schemas: Record<string, any>[] = [organizationSchema, softwareSchema, webPageSchema, breadcrumbSchema];
+  if (faqSchema) schemas.push(faqSchema);
+
+  return (
+    <>
+      {schemas.map((schema, i) => (
+        <script
+          key={i}
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(schema) }}
+        />
+      ))}
+    </>
+  );
+}
+
 /* ── Page ── */
 
 const Home: NextPage = () => {
   const { locale } = useRouter();
   const t = messages[locale || "en"];
+  const isSpanish = locale === "es";
   const otherLocale = locale === "es" ? "en" : "es";
 
   const heroRef = useRef(null);
@@ -311,24 +506,54 @@ const Home: NextPage = () => {
         <meta property="og:site_name" content="Desktop Kitchen" />
         <meta property="og:description" content={t.ogDescription} />
         <meta property="og:title" content={t.ogTitle} />
+        <meta property="og:type" content="website" />
+        <meta property="og:url" content={isSpanish ? "https://es.desktop.kitchen" : "https://www.desktop.kitchen"} />
+        <meta property="og:locale" content={isSpanish ? "es_MX" : "en_US"} />
+        <meta property="og:locale:alternate" content={isSpanish ? "en_US" : "es_MX"} />
         <meta name="twitter:card" content="summary_large_image" />
         <meta name="twitter:title" content={t.ogTitle} />
         <meta name="twitter:description" content={t.twitterDescription} />
+
+        {/* Additional SEO meta tags for Spanish page targeting Mexico */}
+        {isSpanish && (
+          <>
+            <meta name="keywords" content="sistema punto de venta, POS restaurante, software punto de venta México, ghost kitchen, cocina fantasma, punto de venta para restaurantes, POS delivery, Rappi Uber Eats DiDi, software restaurante México, sistema POS, punto de venta gratis" />
+          </>
+        )}
       </Head>
 
-      {/* Top accent bar */}
-      <div className="fixed top-0 left-0 right-0 h-1 bg-teal-600 z-50" />
+      {/* Structured Data */}
+      <StructuredData locale={locale || "en"} t={t} />
 
-      {/* Language switcher — links between subdomains */}
-      <a
-        href={`https://${t.langSwitchDomain}`}
-        className="fixed top-4 right-6 z-50 text-[11px] uppercase tracking-[0.2em] text-white/30 hover:text-white/60 transition-colors duration-200 font-mono"
-      >
-        {t.langSwitch}
-      </a>
+      {/* Top accent bar */}
+      <div className="fixed top-0 left-0 right-0 h-1 bg-teal-600 z-50" aria-hidden="true" />
+
+      {/* Navigation with language switcher */}
+      <nav className="fixed top-0 left-0 right-0 z-40 px-6 py-4 flex items-center justify-between" aria-label={isSpanish ? "Navegación principal" : "Main navigation"}>
+        <a href={isSpanish ? "https://es.desktop.kitchen" : "https://www.desktop.kitchen"} className="flex items-center gap-2" aria-label="Desktop Kitchen - Inicio">
+          <img src="/logo.svg" alt="Desktop Kitchen" className="w-8 h-8" width={32} height={32} />
+          <span className="text-white font-bold text-sm tracking-tight hidden sm:inline">Desktop Kitchen</span>
+        </a>
+        <div className="flex items-center gap-4">
+          {isSpanish && (
+            <div className="hidden sm:flex items-center gap-4 text-[11px] uppercase tracking-[0.15em] text-white/30">
+              <a href="#funciones" className="hover:text-white/60 transition-colors">Funciones</a>
+              <a href="#precios" className="hover:text-white/60 transition-colors">Precios</a>
+              <a href="/blog" className="hover:text-white/60 transition-colors">Blog</a>
+            </div>
+          )}
+          <a
+            href={`https://${(t as any).langSwitchDomain}`}
+            className="text-[11px] uppercase tracking-[0.2em] text-white/30 hover:text-white/60 transition-colors duration-200 font-mono"
+            hrefLang={otherLocale}
+          >
+            {t.langSwitch}
+          </a>
+        </div>
+      </nav>
 
       {/* Grain overlay */}
-      <div className="grain-overlay" />
+      <div className="grain-overlay" aria-hidden="true" />
 
       {/* ─── HERO ─── */}
       <header
@@ -348,8 +573,10 @@ const Home: NextPage = () => {
           >
             <img
               src="/logo.svg"
-              alt="Desktop Kitchen"
+              alt="Desktop Kitchen — Sistema Punto de Venta para Restaurantes"
               className="mx-auto w-16 h-16"
+              width={64}
+              height={64}
             />
           </motion.div>
 
@@ -389,7 +616,7 @@ const Home: NextPage = () => {
               {t.heroCta}
             </a>
             <a
-              href="#features"
+              href={isSpanish ? "#funciones" : "#features"}
               className="text-white/40 font-medium text-sm uppercase tracking-wider hover:text-white/60 transition-colors duration-200"
             >
               {t.heroCtaSecondary} &darr;
@@ -403,6 +630,7 @@ const Home: NextPage = () => {
           animate={{ opacity: 1 }}
           transition={{ delay: 2, duration: 1 }}
           className="absolute bottom-10 left-1/2 -translate-x-1/2"
+          aria-hidden="true"
         >
           <div className="w-px h-10 bg-gradient-to-b from-transparent via-white/20 to-transparent animate-pulse" />
         </motion.div>
@@ -410,13 +638,13 @@ const Home: NextPage = () => {
 
       <main>
         {/* ─── FEATURES ─── */}
-        <section id="features" className="py-24 md:py-40 px-6 bg-neutral-950">
+        <section id={isSpanish ? "funciones" : "features"} className="py-24 md:py-40 px-6 bg-neutral-950" aria-labelledby="features-heading">
           <div className="max-w-5xl mx-auto">
             <FadeIn>
               <p className="text-xs uppercase tracking-[0.3em] text-teal-500/60 font-mono mb-6">
                 {t.featuresLabel}
               </p>
-              <h2 className="text-4xl sm:text-5xl md:text-6xl font-black tracking-tighter text-white leading-[0.85]">
+              <h2 id="features-heading" className="text-4xl sm:text-5xl md:text-6xl font-black tracking-tighter text-white leading-[0.85]">
                 {t.featuresHeadline}
               </h2>
               <p className="mt-6 text-lg text-white/40 max-w-xl">
@@ -431,13 +659,13 @@ const Home: NextPage = () => {
                 const desc = t[`feature${n}Desc` as keyof typeof t] as string;
                 return (
                   <FadeIn key={n} delay={i * 0.08}>
-                    <div className="group bg-white/[0.03] border border-white/5 rounded-lg p-6 hover:bg-white/[0.06] hover:border-white/10 transition-all duration-300">
-                      <div className="w-12 h-12 rounded-lg bg-teal-600/10 flex items-center justify-center text-teal-500 mb-5 group-hover:bg-teal-600/20 transition-colors duration-300">
+                    <article className="group bg-white/[0.03] border border-white/5 rounded-lg p-6 hover:bg-white/[0.06] hover:border-white/10 transition-all duration-300">
+                      <div className="w-12 h-12 rounded-lg bg-teal-600/10 flex items-center justify-center text-teal-500 mb-5 group-hover:bg-teal-600/20 transition-colors duration-300" aria-hidden="true">
                         <Icon />
                       </div>
                       <h3 className="text-lg font-bold text-white mb-2">{title}</h3>
                       <p className="text-sm text-white/40 leading-relaxed">{desc}</p>
-                    </div>
+                    </article>
                   </FadeIn>
                 );
               })}
@@ -446,13 +674,13 @@ const Home: NextPage = () => {
         </section>
 
         {/* ─── HOW IT WORKS ─── */}
-        <section className="py-24 md:py-40 px-6 bg-neutral-900">
+        <section id={isSpanish ? "como-funciona" : "how-it-works"} className="py-24 md:py-40 px-6 bg-neutral-900" aria-labelledby="how-heading">
           <div className="max-w-5xl mx-auto">
             <FadeIn>
               <p className="text-xs uppercase tracking-[0.3em] text-teal-500/60 font-mono mb-6">
                 {t.howLabel}
               </p>
-              <h2 className="text-4xl sm:text-5xl md:text-6xl font-black tracking-tighter text-white leading-[0.85]">
+              <h2 id="how-heading" className="text-4xl sm:text-5xl md:text-6xl font-black tracking-tighter text-white leading-[0.85]">
                 {t.howHeadline}
               </h2>
               <p className="mt-6 text-lg text-white/40 max-w-xl">
@@ -466,13 +694,13 @@ const Home: NextPage = () => {
                 const desc = t[`howStep${n}Desc` as keyof typeof t] as string;
                 return (
                   <FadeIn key={n} delay={i * 0.12}>
-                    <div>
-                      <div className="w-12 h-12 rounded-full border-2 border-teal-500/30 flex items-center justify-center text-teal-500 font-bold text-lg mb-6">
+                    <article>
+                      <div className="w-12 h-12 rounded-full border-2 border-teal-500/30 flex items-center justify-center text-teal-500 font-bold text-lg mb-6" aria-hidden="true">
                         {n}
                       </div>
                       <h3 className="text-xl font-bold text-white mb-3">{title}</h3>
                       <p className="text-sm text-white/40 leading-relaxed">{desc}</p>
-                    </div>
+                    </article>
                   </FadeIn>
                 );
               })}
@@ -481,14 +709,14 @@ const Home: NextPage = () => {
         </section>
 
         {/* ─── COMPARISON ─── */}
-        <section className="py-24 md:py-40 px-6 bg-neutral-950">
+        <section id={isSpanish ? "comparacion" : "comparison"} className="py-24 md:py-40 px-6 bg-neutral-950" aria-labelledby="comparison-heading">
           <div className="max-w-5xl mx-auto">
             <FadeIn>
               <div className="text-center mb-16">
                 <p className="text-xs uppercase tracking-[0.3em] text-teal-500/60 font-mono mb-6">
                   {t.comparisonLabel}
                 </p>
-                <h2 className="text-4xl sm:text-5xl md:text-6xl font-black tracking-tighter text-white leading-[0.85]">
+                <h2 id="comparison-heading" className="text-4xl sm:text-5xl md:text-6xl font-black tracking-tighter text-white leading-[0.85]">
                   {t.comparisonHeadline}
                 </h2>
                 <p className="mt-6 text-lg text-white/40 max-w-2xl mx-auto">
@@ -521,11 +749,11 @@ const Home: NextPage = () => {
                     }`}
                   >
                     <div className="px-6 sm:px-8 py-5 flex items-start gap-3 border-r border-white/10">
-                      <span className="text-red-400 text-lg flex-shrink-0 leading-6">&#10007;</span>
+                      <span className="text-red-400 text-lg flex-shrink-0 leading-6" aria-hidden="true">&#10007;</span>
                       <span className="text-white/40 text-sm sm:text-base">{pain}</span>
                     </div>
                     <div className="px-6 sm:px-8 py-5 flex items-start gap-3">
-                      <span className="text-teal-500 text-lg flex-shrink-0 leading-6">&#10003;</span>
+                      <span className="text-teal-500 text-lg flex-shrink-0 leading-6" aria-hidden="true">&#10003;</span>
                       <span className="text-white text-sm sm:text-base">{(t.comparisonDesktop as string[])[i]}</span>
                     </div>
                   </div>
@@ -535,14 +763,14 @@ const Home: NextPage = () => {
 
             {/* Pull Quote */}
             <FadeIn delay={0.2}>
-              <div className="mt-12 bg-white/[0.03] border border-white/10 rounded-2xl px-8 py-8 text-center">
+              <blockquote className="mt-12 bg-white/[0.03] border border-white/10 rounded-2xl px-8 py-8 text-center">
                 <p className="text-lg sm:text-xl text-white font-medium max-w-3xl mx-auto leading-relaxed">
                   &ldquo;{t.comparisonQuote}&rdquo;
                 </p>
-                <p className="text-white/30 mt-4 text-sm">
-                  {t.comparisonQuoteAuthor}
-                </p>
-              </div>
+                <footer className="text-white/30 mt-4 text-sm">
+                  <cite className="not-italic">{t.comparisonQuoteAuthor}</cite>
+                </footer>
+              </blockquote>
             </FadeIn>
 
             {/* CTA */}
@@ -565,11 +793,14 @@ const Home: NextPage = () => {
         {/* ─── PRICING ─── */}
         <PricingSection t={t} />
 
+        {/* ─── FAQ (Spanish only for now) ─── */}
+        <FAQSection t={t} locale={locale || "en"} />
+
         {/* ─── FINAL CTA ─── */}
-        <section className="py-24 md:py-32 px-6 bg-teal-600">
+        <section className="py-24 md:py-32 px-6 bg-teal-600" aria-labelledby="cta-heading">
           <div className="max-w-4xl mx-auto text-center">
             <FadeIn>
-              <h2 className="text-3xl sm:text-4xl md:text-5xl font-black tracking-tighter text-white leading-tight">
+              <h2 id="cta-heading" className="text-3xl sm:text-4xl md:text-5xl font-black tracking-tighter text-white leading-tight">
                 {t.ctaHeadline}
               </h2>
             </FadeIn>
@@ -591,36 +822,40 @@ const Home: NextPage = () => {
       </main>
 
       {/* ─── FOOTER ─── */}
-      <footer className="py-12 px-6 bg-neutral-950 border-t border-white/5">
+      <footer className="py-12 px-6 bg-neutral-950 border-t border-white/5" role="contentinfo">
         <div className="max-w-4xl mx-auto text-center">
           <div className="flex items-center justify-center gap-3 mb-4">
-            <img src="/logo.svg" alt="Desktop Kitchen" className="w-8 h-8" />
+            <img src="/logo.svg" alt="Desktop Kitchen" className="w-8 h-8" width={32} height={32} />
             <p className="text-xl font-black tracking-tighter text-white">
               {t.footerBrand}
             </p>
           </div>
-          <div className="flex items-center justify-center gap-6 text-sm text-white/40">
+          {/* Footer tagline for SEO keyword reinforcement */}
+          {(t as any).footerTagline && (
+            <p className="text-xs text-white/20 mb-4">{(t as any).footerTagline}</p>
+          )}
+          <nav className="flex items-center justify-center gap-6 text-sm text-white/40" aria-label={isSpanish ? "Enlaces del pie de página" : "Footer links"}>
             <a
               href="https://docs.desktop.kitchen"
               className="hover:text-teal-500 transition-colors duration-200"
             >
               {t.footerDocs}
             </a>
-            <span className="text-white/10">|</span>
+            <span className="text-white/10" aria-hidden="true">|</span>
             <a
               href="/blog"
               className="hover:text-teal-500 transition-colors duration-200"
             >
               {(t as any).footerBlog || "Blog"}
             </a>
-            <span className="text-white/10">|</span>
+            <span className="text-white/10" aria-hidden="true">|</span>
             <a
               href="https://pos.desktop.kitchen/#/onboarding"
               className="hover:text-teal-500 transition-colors duration-200"
             >
               {t.footerDemo}
             </a>
-          </div>
+          </nav>
           <p className="mt-6 text-xs text-white/15">
             &copy; {new Date().getFullYear()} Desktop Kitchen. {t.footerRights}
           </p>
