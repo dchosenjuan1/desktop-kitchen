@@ -93,7 +93,11 @@ const MXN_RATE = 19.5;
 
 function formatMXN(usd: number) {
   if (usd === 0) return "Gratis";
-  return `${Math.round(usd * MXN_RATE).toLocaleString("es-MX")} MXN`;
+  const mxn = Math.round(usd * MXN_RATE);
+  // Manual thousands formatting — avoids hydration mismatch between
+  // Node.js (build) and browser (client) locale implementations
+  const str = mxn.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+  return `${str} MXN`;
 }
 
 function formatUSD(usd: number) {
@@ -856,7 +860,7 @@ const Home: NextPage = () => {
               {t.footerDemo}
             </a>
           </nav>
-          <p className="mt-6 text-xs text-white/15">
+          <p className="mt-6 text-xs text-white/15" suppressHydrationWarning>
             &copy; {new Date().getFullYear()} Desktop Kitchen. {t.footerRights}
           </p>
         </div>
