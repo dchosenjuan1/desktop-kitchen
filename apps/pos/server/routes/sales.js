@@ -271,7 +271,7 @@ router.get('/tenants', async (req, res) => {
   try {
     const tenants = await adminSql`
       SELECT id, name, subdomain, plan FROM tenants
-      WHERE status = 'active'
+      WHERE active = true
       ORDER BY name
     `;
     res.json(tenants);
