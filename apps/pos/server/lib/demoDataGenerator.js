@@ -216,6 +216,7 @@ export async function generateDemoData(adminSql, {
     'ALTER TABLE delivery_markup_rules ADD COLUMN IF NOT EXISTS demo_batch_id UUID',
     'ALTER TABLE vendors ADD COLUMN IF NOT EXISTS demo_batch_id UUID',
     'ALTER TABLE purchase_orders ADD COLUMN IF NOT EXISTS demo_batch_id UUID',
+    'ALTER TABLE menu_item_ingredients ADD COLUMN IF NOT EXISTS demo_batch_id UUID',
   ];
   for (const ddl of schemaAdditions) {
     await adminSql.unsafe(ddl);
@@ -253,6 +254,7 @@ export async function generateDemoData(adminSql, {
   }
 
   const summary = {
+    menu_item_ingredients: 0,
     orders: 0, order_items: 0, order_item_modifiers: 0, order_payments: 0,
     delivery_orders: 0, delivery_markup_rules: 0,
     loyalty_customers: 0, stamp_cards: 0, stamp_events: 0, referral_events: 0,
@@ -263,6 +265,62 @@ export async function generateDemoData(adminSql, {
     vendors: 0, purchase_orders: 0, purchase_order_items: 0,
     refunds: 0,
   };
+
+  // ─── 0. Seed Recipes (menu_item_ingredients) ──────────────
+  // For items without ingredients, assign 3-6 inventory items targeting 28-35% food cost
+  if (inventoryItems.length > 0) {
+    // Group inventory items by rough type for smarter assignment
+    const invByCategory = new Map();
+    for (const inv of inventoryItems) {
+      const cat = (inv.category || 'other').toLowerCase();
+      if (!invByCategory.has(cat)) invByCategory.set(cat, []);
+      invByCategory.get(cat).push(inv);
+    }
+    const allInvCategories = [...invByCategory.keys()];
+
+    // Find menu items without recipes
+    const itemsWithRecipes = new Set(menuItemIngredients.map(i => i.menu_item_id));
+
+    for (const menuItem of menuItems) {
+      if (itemsWithRecipes.has(menuItem.id)) continue; // skip items that already have recipes
+
+      const price = Number(menuItem.price);
+      if (price <= 0) continue;
+
+      // Target COGS = 28-35% of price
+      const targetCogs = price * randFloat(0.28, 0.35);
+      const numIngredients = randInt(3, Math.min(6, inventoryItems.length));
+      const costPerIngredient = targetCogs / numIngredients;
+
+      // Pick diverse ingredients from different categories
+      const usedIngredients = new Set();
+      const shuffledInv = shuffle(inventoryItems);
+
+      for (let n = 0; n < numIngredients && n < shuffledInv.length; n++) {
+        const inv = shuffledInv[n];
+        if (usedIngredients.has(inv.id)) continue;
+        usedIngredients.add(inv.id);
+
+        const costPrice = Number(inv.cost_price) || 10;
+        // quantity_used = target cost per ingredient / cost_price
+        const qtyUsed = Math.max(0.05, Math.round((costPerIngredient / costPrice) * 100) / 100);
+
+        await adminSql.unsafe(`
+          INSERT INTO menu_item_ingredients (tenant_id, menu_item_id, inventory_item_id, quantity_used, demo_batch_id)
+          VALUES ($1, $2, $3, $4, $5)
+          ON CONFLICT (menu_item_id, inventory_item_id) DO NOTHING
+        `, [tenantId, menuItem.id, inv.id, qtyUsed, batchId]);
+        summary.menu_item_ingredients++;
+
+        // Also add to ingredientMap for AI velocity computation later
+        if (!ingredientMap.has(menuItem.id)) ingredientMap.set(menuItem.id, []);
+        ingredientMap.get(menuItem.id).push({
+          inventory_item_id: inv.id,
+          quantity_used: qtyUsed,
+        });
+      }
+    }
+  }
 
   // ─── 1. Generate Orders ──────────────────────────────────
 

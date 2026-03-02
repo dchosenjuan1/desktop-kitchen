@@ -109,9 +109,14 @@ router.delete('/', async (req, res) => {
       adminSql`ALTER TABLE delivery_markup_rules ADD COLUMN IF NOT EXISTS demo_batch_id UUID`,
       adminSql`ALTER TABLE vendors ADD COLUMN IF NOT EXISTS demo_batch_id UUID`,
       adminSql`ALTER TABLE purchase_orders ADD COLUMN IF NOT EXISTS demo_batch_id UUID`,
+      adminSql`ALTER TABLE menu_item_ingredients ADD COLUMN IF NOT EXISTS demo_batch_id UUID`,
     ]);
 
     await adminSql.begin(async (sql) => {
+      // ─── Recipes (demo-seeded ingredients) ──────────────────
+      const r_mii = await sql.unsafe(`DELETE FROM menu_item_ingredients WHERE tenant_id = $1 AND demo_batch_id IS NOT NULL`, [tenantId]);
+      deleted.menu_item_ingredients = r_mii.count;
+
       // ─── Order-related child tables ─────────────────────────
       const r1 = await sql.unsafe(`
         DELETE FROM order_item_modifiers WHERE tenant_id = $1
