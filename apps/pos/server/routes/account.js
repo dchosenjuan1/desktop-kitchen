@@ -3,14 +3,9 @@ import bcrypt from 'bcrypt';
 import { requireOwner } from '../middleware/ownerAuth.js';
 import { getTenant, updateTenant } from '../tenants.js';
 import { adminSql } from '../db/index.js';
+import { getPlanLimits } from '../planLimits.js';
 
 const router = Router();
-
-const PLAN_LIMITS = {
-  trial:   { employees: 3, menu_items: 20 },
-  starter: { employees: 5, menu_items: 100 },
-  pro:     { employees: Infinity, menu_items: Infinity },
-};
 
 // GET /api/account — Account overview with usage vs plan limits
 router.get('/', requireOwner, async (req, res) => {
@@ -24,7 +19,7 @@ router.get('/', requireOwner, async (req, res) => {
         (SELECT COUNT(*) FROM menu_items WHERE tenant_id = ${tenant.id} AND active = true) AS menu_item_count
     `;
 
-    const limits = PLAN_LIMITS[tenant.plan] || PLAN_LIMITS.trial;
+    const limits = getPlanLimits(tenant.plan);
 
     res.json({
       id: tenant.id,
@@ -38,7 +33,7 @@ router.get('/', requireOwner, async (req, res) => {
       mp_default_terminal_id: tenant.mp_default_terminal_id || null,
       usage: {
         employees: { current: Number(usage.employee_count), limit: limits.employees },
-        menu_items: { current: Number(usage.menu_item_count), limit: limits.menu_items },
+        menu_items: { current: Number(usage.menu_item_count), limit: limits.menuItems },
       },
     });
   } catch (error) {

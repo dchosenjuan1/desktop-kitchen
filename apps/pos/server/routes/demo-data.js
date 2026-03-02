@@ -21,12 +21,14 @@ router.get('/status', async (req, res) => {
       return res.json({ allowed: false, reason: 'Demo data is only available for trial accounts' });
     }
 
-    const [[orderCount], [customerCount], [deliveryCount], [snapshotCount], [financialCount]] = await Promise.all([
+    const [[orderCount], [customerCount], [deliveryCount], [snapshotCount], [financialCount], [wasteCount], [vendorCount]] = await Promise.all([
       adminSql`SELECT COUNT(*)::int AS c FROM orders WHERE tenant_id = ${tenantId} AND source = ${DEMO_SOURCE}`,
       adminSql`SELECT COUNT(*)::int AS c FROM loyalty_customers WHERE tenant_id = ${tenantId} AND demo_batch_id IS NOT NULL`,
       adminSql`SELECT COUNT(*)::int AS c FROM delivery_orders WHERE tenant_id = ${tenantId} AND order_id IN (SELECT id FROM orders WHERE tenant_id = ${tenantId} AND source = ${DEMO_SOURCE})`,
       adminSql`SELECT COUNT(*)::int AS c FROM ai_hourly_snapshots WHERE tenant_id = ${tenantId} AND demo_batch_id IS NOT NULL`,
       adminSql`SELECT COUNT(*)::int AS c FROM financial_actuals WHERE tenant_id = ${tenantId} AND demo_batch_id IS NOT NULL`,
+      adminSql`SELECT COUNT(*)::int AS c FROM waste_log WHERE tenant_id = ${tenantId} AND demo_batch_id IS NOT NULL`,
+      adminSql`SELECT COUNT(*)::int AS c FROM vendors WHERE tenant_id = ${tenantId} AND demo_batch_id IS NOT NULL`,
     ]);
 
     res.json({
@@ -38,6 +40,8 @@ router.get('/status', async (req, res) => {
         delivery_orders: deliveryCount.c,
         ai_snapshots: snapshotCount.c,
         financial_actuals: financialCount.c,
+        waste_log: wasteCount.c,
+        vendors: vendorCount.c,
       },
     });
   } catch (error) {
@@ -102,6 +106,7 @@ router.delete('/', async (req, res) => {
     const deleted = {};
 
     await adminSql.begin(async (sql) => {
+      // ─── Order-related child tables ─────────────────────────
       const r1 = await sql.unsafe(`
         DELETE FROM order_item_modifiers WHERE tenant_id = $1
           AND order_item_id IN (
@@ -111,6 +116,13 @@ router.delete('/', async (req, res) => {
           )
       `, [tenantId, DEMO_SOURCE]);
       deleted.order_item_modifiers = r1.count;
+
+      // Refunds (track via demo orders)
+      const r_ref = await sql.unsafe(`
+        DELETE FROM refunds WHERE tenant_id = $1
+          AND order_id IN (SELECT id FROM orders WHERE tenant_id = $1 AND source = $2)
+      `, [tenantId, DEMO_SOURCE]);
+      deleted.refunds = r_ref.count;
 
       const r2 = await sql.unsafe(`DELETE FROM stamp_events WHERE tenant_id = $1 AND demo_batch_id IS NOT NULL`, [tenantId]);
       deleted.stamp_events = r2.count;
@@ -130,7 +142,9 @@ router.delete('/', async (req, res) => {
       const r7 = await sql.unsafe(`DELETE FROM stamp_cards WHERE tenant_id = $1 AND demo_batch_id IS NOT NULL`, [tenantId]);
       deleted.stamp_cards = r7.count;
 
-      const r8 = await sql.unsafe(`DELETE FROM ai_suggestion_cache WHERE tenant_id = $1 AND demo_batch_id IS NOT NULL`, [tenantId]);
+      // ─── AI tables ──────────────────────────────────────────
+      // Clear all suggestion cache (includes both demo_batch_id tagged AND AI-pipeline generated)
+      const r8 = await sql.unsafe(`DELETE FROM ai_suggestion_cache WHERE tenant_id = $1`, [tenantId]);
       deleted.ai_suggestion_cache = r8.count;
 
       const r9 = await sql.unsafe(`DELETE FROM ai_item_pairs WHERE tenant_id = $1 AND demo_batch_id IS NOT NULL`, [tenantId]);
@@ -142,9 +156,53 @@ router.delete('/', async (req, res) => {
       const r11 = await sql.unsafe(`DELETE FROM ai_hourly_snapshots WHERE tenant_id = $1 AND demo_batch_id IS NOT NULL`, [tenantId]);
       deleted.ai_hourly_snapshots = r11.count;
 
+      // AI category roles (clear all — recreated on next populate)
+      const r_acr = await sql.unsafe(`DELETE FROM ai_category_roles WHERE tenant_id = $1`, [tenantId]);
+      deleted.ai_category_roles = r_acr.count;
+
+      // ─── Financial tables ───────────────────────────────────
       const r12 = await sql.unsafe(`DELETE FROM financial_actuals WHERE tenant_id = $1 AND demo_batch_id IS NOT NULL`, [tenantId]);
       deleted.financial_actuals = r12.count;
 
+      // Financial targets (clear all — recreated on next populate)
+      const r_ft = await sql.unsafe(`DELETE FROM financial_targets WHERE tenant_id = $1`, [tenantId]);
+      deleted.financial_targets = r_ft.count;
+
+      // ─── Inventory tables ───────────────────────────────────
+      const r_wl = await sql.unsafe(`DELETE FROM waste_log WHERE tenant_id = $1 AND demo_batch_id IS NOT NULL`, [tenantId]);
+      deleted.waste_log = r_wl.count;
+
+      const r_ic = await sql.unsafe(`DELETE FROM inventory_counts WHERE tenant_id = $1 AND demo_batch_id IS NOT NULL`, [tenantId]);
+      deleted.inventory_counts = r_ic.count;
+
+      // Shrinkage alerts — clear all (includes both demo and AI-pipeline generated)
+      const r_sa = await sql.unsafe(`DELETE FROM shrinkage_alerts WHERE tenant_id = $1`, [tenantId]);
+      deleted.shrinkage_alerts = r_sa.count;
+
+      // ─── Delivery markup rules ──────────────────────────────
+      const r_dmr = await sql.unsafe(`DELETE FROM delivery_markup_rules WHERE tenant_id = $1 AND demo_batch_id IS NOT NULL`, [tenantId]);
+      deleted.delivery_markup_rules = r_dmr.count;
+
+      // ─── Vendors & Purchase Orders (FK order matters) ───────
+      const r_poi = await sql.unsafe(`
+        DELETE FROM purchase_order_items WHERE tenant_id = $1
+          AND po_id IN (SELECT id FROM purchase_orders WHERE tenant_id = $1 AND demo_batch_id IS NOT NULL)
+      `, [tenantId]);
+      deleted.purchase_order_items = r_poi.count;
+
+      const r_po = await sql.unsafe(`DELETE FROM purchase_orders WHERE tenant_id = $1 AND demo_batch_id IS NOT NULL`, [tenantId]);
+      deleted.purchase_orders = r_po.count;
+
+      const r_vi = await sql.unsafe(`
+        DELETE FROM vendor_items WHERE tenant_id = $1
+          AND vendor_id IN (SELECT id FROM vendors WHERE tenant_id = $1 AND demo_batch_id IS NOT NULL)
+      `, [tenantId]);
+      deleted.vendor_items = r_vi.count;
+
+      const r_v = await sql.unsafe(`DELETE FROM vendors WHERE tenant_id = $1 AND demo_batch_id IS NOT NULL`, [tenantId]);
+      deleted.vendors = r_v.count;
+
+      // ─── Loyalty & Core ─────────────────────────────────────
       const r13 = await sql.unsafe(`DELETE FROM loyalty_customers WHERE tenant_id = $1 AND demo_batch_id IS NOT NULL`, [tenantId]);
       deleted.loyalty_customers = r13.count;
 
