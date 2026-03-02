@@ -5,7 +5,3 @@ Allow: /
 # Sitemap locations
 Sitemap: https://www.desktop.kitchen/sitemap.xml
 Sitemap: https://es.desktop.kitchen/sitemap.xml
-
-# Block development/preview paths
-Disallow: /_next/
-Disallow: /api/
