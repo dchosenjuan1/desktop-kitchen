@@ -236,7 +236,7 @@ export async function generateDemoData(adminSql, {
 
     // Insert order payment
     await adminSql.unsafe(`
-      INSERT INTO order_payments (tenant_id, order_id, method, amount, status)
+      INSERT INTO order_payments (tenant_id, order_id, payment_method, amount, status)
       VALUES ($1, $2, $3, $4, 'completed')
     `, [tenantId, orderId, paymentMethod, total + tip]);
     summary.order_payments++;
