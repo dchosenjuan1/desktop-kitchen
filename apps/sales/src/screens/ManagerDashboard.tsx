@@ -4,41 +4,50 @@ import { useAuth } from '../context/AuthContext'
 import * as api from '../api'
 import type { RepWithStats, Prospect, Commission, ProspectStatus } from '../types'
 import Header from '../components/Header'
-import StatsBar from '../components/StatsBar'
+import StatsBar, { repStatsCards } from '../components/StatsBar'
 import ProspectCard from '../components/ProspectCard'
+import ProspectModal from '../components/ProspectModal'
 import CommissionTable from '../components/CommissionTable'
 import ApprovalQueue from '../components/ApprovalQueue'
 import StatusBadge from '../components/StatusBadge'
 import VelocityTab from '../components/VelocityTab'
 
-type Tab = 'overview' | 'reps' | 'prospects' | 'commissions' | 'velocity'
+type Tab = 'pipeline' | 'overview' | 'reps' | 'prospects' | 'commissions' | 'velocity'
 
 export default function ManagerDashboard() {
-  const { refreshProfile } = useAuth()
-  const [tab, setTab] = useState<Tab>('overview')
+  const { stats, refreshProfile } = useAuth()
+  const [tab, setTab] = useState<Tab>('pipeline')
   const [reps, setReps] = useState<RepWithStats[]>([])
   const [prospects, setProspects] = useState<Prospect[]>([])
+  const [myProspects, setMyProspects] = useState<Prospect[]>([])
+  const [myCommissions, setMyCommissions] = useState<Commission[]>([])
   const [commissions, setCommissions] = useState<Commission[]>([])
   const [loading, setLoading] = useState(true)
 
   // Filters
   const [repFilter, setRepFilter] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
+  const [pipelineTab, setPipelineTab] = useState<ProspectStatus | 'all'>('all')
 
   // Modals
   const [showCreateRep, setShowCreateRep] = useState(false)
+  const [showProspectModal, setShowProspectModal] = useState(false)
   const [passwordModal, setPasswordModal] = useState<{ id: string; name: string } | null>(null)
 
   const loadData = useCallback(async () => {
     try {
-      const [r, p, c] = await Promise.all([
+      const [r, p, c, mp, mc] = await Promise.all([
         api.getManagerReps(),
         api.getManagerProspects(),
         api.getManagerCommissions(),
+        api.getProspects(),
+        api.getCommissions(),
       ])
       setReps(r)
       setProspects(p)
       setCommissions(c)
+      setMyProspects(mp)
+      setMyCommissions(mc)
     } finally {
       setLoading(false)
     }
@@ -49,6 +58,15 @@ export default function ManagerDashboard() {
   const handleStatusChange = async (id: string, status: ProspectStatus) => {
     const updated = await api.updateProspect(id, { status })
     setProspects(prev => prev.map(p => p.id === id ? updated : p))
+    setMyProspects(prev => prev.map(p => p.id === id ? updated : p))
+    refreshProfile()
+  }
+
+  const handleCreateProspect = async (data: Record<string, string>) => {
+    const created = await api.createProspect(data)
+    setMyProspects(prev => [created, ...prev])
+    setProspects(prev => [created, ...prev])
+    refreshProfile()
   }
 
   const handleCommissionAction = async (id: string, status: string, notes?: string) => {
@@ -85,17 +103,40 @@ export default function ManagerDashboard() {
     )
   }
 
+  const pipelineStatuses: { value: ProspectStatus | 'all'; label: string }[] = [
+    { value: 'all', label: 'All' },
+    { value: 'visited', label: 'Visited' },
+    { value: 'interested', label: 'Interested' },
+    { value: 'demo_scheduled', label: 'Demo' },
+    { value: 'trial', label: 'Trial' },
+    { value: 'converted', label: 'Converted' },
+  ]
+
+  const filteredMyProspects = pipelineTab === 'all'
+    ? myProspects
+    : myProspects.filter(p => p.status === pipelineTab)
+
   const tabs: { value: Tab; label: string }[] = [
+    { value: 'pipeline', label: 'My Pipeline' },
     { value: 'overview', label: 'Overview' },
     { value: 'velocity', label: 'Velocity' },
     { value: 'reps', label: 'Reps' },
-    { value: 'prospects', label: 'Prospects' },
+    { value: 'prospects', label: 'All Prospects' },
     { value: 'commissions', label: 'Commissions' },
   ]
 
   return (
     <div className="min-h-screen bg-neutral-950">
-      <Header />
+      <Header
+        actions={tab === 'pipeline' ? (
+          <button
+            onClick={() => setShowProspectModal(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-brand-600 hover:bg-brand-700 text-white text-sm font-medium rounded-lg transition-colors"
+          >
+            <Plus className="w-4 h-4" /> Log Prospect
+          </button>
+        ) : undefined}
+      />
 
       {/* Tab nav */}
       <div className="border-b border-neutral-800 px-4">
@@ -117,6 +158,64 @@ export default function ManagerDashboard() {
       </div>
 
       <main className="max-w-6xl mx-auto p-4 space-y-6">
+        {/* My Pipeline */}
+        {tab === 'pipeline' && (
+          <>
+            {stats && <StatsBar stats={repStatsCards(stats)} />}
+
+            <section>
+              <h2 className="text-sm font-semibold text-neutral-300 mb-3">Pipeline</h2>
+              <div className="flex gap-1 mb-4 overflow-x-auto pb-1">
+                {pipelineStatuses.map(t => (
+                  <button
+                    key={t.value}
+                    onClick={() => setPipelineTab(t.value)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-colors ${
+                      pipelineTab === t.value
+                        ? 'bg-brand-600 text-white'
+                        : 'bg-neutral-800 text-neutral-400 hover:bg-neutral-700'
+                    }`}
+                  >
+                    {t.label}
+                    {t.value !== 'all' && (
+                      <span className="ml-1 text-neutral-500">
+                        {myProspects.filter(p => p.status === t.value).length}
+                      </span>
+                    )}
+                  </button>
+                ))}
+              </div>
+
+              {filteredMyProspects.length === 0 ? (
+                <div className="text-center py-12 text-neutral-500 text-sm">
+                  No prospects {pipelineTab !== 'all' ? `with status "${pipelineTab}"` : 'yet'}
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {filteredMyProspects.map(p => (
+                    <ProspectCard
+                      key={p.id}
+                      prospect={p}
+                      onStatusChange={handleStatusChange}
+                      onProspectUpdated={updated => {
+                        setMyProspects(prev => prev.map(x => x.id === updated.id ? updated : x))
+                        setProspects(prev => prev.map(x => x.id === updated.id ? updated : x))
+                      }}
+                    />
+                  ))}
+                </div>
+              )}
+            </section>
+
+            <section>
+              <h2 className="text-sm font-semibold text-neutral-300 mb-3">Commissions</h2>
+              <div className="bg-neutral-900 border border-neutral-700 rounded-xl p-4">
+                <CommissionTable commissions={myCommissions} />
+              </div>
+            </section>
+          </>
+        )}
+
         {/* Overview */}
         {tab === 'overview' && (
           <>
@@ -276,6 +375,9 @@ export default function ManagerDashboard() {
           </section>
         )}
       </main>
+
+      {/* Prospect Modal */}
+      {showProspectModal && <ProspectModal onClose={() => setShowProspectModal(false)} onSubmit={handleCreateProspect} />}
 
       {/* Create Rep Modal */}
       {showCreateRep && <CreateRepModal onClose={() => setShowCreateRep(false)} onCreated={loadData} />}
