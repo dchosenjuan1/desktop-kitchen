@@ -186,7 +186,7 @@ router.get('/insights', async (req, res) => {
       },
       topItemPairs: topPairs,
       recentSnapshots,
-      grokStats: getGrokStats(),
+      grokStats: await getGrokStats(),
       aiStatus: getAIStatus(),
     });
   } catch (error) {
@@ -418,7 +418,7 @@ router.post('/analyze', requireAuth('manage_ai'), async (req, res) => {
     }
 
     results.timestamp = new Date().toISOString();
-    results.grokStats = getGrokStats();
+    results.grokStats = await getGrokStats();
 
     res.json(results);
   } catch (error) {
