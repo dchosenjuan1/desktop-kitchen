@@ -6,6 +6,7 @@ import { adminSql } from '../db/index.js';
 import { BCRYPT_ROUNDS } from '../lib/constants.js';
 import { getTenant } from '../tenants.js';
 import { generateDemoData } from '../lib/demoDataGenerator.js';
+import { sendSalesRepWelcomeEmail } from '../helpers/email.js';
 
 const router = Router();
 const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret';
@@ -869,13 +870,16 @@ router.patch('/manager/reps/:id/set-password', requireManager, async (req, res) 
       return res.status(400).json({ error: 'Password must be at least 6 characters' });
     }
 
-    const [rep] = await adminSql`SELECT id FROM sales_reps WHERE id = ${id}`;
+    const [rep] = await adminSql`SELECT id, full_name, email FROM sales_reps WHERE id = ${id}`;
     if (!rep) {
       return res.status(404).json({ error: 'Sales rep not found' });
     }
 
     const hash = await bcrypt.hash(password, BCRYPT_ROUNDS);
     await adminSql`UPDATE sales_reps SET password_hash = ${hash} WHERE id = ${id}`;
+
+    // Send welcome email with new credentials (fire-and-forget)
+    sendSalesRepWelcomeEmail(rep.email, rep.full_name, password);
 
     res.json({ success: true });
   } catch (error) {
@@ -911,6 +915,11 @@ router.post('/manager/reps', requireManager, async (req, res) => {
       VALUES (${full_name}, ${email.toLowerCase().trim()}, ${phone || null}, ${is_manager || false}, ${hash})
       RETURNING id, full_name, email, phone, is_manager, is_active, created_at
     `;
+
+    // Send welcome email with credentials (fire-and-forget)
+    if (password) {
+      sendSalesRepWelcomeEmail(rep.email, rep.full_name, password);
+    }
 
     res.status(201).json(rep);
   } catch (error) {
