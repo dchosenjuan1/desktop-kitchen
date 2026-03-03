@@ -14,10 +14,11 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Check, ArrowRight, Loader2, Tag, X, Sparkles, ChefHat } from 'lucide-react';
+import { Check, ArrowRight, Loader2, Tag, X, Sparkles, ChefHat, ChevronRight } from 'lucide-react';
 import { useBranding } from '../context/BrandingContext';
 import { redirectToTenant, tenantUrl } from '../lib/tenantResolver';
-import { validatePromoCode } from '../api';
+import { validatePromoCode, getMenuTemplates, applyMenuTemplateAsOwner, parseMenuWithAIAsOwner, commitAIMenuAsOwner } from '../api';
+import type { MenuTemplateOption, MenuImportStats, AIMenuParseResult } from '../types';
 
 const API_BASE = '/api';
 
@@ -58,6 +59,16 @@ const OnboardingScreen: React.FC = () => {
   const [isDone, setIsDone] = useState(false);
   const [pinCopied, setPinCopied] = useState(false);
 
+  // Template setup (post-registration flow)
+  type PostStep = 'success' | 'template' | 'applying' | 'done' | 'ai-input' | 'ai-parsing' | 'ai-done';
+  const [postStep, setPostStep] = useState<PostStep>('success');
+  const [templates, setTemplates] = useState<MenuTemplateOption[]>([]);
+  const [templateLoading, setTemplateLoading] = useState(false);
+  const [templateStats, setTemplateStats] = useState<MenuImportStats | null>(null);
+  const [ownerToken, setOwnerToken] = useState('');
+  const [aiText, setAiText] = useState('');
+  const [aiError, setAiError] = useState('');
+
   // Promo
   const [promoState, setPromoState] = useState<PromoState>('idle');
   const [promoInput, setPromoInput] = useState('');
@@ -84,7 +95,7 @@ const OnboardingScreen: React.FC = () => {
       setPromoInput(code);
       setPromoCode(code);
       setPromoState('valid');
-      setPromoDescription('Descuento aplicado desde enlace de campaña');
+      setPromoDescription('Discount applied from campaign link');
     }
 
     // Auto-focus first empty field
@@ -123,14 +134,14 @@ const OnboardingScreen: React.FC = () => {
       if (result.valid) {
         setPromoState('valid');
         setPromoCode(result.code || code);
-        setPromoDescription(result.discount_description || 'Descuento aplicado');
+        setPromoDescription(result.discount_description || 'Discount applied');
       } else {
         setPromoState('invalid');
-        setPromoError(result.message || 'Código inválido o expirado');
+        setPromoError(result.message || 'Invalid or expired code');
       }
     } catch {
       setPromoState('invalid');
-      setPromoError('Error al validar el código');
+      setPromoError('Error validating code');
     }
   };
 
@@ -190,9 +201,11 @@ const OnboardingScreen: React.FC = () => {
       localStorage.setItem('owner_token', result.token);
       localStorage.setItem('tenant_id', result.tenant.id);
       localStorage.setItem('tenant_name', result.tenant.name);
+      setOwnerToken(result.token);
 
       await refreshBranding();
       setIsDone(true);
+      setPostStep('success');
     } catch (err) {
       setSubmitError(err instanceof Error ? err.message : 'Something went wrong');
     } finally {
@@ -215,52 +228,258 @@ const OnboardingScreen: React.FC = () => {
     });
   };
 
+  const TEMPLATE_ICONS: Record<string, string> = {
+    taco: '\uD83C\uDF2E', burger: '\uD83C\uDF54', pizza: '\uD83C\uDF55',
+    coffee: '\u2615', sushi: '\uD83C\uDF63', restaurant: '\uD83C\uDF7D\uFE0F',
+  };
+
+  const handleSetupMenu = async () => {
+    setPostStep('template');
+    setTemplateLoading(true);
+    try {
+      const list = await getMenuTemplates();
+      setTemplates(list);
+    } catch {
+      // fail silently, show empty
+    } finally {
+      setTemplateLoading(false);
+    }
+  };
+
+  const handlePickTemplate = async (t: MenuTemplateOption) => {
+    setPostStep('applying');
+    try {
+      const token = ownerToken || localStorage.getItem('owner_token') || '';
+      const result = await applyMenuTemplateAsOwner(t.id, token, 'replace');
+      setTemplateStats(result);
+      setPostStep('done');
+      setTimeout(handleGoToPOS, 2500);
+    } catch {
+      // on error, go to POS anyway
+      handleGoToPOS();
+    }
+  };
+
+  const handleAIBuild = async () => {
+    if (!aiText.trim()) return;
+    setPostStep('ai-parsing');
+    setAiError('');
+    try {
+      const token = ownerToken || localStorage.getItem('owner_token') || '';
+      const parsed = await parseMenuWithAIAsOwner(aiText.trim(), token);
+      if (!parsed.success || !parsed.data) {
+        setAiError(parsed.error || 'Could not parse menu');
+        setPostStep('ai-input');
+        return;
+      }
+      const result = await commitAIMenuAsOwner(parsed.data, token, 'replace');
+      setTemplateStats(result);
+      setPostStep('ai-done');
+      setTimeout(handleGoToPOS, 2500);
+    } catch (err) {
+      setAiError(err instanceof Error ? err.message : 'Failed to build menu');
+      setPostStep('ai-input');
+    }
+  };
+
   /* ── Render: Success ──────────────────────────────────────────────── */
   if (isDone) {
     return (
       <div style={styles.root}>
         <div style={styles.card}>
-          {/* Success animation */}
-          <div style={styles.successIcon}>
-            <Check size={32} color="#fff" strokeWidth={3} />
-          </div>
+          {/* Step: Success — show PIN + menu setup buttons */}
+          {postStep === 'success' && (
+            <>
+              <div style={styles.successIcon}>
+                <Check size={32} color="#fff" strokeWidth={3} />
+              </div>
+              <h1 style={styles.successTitle}>You're live!</h1>
+              <p style={styles.successSub}>
+                <strong style={{ color: '#f0fdf4' }}>{form.restaurant_name}</strong> is ready to take orders.
+              </p>
 
-          <h1 style={styles.successTitle}>You're live! 🎉</h1>
-          <p style={styles.successSub}>
-            <strong style={{ color: '#f0fdf4' }}>{form.restaurant_name}</strong> is ready to take orders.
-          </p>
+              <div style={styles.pinBlock}>
+                <p style={styles.pinLabel}>Your staff login PIN</p>
+                <div style={styles.pinRow}>
+                  {(generatedPin || '----').split('').map((d, i) => (
+                    <div key={i} style={styles.pinDigit}>{d}</div>
+                  ))}
+                </div>
+                <button style={styles.copyBtn} onClick={handleCopyPin}>
+                  {pinCopied ? <><Check size={13} /> Copied!</> : 'Copy PIN'}
+                </button>
+                <p style={styles.pinHint}>
+                  Also sent to <span style={{ color: '#86efac' }}>{form.email}</span>
+                </p>
+              </div>
 
-          {/* PIN block */}
-          <div style={styles.pinBlock}>
-            <p style={styles.pinLabel}>Your staff login PIN</p>
-            <div style={styles.pinRow}>
-              {(generatedPin || '----').split('').map((d, i) => (
-                <div key={i} style={styles.pinDigit}>{d}</div>
-              ))}
-            </div>
-            <button style={styles.copyBtn} onClick={handleCopyPin}>
-              {pinCopied ? <><Check size={13} /> Copied!</> : 'Copy PIN'}
-            </button>
-            <p style={styles.pinHint}>
-              Also sent to <span style={{ color: '#86efac' }}>{form.email}</span>
-            </p>
-          </div>
+              {tenantSubdomain && (
+                <div style={styles.urlBlock}>
+                  <p style={styles.urlLabel}>Your POS URL</p>
+                  <p style={styles.urlValue}>{tenantUrl(tenantSubdomain).replace('https://', '')}</p>
+                </div>
+              )}
 
-          {/* URL */}
-          {tenantSubdomain && (
-            <div style={styles.urlBlock}>
-              <p style={styles.urlLabel}>Your POS URL</p>
-              <p style={styles.urlValue}>{tenantUrl(tenantSubdomain).replace('https://', '')}</p>
+              <button style={styles.primaryBtn} onClick={handleSetupMenu}>
+                <Sparkles size={16} /> Set Up My Menu
+              </button>
+              <button
+                style={{ ...styles.primaryBtn, background: 'transparent', border: '1px solid #333', color: '#9ca3af', marginTop: 8 }}
+                onClick={handleGoToPOS}
+              >
+                Skip for now <ArrowRight size={16} />
+              </button>
+            </>
+          )}
+
+          {/* Step: Template picker */}
+          {postStep === 'template' && (
+            <>
+              <h1 style={{ ...styles.successTitle, fontSize: 22, marginBottom: 4 }}>What type of restaurant?</h1>
+              <p style={{ ...styles.successSub, marginBottom: 20 }}>
+                Pick a template to auto-fill your menu, inventory & recipes.
+              </p>
+
+              {templateLoading ? (
+                <div style={{ display: 'flex', justifyContent: 'center', padding: 40 }}>
+                  <Loader2 size={28} color="#0d9488" style={styles.spin} />
+                </div>
+              ) : (
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                  {templates.map(t => (
+                    <button
+                      key={t.id}
+                      onClick={() => handlePickTemplate(t)}
+                      style={{
+                        background: '#1a1a1a',
+                        border: '1px solid #2a2a2a',
+                        borderRadius: 12,
+                        padding: '14px 12px',
+                        textAlign: 'left',
+                        cursor: 'pointer',
+                        transition: 'border-color 0.15s',
+                      }}
+                      onMouseEnter={e => (e.currentTarget.style.borderColor = '#0d9488')}
+                      onMouseLeave={e => (e.currentTarget.style.borderColor = '#2a2a2a')}
+                    >
+                      <div style={{ fontSize: 28, marginBottom: 6 }}>{TEMPLATE_ICONS[t.icon] || '\uD83C\uDF7D\uFE0F'}</div>
+                      <div style={{ color: '#fff', fontSize: 14, fontWeight: 600, marginBottom: 2 }}>{t.name}</div>
+                      <div style={{ color: '#6b7280', fontSize: 11 }}>{t.item_count} items &middot; {t.category_count} categories</div>
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              <button
+                onClick={() => { setPostStep('ai-input'); setAiText(''); setAiError(''); }}
+                style={{ width: '100%', background: 'none', border: 'none', color: '#0d9488', cursor: 'pointer', fontSize: 13, padding: '10px 0 2px', fontWeight: 500, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}
+              >
+                <Sparkles size={13} /> Or describe your menu and let AI build it
+              </button>
+
+              <button
+                style={{ ...styles.primaryBtn, background: 'transparent', border: '1px solid #333', color: '#9ca3af', marginTop: 12 }}
+                onClick={handleGoToPOS}
+              >
+                Skip <ArrowRight size={14} />
+              </button>
+            </>
+          )}
+
+          {/* Step: AI input */}
+          {postStep === 'ai-input' && (
+            <>
+              <h1 style={{ ...styles.successTitle, fontSize: 22, marginBottom: 4 }}>Describe your menu</h1>
+              <p style={{ ...styles.successSub, marginBottom: 16 }}>
+                Paste a menu, describe your restaurant, or list your dishes.
+              </p>
+
+              <textarea
+                value={aiText}
+                onChange={e => { setAiText(e.target.value); setAiError(''); }}
+                placeholder="Somos una taqueria con tacos de asada, pastor, chorizo..."
+                style={{
+                  width: '100%', minHeight: 120, padding: '12px 14px',
+                  background: '#0a0a0a', border: '1px solid #2a2a2a', borderRadius: 12,
+                  color: '#fff', fontSize: 14, resize: 'vertical', outline: 'none',
+                  boxSizing: 'border-box', fontFamily: 'inherit',
+                }}
+                maxLength={10000}
+                autoFocus
+              />
+              <div style={{ color: '#6b7280', fontSize: 11, textAlign: 'right', marginTop: 4, marginBottom: 8 }}>
+                {aiText.length.toLocaleString()} / 10,000
+              </div>
+
+              {aiError && (
+                <div style={{ ...styles.errorBox, marginBottom: 12 }}>{aiError}</div>
+              )}
+
+              <button
+                style={{ ...styles.primaryBtn, opacity: aiText.trim() ? 1 : 0.4, cursor: aiText.trim() ? 'pointer' : 'not-allowed' }}
+                onClick={handleAIBuild}
+                disabled={!aiText.trim()}
+              >
+                <Sparkles size={16} /> Build My Menu
+              </button>
+              <button
+                style={{ ...styles.primaryBtn, background: 'transparent', border: '1px solid #333', color: '#9ca3af', marginTop: 8 }}
+                onClick={() => setPostStep('template')}
+              >
+                Back to templates
+              </button>
+            </>
+          )}
+
+          {/* Step: AI parsing */}
+          {postStep === 'ai-parsing' && (
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '48px 0' }}>
+              <Loader2 size={36} color="#0d9488" style={styles.spin} />
+              <p style={{ color: '#9ca3af', fontSize: 14, marginTop: 16 }}>Building your menu with AI...</p>
             </div>
           )}
 
-          <button style={styles.primaryBtn} onClick={handleGoToPOS}>
-            Open My POS <ArrowRight size={16} />
-          </button>
+          {/* Step: AI done */}
+          {postStep === 'ai-done' && templateStats && (
+            <div style={{ textAlign: 'center' }}>
+              <div style={styles.successIcon}>
+                <Check size={32} color="#fff" strokeWidth={3} />
+              </div>
+              <h1 style={{ ...styles.successTitle, fontSize: 22 }}>Menu created!</h1>
+              <p style={{ color: '#9ca3af', fontSize: 14, marginBottom: 16 }}>
+                {templateStats.itemsCreated} items, {templateStats.categoriesCreated} categories
+                {templateStats.inventoryCreated > 0 && `, ${templateStats.inventoryCreated} ingredients`}
+              </p>
+              <button style={styles.primaryBtn} onClick={handleGoToPOS}>
+                Open My POS <ArrowRight size={16} />
+              </button>
+            </div>
+          )}
 
-          <p style={styles.successFooter}>
-            Customize your branding & menu in Settings after you log in.
-          </p>
+          {/* Step: Applying template */}
+          {postStep === 'applying' && (
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '48px 0' }}>
+              <Loader2 size={36} color="#0d9488" style={styles.spin} />
+              <p style={{ color: '#9ca3af', fontSize: 14, marginTop: 16 }}>Creating your menu...</p>
+            </div>
+          )}
+
+          {/* Step: Done — brief stats then auto-redirect */}
+          {postStep === 'done' && templateStats && (
+            <div style={{ textAlign: 'center' }}>
+              <div style={styles.successIcon}>
+                <Check size={32} color="#fff" strokeWidth={3} />
+              </div>
+              <h1 style={{ ...styles.successTitle, fontSize: 22 }}>Menu created!</h1>
+              <p style={{ color: '#9ca3af', fontSize: 14, marginBottom: 16 }}>
+                {templateStats.itemsCreated} items, {templateStats.categoriesCreated} categories
+                {templateStats.inventoryCreated > 0 && `, ${templateStats.inventoryCreated} ingredients`}
+              </p>
+              <button style={styles.primaryBtn} onClick={handleGoToPOS}>
+                Open My POS <ArrowRight size={16} />
+              </button>
+            </div>
+          )}
         </div>
       </div>
     );

@@ -1,7 +1,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getOnboardingStatus } from '../api';
-import { CheckCircle2, ChevronDown, ChevronUp, X, Rocket, PartyPopper, ArrowRight } from 'lucide-react';
+import { CheckCircle2, ChevronDown, ChevronUp, X, Rocket, PartyPopper, ArrowRight, FileSpreadsheet, Sparkles } from 'lucide-react';
+import { invalidateMenuCache } from '../lib/menuCache';
+import TemplatePickerModal from './menu/TemplatePickerModal';
+import AIMenuBuilderModal from './menu/AIMenuBuilderModal';
 
 interface Step {
   key: string;
@@ -22,6 +25,8 @@ const SetupChecklistBanner: React.FC = () => {
   const [dismissed, setDismissed] = useState(false);
   const [collapsed, setCollapsed] = useState(() => localStorage.getItem(COLLAPSED_KEY) === '1');
   const [celebrating, setCelebrating] = useState(false);
+  const [showTemplatePicker, setShowTemplatePicker] = useState(false);
+  const [showAIBuilder, setShowAIBuilder] = useState(false);
 
   useEffect(() => {
     if (localStorage.getItem(STORAGE_KEY) === '1') {
@@ -51,7 +56,7 @@ const SetupChecklistBanner: React.FC = () => {
         }
 
         setSteps([
-          { key: 'menu', label: 'Add your menu', description: 'Create categories and add your real dishes, drinks, and extras', route: '/admin/menu', done: status.has_menu_items },
+          { key: 'menu', label: 'Add your menu', description: 'Use a template or add items manually in Menu Management', route: '/admin/menu', done: status.has_menu_items },
           { key: 'staff', label: 'Add staff', description: 'Create PINs for your cashiers, bartenders, and kitchen staff', route: '/admin/employees', done: status.has_extra_staff },
           { key: 'branding', label: 'Customize branding', description: 'Set your restaurant colors and logo so the POS feels like yours', route: '/admin/branding', done: status.has_branding },
           { key: 'delivery', label: 'Set up delivery', description: 'Connect Uber Eats, Rappi, or DidiFood to track all orders in one place', route: '/admin/delivery', done: status.has_delivery },
@@ -202,24 +207,71 @@ const SetupChecklistBanner: React.FC = () => {
                   )}
                 </div>
 
-                {/* Action button */}
+                {/* Action buttons */}
                 {!step.done && (
-                  <button
-                    onClick={() => handleStepAction(step)}
-                    className={`flex items-center gap-1 px-3 py-1.5 rounded-md text-xs font-semibold transition-colors touch-manipulation flex-shrink-0 ${
-                      isNext
-                        ? 'bg-brand-600 hover:bg-brand-500 text-white'
-                        : 'bg-neutral-700 hover:bg-neutral-600 text-neutral-200'
-                    }`}
-                  >
-                    Go <ArrowRight size={12} />
-                  </button>
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    {step.key === 'menu' && (
+                      <>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); setShowAIBuilder(true); }}
+                          className="flex items-center gap-1 px-3 py-1.5 rounded-md text-xs font-semibold transition-colors touch-manipulation bg-neutral-700 hover:bg-neutral-600 text-neutral-200"
+                        >
+                          <Sparkles size={12} /> AI Builder
+                        </button>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); setShowTemplatePicker(true); }}
+                          className="flex items-center gap-1 px-3 py-1.5 rounded-md text-xs font-semibold transition-colors touch-manipulation bg-neutral-700 hover:bg-neutral-600 text-neutral-200"
+                        >
+                          <FileSpreadsheet size={12} /> Template
+                        </button>
+                      </>
+                    )}
+                    <button
+                      onClick={() => handleStepAction(step)}
+                      className={`flex items-center gap-1 px-3 py-1.5 rounded-md text-xs font-semibold transition-colors touch-manipulation ${
+                        isNext
+                          ? 'bg-brand-600 hover:bg-brand-500 text-white'
+                          : 'bg-neutral-700 hover:bg-neutral-600 text-neutral-200'
+                      }`}
+                    >
+                      Go <ArrowRight size={12} />
+                    </button>
+                  </div>
                 )}
               </div>
             );
           })}
         </div>
       )}
+
+      <TemplatePickerModal
+        isOpen={showTemplatePicker}
+        onClose={() => setShowTemplatePicker(false)}
+        onTemplateApplied={async () => {
+          invalidateMenuCache();
+          // Re-fetch onboarding status to update checklist
+          try {
+            const status = await getOnboardingStatus();
+            setSteps(prev => prev ? prev.map(s =>
+              s.key === 'menu' ? { ...s, done: status.has_menu_items } : s
+            ) : prev);
+          } catch {}
+        }}
+      />
+
+      <AIMenuBuilderModal
+        isOpen={showAIBuilder}
+        onClose={() => setShowAIBuilder(false)}
+        onMenuCreated={async () => {
+          invalidateMenuCache();
+          try {
+            const status = await getOnboardingStatus();
+            setSteps(prev => prev ? prev.map(s =>
+              s.key === 'menu' ? { ...s, done: status.has_menu_items } : s
+            ) : prev);
+          } catch {}
+        }}
+      />
     </div>
   );
 };

@@ -1132,6 +1132,52 @@ export interface StressTestResidual {
   newest: string | null;
 }
 
+/* Menu Import Types */
+export interface MenuTemplateOption {
+  id: string;
+  name: string;
+  description: string;
+  icon: string;
+  item_count: number;
+  category_count: number;
+}
+
+export interface MenuImportStats {
+  categoriesCreated: number;
+  itemsCreated: number;
+  inventoryCreated: number;
+  recipesCreated: number;
+  modifierGroupsCreated: number;
+  combosCreated: number;
+  skipped: string[];
+  warnings: string[];
+}
+
+export interface CSVImportPreview {
+  detected_columns: string[];
+  column_mapping: Record<string, string>;
+  detected_categories: string[];
+  valid_rows: Array<Record<string, unknown>>;
+  invalid_rows: Array<{ row: number; data: Record<string, unknown>; reason: string }>;
+  total: number;
+  valid_count: number;
+  invalid_count: number;
+}
+
+/* AI Menu Builder Types */
+export interface AIMenuParseResult {
+  success: boolean;
+  data?: {
+    categories: Array<{ name: string; sort_order: number }>;
+    items: Array<{ name: string; category: string; price: number; description?: string; prep_time_minutes?: number }>;
+    inventory?: Array<{ name: string; unit: string; quantity: number; low_stock_threshold: number; category: string; cost_price: number }>;
+    recipes?: Array<{ item_name: string; ingredient_name: string; quantity_used: number }>;
+    modifier_groups?: Array<{ name: string; selection_type: string; required: boolean; min_selections: number; max_selections: number; modifiers: Array<{ name: string; price_adjustment: number }>; assign_to_categories: string[] }>;
+  };
+  error?: string;
+  fallback?: boolean;
+}
+
 /* API Response Types */
 export interface ApiResponse<T> {
   success: boolean;

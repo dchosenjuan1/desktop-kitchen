@@ -74,6 +74,10 @@ import {
   StressTestProgress,
   StressTestResults,
   StressTestResidual,
+  MenuTemplateOption,
+  MenuImportStats,
+  CSVImportPreview,
+  AIMenuParseResult,
 } from '../types';
 
 // Employee ID for display/sync use - set after login
@@ -231,6 +235,147 @@ async function apiRequest<T>(
 
   const data = await response.json();
   return coerceNumerics(data) as T;
+}
+
+/* ==================== Menu Templates & Import ==================== */
+
+export async function getMenuTemplates(): Promise<MenuTemplateOption[]> {
+  return apiRequest<MenuTemplateOption[]>('/menu/templates');
+}
+
+export async function applyMenuTemplate(templateId: string, mode: 'append' | 'replace' = 'append'): Promise<MenuImportStats> {
+  return apiRequest<MenuImportStats>('/menu/import-template', {
+    method: 'POST',
+    body: JSON.stringify({ template_id: templateId, mode }),
+  });
+}
+
+export async function applyMenuTemplateAsOwner(templateId: string, ownerToken: string, mode: 'append' | 'replace' = 'replace'): Promise<MenuImportStats> {
+  const base = IOS_FALLBACK_URLS.length ? await resolveBaseUrl() : activeBaseUrl;
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    'Authorization': `Bearer ${ownerToken}`,
+  };
+  if (!isCapacitor && window.location.hostname === 'localhost') {
+    const tenantId = localStorage.getItem('tenant_id');
+    if (tenantId) headers['X-Tenant-ID'] = tenantId;
+  }
+  const response = await fetch(`${base}/menu/import-template`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({ template_id: templateId, mode }),
+  });
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}));
+    throw new Error(err.error || 'Failed to apply template');
+  }
+  return response.json();
+}
+
+export async function previewMenuCSV(file: File): Promise<CSVImportPreview> {
+  const base = IOS_FALLBACK_URLS.length ? await resolveBaseUrl() : activeBaseUrl;
+  const formData = new FormData();
+  formData.append('file', file);
+  const headers: Record<string, string> = {};
+  if (currentEmployeeToken) headers['Authorization'] = `Bearer ${currentEmployeeToken}`;
+  if (!isCapacitor && window.location.hostname === 'localhost') {
+    const tenantId = localStorage.getItem('tenant_id');
+    if (tenantId) headers['X-Tenant-ID'] = tenantId;
+  }
+  const response = await fetch(`${base}/menu/import?mode=preview`, {
+    method: 'POST',
+    headers,
+    body: formData,
+  });
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}));
+    throw new Error(err.error || 'Failed to preview CSV');
+  }
+  return response.json();
+}
+
+export async function commitMenuCSV(file: File, columnMap?: Record<string, string>, importMode: 'append' | 'replace' = 'append'): Promise<MenuImportStats> {
+  const base = IOS_FALLBACK_URLS.length ? await resolveBaseUrl() : activeBaseUrl;
+  const formData = new FormData();
+  formData.append('file', file);
+  if (columnMap) formData.append('column_map', JSON.stringify(columnMap));
+  formData.append('import_mode', importMode);
+  const headers: Record<string, string> = {};
+  if (currentEmployeeToken) headers['Authorization'] = `Bearer ${currentEmployeeToken}`;
+  if (!isCapacitor && window.location.hostname === 'localhost') {
+    const tenantId = localStorage.getItem('tenant_id');
+    if (tenantId) headers['X-Tenant-ID'] = tenantId;
+  }
+  const response = await fetch(`${base}/menu/import?mode=commit`, {
+    method: 'POST',
+    headers,
+    body: formData,
+  });
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}));
+    throw new Error(err.error || 'Failed to import CSV');
+  }
+  return response.json();
+}
+
+/* ==================== AI Menu Builder ==================== */
+
+export async function parseMenuWithAI(text: string): Promise<AIMenuParseResult> {
+  return apiRequest<AIMenuParseResult>('/menu/ai-parse', {
+    method: 'POST',
+    body: JSON.stringify({ text }),
+  });
+}
+
+export async function parseMenuWithAIAsOwner(text: string, ownerToken: string): Promise<AIMenuParseResult> {
+  const base = IOS_FALLBACK_URLS.length ? await resolveBaseUrl() : activeBaseUrl;
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    'Authorization': `Bearer ${ownerToken}`,
+  };
+  if (!isCapacitor && window.location.hostname === 'localhost') {
+    const tenantId = localStorage.getItem('tenant_id');
+    if (tenantId) headers['X-Tenant-ID'] = tenantId;
+  }
+  const response = await fetch(`${base}/menu/ai-parse`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({ text }),
+  });
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}));
+    throw new Error(err.error || 'Failed to parse menu');
+  }
+  return response.json();
+}
+
+export async function commitAIMenu(payload: AIMenuParseResult['data'], mode: 'append' | 'replace' = 'replace'): Promise<MenuImportStats> {
+  return apiRequest<MenuImportStats>('/menu/ai-import', {
+    method: 'POST',
+    body: JSON.stringify({ payload, mode }),
+  });
+}
+
+export async function commitAIMenuAsOwner(payload: AIMenuParseResult['data'], ownerToken: string, mode: 'append' | 'replace' = 'replace'): Promise<MenuImportStats> {
+  const base = IOS_FALLBACK_URLS.length ? await resolveBaseUrl() : activeBaseUrl;
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    'Authorization': `Bearer ${ownerToken}`,
+  };
+  if (!isCapacitor && window.location.hostname === 'localhost') {
+    const tenantId = localStorage.getItem('tenant_id');
+    if (tenantId) headers['X-Tenant-ID'] = tenantId;
+  }
+  const response = await fetch(`${base}/menu/ai-import`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({ payload, mode }),
+  });
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}));
+    throw new Error(err.error || 'Failed to import menu');
+  }
+  return response.json();
 }
 
 /* ==================== Menu Endpoints ==================== */

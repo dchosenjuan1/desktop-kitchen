@@ -204,6 +204,58 @@ Return JSON object with: summary (string), urgent_actions (array), weekly_plan (
 }
 
 /**
+ * Parse unstructured menu text into structured JSON for bulk import
+ */
+export async function parseMenuText(text, { currency = 'MXN' } = {}) {
+  const systemPrompt = `You are a menu parsing AI for a restaurant POS system.
+Convert the provided text into a structured JSON menu. The text may be:
+- A pasted menu (from PDF, photo, website)
+- A description of a restaurant ("We're a taqueria that sells...")
+- A list of items with or without prices
+- A mix of Spanish and English
+
+Return ONLY valid JSON (no markdown, no explanation) matching this exact shape:
+{
+  "categories": [{ "name": "Category Name", "sort_order": 1 }],
+  "items": [{ "name": "Item Name", "category": "Category Name", "price": 45.00, "description": "Short description", "prep_time_minutes": 8 }],
+  "inventory": [{ "name": "Ingredient", "unit": "kg", "quantity": 0, "low_stock_threshold": 5, "category": "Produce", "cost_price": 25.00 }],
+  "recipes": [{ "item_name": "Item Name", "ingredient_name": "Ingredient", "quantity_used": 0.15 }],
+  "modifier_groups": [{ "name": "Group Name", "selection_type": "single", "required": false, "min_selections": 0, "max_selections": 1, "modifiers": [{ "name": "Option", "price_adjustment": 0 }], "assign_to_categories": ["Category Name"] }]
+}
+
+Rules:
+- Prices are in ${currency}. If no prices given, estimate realistic Mexican restaurant prices.
+- Category names should be in the same language as the input.
+- Generate 2-4 sensible categories from the items.
+- For each item, infer likely ingredients and create inventory + recipe entries.
+- Suggest 1-3 modifier groups if appropriate (e.g., size, protein choice, extras).
+- prep_time_minutes should be realistic (5-20 min range).
+- cost_price for ingredients should be ~30-40% of item sell price (realistic food cost).
+- inventory units: use kg, lt, pz (piezas), or unit.
+- Do NOT wrap the JSON in markdown code fences.`;
+
+  const result = await sendMessage(text, {
+    systemPrompt,
+    maxTokens: 4096,
+    useCache: false,
+  });
+
+  if (!result.success) return { success: false, error: result.error, fallback: true };
+
+  try {
+    const jsonMatch = result.content.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) return { success: false, error: 'AI did not return valid JSON' };
+    const parsed = JSON.parse(jsonMatch[0]);
+    if (!parsed.categories?.length && !parsed.items?.length) {
+      return { success: false, error: 'AI could not identify any menu items from the text' };
+    }
+    return { success: true, data: parsed };
+  } catch (e) {
+    return { success: false, error: 'Failed to parse AI response' };
+  }
+}
+
+/**
  * Get current stats
  */
 export async function getGrokStats() {

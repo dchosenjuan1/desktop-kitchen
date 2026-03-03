@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { ArrowLeft, Plus, X, Layers } from 'lucide-react';
+import { ArrowLeft, Plus, X, Layers, Upload, FileSpreadsheet, Sparkles } from 'lucide-react';
 import {
   getCategories,
   getMenuItems,
@@ -24,6 +24,9 @@ import UpgradePrompt from '../components/UpgradePrompt';
 import CategoryManagementView from '../components/menu/CategoryManagementView';
 import ItemsView from '../components/menu/ItemsView';
 import ItemFormModal from '../components/menu/ItemFormModal';
+import TemplatePickerModal from '../components/menu/TemplatePickerModal';
+import ImportMenuModal from '../components/menu/ImportMenuModal';
+import AIMenuBuilderModal from '../components/menu/AIMenuBuilderModal';
 
 type ModalMode = 'add' | 'edit' | null;
 type View = 'items' | 'categories';
@@ -69,6 +72,11 @@ export default function MenuManagement() {
   const [showCategoryForm, setShowCategoryForm] = useState(false);
   const [editingCategoryId, setEditingCategoryId] = useState<number | null>(null);
   const [categoryFormData, setCategoryFormData] = useState<CategoryFormData>({ name: '', sort_order: '' });
+
+  // Import modals
+  const [showTemplatePicker, setShowTemplatePicker] = useState(false);
+  const [showCSVImport, setShowCSVImport] = useState(false);
+  const [showAIBuilder, setShowAIBuilder] = useState(false);
 
   useEffect(() => { fetchCategories(); }, []);
   useEffect(() => { if (selectedCategory && view === 'items') fetchMenuItems(selectedCategory); }, [selectedCategory, view]);
@@ -315,6 +323,27 @@ export default function MenuManagement() {
             </div>
             {view === 'items' && (
               <div className="flex items-center gap-3">
+                <button
+                  onClick={() => setShowAIBuilder(true)}
+                  className="px-4 py-3 border border-neutral-700 text-neutral-300 rounded-lg font-medium hover:bg-neutral-800 transition-colors flex items-center gap-2 min-h-[44px] text-sm"
+                >
+                  <Sparkles size={16} />
+                  AI Builder
+                </button>
+                <button
+                  onClick={() => setShowCSVImport(true)}
+                  className="px-4 py-3 border border-neutral-700 text-neutral-300 rounded-lg font-medium hover:bg-neutral-800 transition-colors flex items-center gap-2 min-h-[44px] text-sm"
+                >
+                  <Upload size={16} />
+                  Import CSV
+                </button>
+                <button
+                  onClick={() => setShowTemplatePicker(true)}
+                  className="px-4 py-3 border border-neutral-700 text-neutral-300 rounded-lg font-medium hover:bg-neutral-800 transition-colors flex items-center gap-2 min-h-[44px] text-sm"
+                >
+                  <FileSpreadsheet size={16} />
+                  Use Template
+                </button>
                 {limits.menuItems !== Infinity && (
                   <span className="text-sm text-neutral-400">
                     {menuItems.filter(i => i.active).length} / {limits.menuItems} items
@@ -404,6 +433,33 @@ export default function MenuManagement() {
         onEditItem={handleEditItem}
         onToggleModifierGroup={handleToggleModifierGroup}
         onClose={closeModal}
+      />
+
+      <TemplatePickerModal
+        isOpen={showTemplatePicker}
+        onClose={() => setShowTemplatePicker(false)}
+        onTemplateApplied={() => {
+          fetchCategories();
+          invalidateMenuCache();
+        }}
+      />
+
+      <ImportMenuModal
+        isOpen={showCSVImport}
+        onClose={() => setShowCSVImport(false)}
+        onImportComplete={() => {
+          fetchCategories();
+          invalidateMenuCache();
+        }}
+      />
+
+      <AIMenuBuilderModal
+        isOpen={showAIBuilder}
+        onClose={() => setShowAIBuilder(false)}
+        onMenuCreated={() => {
+          fetchCategories();
+          invalidateMenuCache();
+        }}
       />
     </div>
   );

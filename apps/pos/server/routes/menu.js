@@ -1,8 +1,14 @@
 import { Router } from 'express';
+import multer from 'multer';
+import Papa from 'papaparse';
 import { all, get, run, getTenantId } from '../db/index.js';
 import { requireAuth } from '../middleware/auth.js';
+import { requireOwner } from '../middleware/ownerAuth.js';
 import { checkLimit } from '../planLimits.js';
 import { audit } from '../lib/auditLog.js';
+import { TEMPLATE_LIST, getTemplate } from '../templates/index.js';
+import { bulkInsertMenu } from '../lib/menuBulkInsert.js';
+import { parseMenuText } from '../ai/claude-client.js';
 
 const router = Router();
 
@@ -494,6 +500,309 @@ router.get('/pos-brands', async (req, res) => {
   } catch (error) {
     console.error('Error fetching POS brands:', error);
     res.status(500).json({ error: 'Failed to fetch POS brands' });
+  }
+});
+
+// ─── Template & Import Endpoints ─────────────────────────────
+
+// GET /api/menu/templates - list available templates (no auth required)
+router.get('/templates', (_req, res) => {
+  res.json(TEMPLATE_LIST);
+});
+
+/**
+ * Dual auth middleware: accepts either owner JWT or employee JWT with manage_menu permission.
+ * Needed for onboarding flow where owner has JWT but hasn't logged in as employee yet.
+ */
+function requireMenuAuth(req, res, next) {
+  const authHeader = req.headers.authorization;
+  if (!authHeader?.startsWith('Bearer ')) {
+    return res.status(401).json({ error: 'Authentication required' });
+  }
+
+  // Try owner auth first (non-destructive attempt)
+  requireOwner(req, res, (ownerErr) => {
+    if (!ownerErr && req.owner) {
+      return next();
+    }
+    // Fall back to employee auth
+    requireAuth('manage_menu')(req, res, next);
+  });
+}
+
+// POST /api/menu/import-template - apply a restaurant template
+router.post('/import-template', requireMenuAuth, async (req, res) => {
+  try {
+    const { template_id, mode = 'append' } = req.body;
+    if (!template_id) {
+      return res.status(400).json({ error: 'template_id is required' });
+    }
+
+    const template = getTemplate(template_id);
+    if (!template) {
+      return res.status(404).json({ error: `Template "${template_id}" not found` });
+    }
+
+    if (mode !== 'append' && mode !== 'replace') {
+      return res.status(400).json({ error: 'mode must be "append" or "replace"' });
+    }
+
+    const plan = req.tenant?.plan || 'trial';
+    const stats = await bulkInsertMenu(template, { plan, mode });
+
+    audit({
+      tenantId: req.tenant?.id || req.owner?.tenantId || 'default',
+      actorType: req.owner ? 'owner' : 'employee',
+      actorId: req.owner?.email || req.headers['x-employee-id'] || 'unknown',
+      action: 'import_template',
+      resource: 'menu',
+      resourceId: template_id,
+      details: stats,
+      ip: req.ip,
+    });
+
+    res.json(stats);
+  } catch (error) {
+    console.error('Error applying template:', error);
+    res.status(500).json({ error: 'Failed to apply template' });
+  }
+});
+
+// POST /api/menu/ai-parse - parse unstructured text into menu structure via AI
+router.post('/ai-parse', requireMenuAuth, async (req, res) => {
+  try {
+    const { text } = req.body;
+    if (!text || typeof text !== 'string' || !text.trim()) {
+      return res.status(400).json({ success: false, error: 'Text is required' });
+    }
+    if (text.length > 10000) {
+      return res.status(400).json({ success: false, error: 'Text must be under 10,000 characters' });
+    }
+
+    const result = await parseMenuText(text.trim());
+    res.json(result);
+  } catch (error) {
+    console.error('Error parsing menu with AI:', error);
+    res.status(500).json({ success: false, error: 'Failed to parse menu' });
+  }
+});
+
+// POST /api/menu/ai-import - commit AI-parsed menu payload via bulkInsertMenu
+router.post('/ai-import', requireMenuAuth, async (req, res) => {
+  try {
+    const { payload, mode = 'replace' } = req.body;
+    if (!payload || (!payload.categories?.length && !payload.items?.length)) {
+      return res.status(400).json({ error: 'No menu data to import' });
+    }
+    if (mode !== 'append' && mode !== 'replace') {
+      return res.status(400).json({ error: 'mode must be "append" or "replace"' });
+    }
+
+    const plan = req.tenant?.plan || 'trial';
+    const stats = await bulkInsertMenu(payload, { plan, mode });
+
+    audit({
+      tenantId: req.tenant?.id || req.owner?.tenantId || 'default',
+      actorType: req.owner ? 'owner' : 'employee',
+      actorId: req.owner?.email || req.headers['x-employee-id'] || 'unknown',
+      action: 'import_ai_menu',
+      resource: 'menu',
+      resourceId: 'ai-builder',
+      details: stats,
+      ip: req.ip,
+    });
+
+    res.json(stats);
+  } catch (error) {
+    console.error('Error importing AI menu:', error);
+    res.status(500).json({ error: 'Failed to import menu' });
+  }
+});
+
+// CSV upload config: memory storage, 5MB limit
+const csvUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    const allowed = ['.csv', '.tsv', '.txt'];
+    const ext = (file.originalname || '').toLowerCase().match(/\.[^.]+$/)?.[0];
+    if (ext && allowed.includes(ext)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Only .csv, .tsv, or .txt files are allowed'));
+    }
+  },
+});
+
+// Column alias map for auto-detection (EN, ES, POS exports)
+const COLUMN_ALIASES = {
+  name: ['name', 'nombre', 'item name', 'item', 'product', 'producto', 'dish', 'platillo'],
+  price: ['price', 'precio', 'cost', 'costo', 'unit price', 'precio unitario'],
+  category: ['category', 'categoría', 'categoria', 'section', 'sección', 'seccion', 'group', 'grupo'],
+  description: ['description', 'descripción', 'descripcion', 'notes', 'notas', 'details', 'detalles'],
+  ingredients: ['ingredients', 'ingredientes', 'recipe', 'receta'],
+  prep_time: ['prep time', 'prep_time', 'tiempo', 'tiempo de preparación', 'prep_time_minutes'],
+};
+
+function normalizeHeader(h) {
+  return (h || '').toLowerCase().trim().replace(/[_\-]/g, ' ').replace(/\s+/g, ' ');
+}
+
+function detectColumns(headers) {
+  const mapping = {};
+  for (const header of headers) {
+    const normalized = normalizeHeader(header);
+    for (const [canonical, aliases] of Object.entries(COLUMN_ALIASES)) {
+      if (aliases.includes(normalized) && !mapping[canonical]) {
+        mapping[canonical] = header;
+        break;
+      }
+    }
+  }
+  return mapping;
+}
+
+function parsePrice(val) {
+  if (val == null || val === '') return null;
+  const cleaned = String(val).replace(/[$,\s]/g, '').trim();
+  const num = parseFloat(cleaned);
+  return isNaN(num) ? null : Math.round(num * 100) / 100;
+}
+
+// POST /api/menu/import - CSV import (preview or commit)
+router.post('/import', requireAuth('manage_menu'), csvUpload.single('file'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: 'No file uploaded' });
+    }
+
+    const mode = req.query.mode || 'preview';
+    const csvText = req.file.buffer.toString('utf-8');
+    const parsed = Papa.parse(csvText, { header: true, skipEmptyLines: true, dynamicTyping: false });
+
+    if (parsed.errors.length > 0 && parsed.data.length === 0) {
+      return res.status(400).json({ error: 'Failed to parse CSV', details: parsed.errors.slice(0, 5) });
+    }
+
+    const headers = parsed.meta.fields || [];
+    const columnMap = req.body?.column_map ? JSON.parse(req.body.column_map) : detectColumns(headers);
+
+    if (!columnMap.name) {
+      return res.status(400).json({
+        error: 'Could not detect a "name" column. Please provide a column mapping.',
+        detected_columns: headers,
+      });
+    }
+
+    const validRows = [];
+    const invalidRows = [];
+    const categorySet = new Set();
+
+    for (let i = 0; i < parsed.data.length; i++) {
+      const row = parsed.data[i];
+      const name = (row[columnMap.name] || '').trim();
+      const price = parsePrice(row[columnMap.price]);
+      const category = columnMap.category ? (row[columnMap.category] || '').trim() : '';
+      const description = columnMap.description ? (row[columnMap.description] || '').trim() : '';
+      const ingredients = columnMap.ingredients ? (row[columnMap.ingredients] || '').trim() : '';
+      const prepTime = columnMap.prep_time ? parseInt(row[columnMap.prep_time]) || 5 : 5;
+
+      if (!name) {
+        if (Object.values(row).some(v => (v || '').trim())) {
+          invalidRows.push({ row: i + 1, data: row, reason: 'Missing name' });
+        }
+        continue;
+      }
+
+      if (price === null && columnMap.price) {
+        invalidRows.push({ row: i + 1, data: row, reason: 'Invalid price' });
+        continue;
+      }
+
+      const validRow = {
+        name,
+        price: price || 0,
+        category: category || 'General',
+        description,
+        ingredients,
+        prep_time_minutes: prepTime,
+      };
+
+      validRows.push(validRow);
+      categorySet.add(validRow.category);
+    }
+
+    // ─── Preview mode ───
+    if (mode === 'preview') {
+      return res.json({
+        detected_columns: headers,
+        column_mapping: columnMap,
+        detected_categories: Array.from(categorySet),
+        valid_rows: validRows.slice(0, 50),
+        invalid_rows: invalidRows.slice(0, 20),
+        total: parsed.data.length,
+        valid_count: validRows.length,
+        invalid_count: invalidRows.length,
+      });
+    }
+
+    // ─── Commit mode ───
+    const categories = Array.from(categorySet).map((name, i) => ({
+      name,
+      sort_order: i + 1,
+    }));
+
+    const items = validRows.map(r => ({
+      name: r.name,
+      category: r.category,
+      price: r.price,
+      description: r.description,
+      prep_time_minutes: r.prep_time_minutes,
+    }));
+
+    // Build inventory from ingredient columns if present
+    const inventory = [];
+    const recipes = [];
+    if (columnMap.ingredients) {
+      const ingredientSet = new Set();
+      for (const row of validRows) {
+        if (!row.ingredients) continue;
+        const ings = row.ingredients.split(/[,;]/).map(s => s.trim()).filter(Boolean);
+        for (const ing of ings) {
+          if (!ingredientSet.has(ing.toLowerCase())) {
+            ingredientSet.add(ing.toLowerCase());
+            inventory.push({ name: ing, unit: 'unit', quantity: 0, low_stock_threshold: 5, category: 'Imported', cost_price: 0 });
+          }
+          recipes.push({ item_name: row.name, ingredient_name: ing, quantity_used: 1 });
+        }
+      }
+    }
+
+    const plan = req.tenant?.plan || 'trial';
+    const importMode = req.body?.import_mode || 'append';
+    const stats = await bulkInsertMenu(
+      { categories, items, inventory, recipes },
+      { plan, mode: importMode }
+    );
+
+    audit({
+      tenantId: req.tenant?.id || 'default',
+      actorType: 'employee',
+      actorId: req.headers['x-employee-id'] || 'unknown',
+      action: 'import_csv',
+      resource: 'menu',
+      resourceId: req.file.originalname,
+      details: stats,
+      ip: req.ip,
+    });
+
+    res.json(stats);
+  } catch (error) {
+    if (error.message?.includes('Only .csv')) {
+      return res.status(400).json({ error: error.message });
+    }
+    console.error('Error importing CSV:', error);
+    res.status(500).json({ error: 'Failed to import CSV' });
   }
 });
 
