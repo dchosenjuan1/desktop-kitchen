@@ -175,7 +175,7 @@ router.delete('/', async (req, res) => {
       const r6 = await sql.unsafe(`DELETE FROM delivery_orders WHERE tenant_id = $1 AND order_id IN (SELECT id FROM orders WHERE tenant_id = $1 AND source = $2)`, [tenantId, DEMO_SOURCE]);
       deleted.delivery_orders = r6.count;
 
-      const r7 = await sql.unsafe(`DELETE FROM stamp_cards WHERE tenant_id = $1 AND demo_batch_id IS NOT NULL`, [tenantId]);
+      const r7 = await sql.unsafe(`DELETE FROM stamp_cards WHERE tenant_id = $1 AND customer_id IN (SELECT id FROM loyalty_customers WHERE tenant_id = $1 AND demo_batch_id IS NOT NULL)`, [tenantId]);
       deleted.stamp_cards = r7.count;
 
       // ─── AI tables ──────────────────────────────────────────
