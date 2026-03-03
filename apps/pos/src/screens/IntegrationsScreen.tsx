@@ -237,8 +237,6 @@ export default function IntegrationsScreen() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
-  const hasOwnerToken = !!localStorage.getItem('owner_token');
-
   useEffect(() => {
     async function load() {
       setLoading(true);
@@ -246,7 +244,7 @@ export default function IntegrationsScreen() {
       try {
         const [schemaData, credsData] = await Promise.all([
           getCredentialsSchema(),
-          hasOwnerToken ? getCredentials() : Promise.resolve({}),
+          getCredentials(),
         ]);
         setSchema(schemaData);
         setCredentials(credsData);
@@ -261,7 +259,7 @@ export default function IntegrationsScreen() {
       }
     }
     load();
-  }, [hasOwnerToken]);
+  }, []);
 
   const handleSave = async (service: string, values: Record<string, string>) => {
     await saveCredentials(service, values);
@@ -290,15 +288,7 @@ export default function IntegrationsScreen() {
       </div>
 
       <div className="max-w-3xl mx-auto p-6">
-        {!hasOwnerToken ? (
-          <div className="bg-neutral-900 border border-neutral-800 rounded-lg p-8 text-center">
-            <Lock className="mx-auto text-neutral-600 mb-3" size={40} />
-            <h2 className="text-white text-lg font-bold mb-2">Owner authentication required</h2>
-            <p className="text-neutral-400 text-sm">
-              Sign in as the account owner to manage integrations and credentials.
-            </p>
-          </div>
-        ) : loading ? (
+        {loading ? (
           <div className="space-y-4">
             {[1, 2, 3].map(i => (
               <div key={i} className="bg-neutral-900 border border-neutral-800 rounded-lg p-6 animate-pulse">

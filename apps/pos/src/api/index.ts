@@ -1586,7 +1586,7 @@ export async function getOnboardingStatus(): Promise<OnboardingStatus> {
 /* ==================== Billing Endpoints (Owner JWT Auth) ==================== */
 
 function ownerHeaders(): Record<string, string> {
-  const token = localStorage.getItem('owner_token');
+  const token = localStorage.getItem('owner_token') || currentEmployeeToken;
   const isDev = window.location.hostname === 'localhost';
   const tenantId = !isCapacitor && isDev ? localStorage.getItem('tenant_id') : null;
   return {
@@ -1913,38 +1913,14 @@ export async function getCredentialsSchema(): Promise<Record<string, ServiceSche
 }
 
 export async function getCredentials(): Promise<Record<string, Record<string, string>>> {
-  // Uses owner token
-  const base = IOS_FALLBACK_URLS.length ? await resolveBaseUrl() : activeBaseUrl;
-  const ownerToken = localStorage.getItem('owner_token');
-  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-  if (ownerToken) headers['Authorization'] = `Bearer ${ownerToken}`;
-  if (!isCapacitor && window.location.hostname === 'localhost') { const tenantId = localStorage.getItem('tenant_id'); if (tenantId) headers['X-Tenant-ID'] = tenantId; }
-
-  const res = await fetch(`${base}/credentials`, { headers });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err.error || `API Error: ${res.status}`);
-  }
-  return res.json();
+  return ownerApiRequest('/credentials');
 }
 
 export async function saveCredentials(service: string, values: Record<string, string>): Promise<{ success: boolean }> {
-  const base = IOS_FALLBACK_URLS.length ? await resolveBaseUrl() : activeBaseUrl;
-  const ownerToken = localStorage.getItem('owner_token');
-  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-  if (ownerToken) headers['Authorization'] = `Bearer ${ownerToken}`;
-  if (!isCapacitor && window.location.hostname === 'localhost') { const tenantId = localStorage.getItem('tenant_id'); if (tenantId) headers['X-Tenant-ID'] = tenantId; }
-
-  const res = await fetch(`${base}/credentials/${service}`, {
+  return ownerApiRequest(`/credentials/${service}`, {
     method: 'PUT',
-    headers,
     body: JSON.stringify(values),
   });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err.error || `API Error: ${res.status}`);
-  }
-  return res.json();
 }
 
 /* ==================== Stress Test ==================== */
@@ -2326,21 +2302,7 @@ export async function getBankSyncHealth(): Promise<{ alerts: BankSyncAlert[] }> 
 }
 
 export async function deleteCredentials(service: string): Promise<{ success: boolean }> {
-  const base = IOS_FALLBACK_URLS.length ? await resolveBaseUrl() : activeBaseUrl;
-  const ownerToken = localStorage.getItem('owner_token');
-  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-  if (ownerToken) headers['Authorization'] = `Bearer ${ownerToken}`;
-  if (!isCapacitor && window.location.hostname === 'localhost') { const tenantId = localStorage.getItem('tenant_id'); if (tenantId) headers['X-Tenant-ID'] = tenantId; }
-
-  const res = await fetch(`${base}/credentials/${service}`, {
-    method: 'DELETE',
-    headers,
-  });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err.error || `API Error: ${res.status}`);
-  }
-  return res.json();
+  return ownerApiRequest(`/credentials/${service}`, { method: 'DELETE' });
 }
 
 /* ==================== Demo Data Endpoints ==================== */

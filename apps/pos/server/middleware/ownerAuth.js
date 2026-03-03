@@ -1,10 +1,12 @@
 import jwt from 'jsonwebtoken';
 import { getTenant } from '../tenants.js';
+import { adminSql } from '../db/index.js';
 import { JWT_SECRET } from '../lib/constants.js';
 
 /**
  * Owner auth middleware.
  * Validates JWT, ensures tenant is active and subscription not expired.
+ * Accepts both owner JWT and admin-role employee JWT tokens.
  * Attaches req.owner = { tenantId, email, role } for downstream use.
  */
 export async function requireOwner(req, res, next) {
@@ -16,7 +18,32 @@ export async function requireOwner(req, res, next) {
   try {
     const decoded = jwt.verify(authHeader.slice(7), JWT_SECRET);
 
-    // Verify tenant still exists and is active
+    // Accept admin-role employee tokens as owner-equivalent
+    if (decoded.type === 'employee') {
+      const [employee] = await adminSql`
+        SELECT id, name, role, active FROM employees
+        WHERE id = ${decoded.employeeId} AND tenant_id = ${decoded.tenantId}
+      `;
+      if (!employee || !employee.active) {
+        return res.status(401).json({ error: 'Employee not found or inactive' });
+      }
+      if (employee.role !== 'admin') {
+        return res.status(403).json({ error: 'Admin role required' });
+      }
+
+      const tenant = await getTenant(decoded.tenantId);
+      if (!tenant) return res.status(401).json({ error: 'Tenant not found' });
+      if (!tenant.active) return res.status(403).json({ error: 'Account is inactive' });
+
+      req.owner = {
+        tenantId: decoded.tenantId,
+        email: tenant.owner_email,
+        role: 'admin',
+      };
+      return next();
+    }
+
+    // Standard owner JWT path
     const tenant = await getTenant(decoded.tenantId);
     if (!tenant) {
       return res.status(401).json({ error: 'Tenant not found' });

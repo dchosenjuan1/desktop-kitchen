@@ -162,7 +162,7 @@ export default function AdminPanel() {
 
   const isPro = plan === 'pro' || plan === 'ghost_kitchen';
 
-  const hasOwnerToken = !!localStorage.getItem('owner_token');
+  const hasOwnerToken = true; // Admin employees can now access via employee JWT
 
   // Refresh plan after billing success redirect, show cancelled banner
   useEffect(() => {
@@ -715,8 +715,8 @@ export default function AdminPanel() {
               <div className="flex items-center justify-center w-12 h-12 bg-brand-600/10 rounded-lg mb-4">
                 <Plug className="text-brand-500" size={28} />
               </div>
-              <h2 className="text-xl font-bold text-white mb-2">Integraciones</h2>
-              <p className="text-neutral-400 text-sm">Conecta Stripe, Mercado Pago, Twilio, FacturAPI y mas</p>
+              <h2 className="text-xl font-bold text-white mb-2">{t('cards.integrations', 'Integrations')}</h2>
+              <p className="text-neutral-400 text-sm">{t('cards.integrationsDesc', 'Connect Stripe, Mercado Pago, Twilio, FacturAPI, and more')}</p>
             </div>
           </Link>
 

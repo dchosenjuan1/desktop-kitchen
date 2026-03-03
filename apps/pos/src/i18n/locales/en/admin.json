@@ -39,7 +39,9 @@
     "menuBoard": "Menu Board",
     "menuBoardDesc": "Manage menu board brands, colors, and items",
     "invoicing": "Invoicing",
-    "invoicingDesc": "Issue and manage CFDI 4.0 electronic invoices"
+    "invoicingDesc": "Issue and manage CFDI 4.0 electronic invoices",
+    "integrations": "Integrations",
+    "integrationsDesc": "Connect Stripe, Mercado Pago, Twilio, FacturAPI, and more"
   },
   "lowStock": {
     "title": "Low Stock Alerts",
