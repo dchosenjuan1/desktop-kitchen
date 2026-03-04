@@ -229,14 +229,13 @@ export async function getInvoiceFiles(orgId, invoiceId) {
 
 /**
  * Maps POS payment method to SAT forma de pago code.
- * @param {string} paymentMethod - POS payment method ('cash', 'card', 'crypto', 'split')
+ * @param {string} paymentMethod - POS payment method ('cash', 'card', 'split')
  * @returns {string} SAT forma de pago code
  */
 export function mapPaymentToFormaPago(paymentMethod) {
   switch (paymentMethod) {
     case 'cash':   return '01'; // Efectivo
     case 'card':   return '04'; // Tarjeta de credito
-    case 'crypto': return '31'; // Intermediario pagos
     case 'split':  return '99'; // Por definir
     default:       return '99'; // Por definir
   }

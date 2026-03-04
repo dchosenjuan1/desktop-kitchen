@@ -36,7 +36,6 @@ import SetupChecklistBanner from '../components/SetupChecklistBanner';
 import ModifierModal from '../components/ModifierModal';
 import ComboBuilder from '../components/ComboBuilder';
 import SplitPaymentModal from '../components/SplitPaymentModal';
-import CryptoPaymentModal from '../components/CryptoPaymentModal';
 import CustomerLookupModal from '../components/CustomerLookupModal';
 import BrandLogo from '../components/BrandLogo';
 import { usePlan } from '../context/PlanContext';
@@ -97,9 +96,6 @@ const POSScreen: React.FC = () => {
   const [itemModifierCache, setItemModifierCache] = useState<Record<number, boolean>>({});
   const [showRefundModal, setShowRefundModal] = useState(false);
   const [refundOrderId, setRefundOrderId] = useState<number | null>(null);
-  const [showCryptoModal, setShowCryptoModal] = useState(false);
-  const [cryptoOrderId, setCryptoOrderId] = useState<number | null>(null);
-  const [cryptoTip, setCryptoTip] = useState(0);
   const [linkedCustomer, setLinkedCustomer] = useState<LoyaltyCustomer | null>(null);
   const [showCustomerLookup, setShowCustomerLookup] = useState(false);
   const [popularItems, setPopularItems] = useState<MenuItem[]>([]);
@@ -644,19 +640,6 @@ const POSScreen: React.FC = () => {
     }
   };
 
-  const handleCryptoPayment = async (tip: number) => {
-    if (cart.length === 0) { addToast(t('toast.cartEmpty'), 'error'); return; }
-    try {
-      const order = await createOrder({ employee_id: currentEmployee!.id, items: buildOrderItems() });
-      setCryptoOrderId(order.id);
-      setCryptoTip(tip);
-      setShowPaymentModal(false);
-      setShowCryptoModal(true);
-    } catch (error) {
-      addToast(error instanceof Error ? error.message : t('toast.orderCreateFailed'), 'error');
-    }
-  };
-
   const handleLogout = () => {
     logout();
     navigate('/');
@@ -899,55 +882,12 @@ const POSScreen: React.FC = () => {
         />
       )}
 
-      {showCryptoModal && cryptoOrderId && (
-        <CryptoPaymentModal
-          orderId={cryptoOrderId}
-          orderTotal={total}
-          tip={cryptoTip}
-          onSuccess={async () => {
-            const finalOrder: Order = {
-              id: cryptoOrderId,
-              order_number: '',
-              employee_id: currentEmployee!.id,
-              status: 'preparing',
-              subtotal,
-              tax,
-              tip: cryptoTip,
-              total: total + cryptoTip,
-              payment_status: 'paid',
-              payment_method: 'crypto',
-              employee_name: currentEmployee?.name,
-              created_at: new Date().toISOString(),
-            };
-            if (linkedCustomer) {
-              try {
-                const result = await addStampsForOrder(linkedCustomer.id, cryptoOrderId);
-                if (result.cardCompleted) {
-                  addToast(t('loyalty.cardCompleted', { name: linkedCustomer.name }), 'success');
-                } else {
-                  addToast(t('loyalty.stampAdded', { name: linkedCustomer.name, earned: result.stampCard.stamps_earned, required: result.stampCard.stamps_required }), 'success');
-                }
-              } catch { /* non-blocking */ }
-            }
-            setCompletedOrder(finalOrder);
-            setShowCryptoModal(false);
-            setCryptoOrderId(null);
-            setShowReceiptModal(true);
-            clearCart();
-            addToast(t('toast.cryptoDone'), 'success');
-          }}
-          onCancel={() => { setShowCryptoModal(false); setCryptoOrderId(null); }}
-          onExpired={() => { setShowCryptoModal(false); setCryptoOrderId(null); addToast(t('toast.cryptoExpired'), 'error'); }}
-        />
-      )}
-
       {showPaymentModal && (
         <PaymentModal
           orderTotal={total}
           orderId={preCreatedOrderId ?? undefined}
           onCardPayment={handleCardPayment}
           onCashPayment={handleCashPayment}
-          onCryptoPayment={handleCryptoPayment}
           onTerminalPaymentSuccess={() => {
             clearCart();
             setShowPaymentModal(false);

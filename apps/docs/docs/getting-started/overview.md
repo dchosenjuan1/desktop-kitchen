@@ -46,7 +46,6 @@ Access is controlled through role-based permissions:
 - **Cash** payments with change calculation
 - **Card** payments via Stripe (chip, tap, manual entry)
 - **Split payments** (partial cash + card)
-- **Cryptocurrency** via NOWPayments (optional)
 
 ## Architecture at a Glance
 

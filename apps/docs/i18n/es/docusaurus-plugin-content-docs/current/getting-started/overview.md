@@ -46,7 +46,6 @@ El acceso se controla mediante permisos basados en roles:
 - Pagos en **efectivo** con calculo de cambio
 - Pagos con **tarjeta** via Stripe (chip, tap, entrada manual)
 - **Pagos divididos** (efectivo parcial + tarjeta)
-- **Criptomonedas** via NOWPayments (opcional)
 
 ## Arquitectura General
 

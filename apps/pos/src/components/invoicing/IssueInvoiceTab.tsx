@@ -21,8 +21,6 @@ const paymentMethodLabel = (method: string | null | undefined): string => {
       return 'Cash';
     case 'split':
       return 'Split payment';
-    case 'crypto':
-      return 'Cryptocurrency';
     default:
       return 'N/A';
   }

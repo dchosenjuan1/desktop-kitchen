@@ -34,7 +34,7 @@ describe('Module: Banking', () => {
   it('POST /api/banking/widget-token requires owner auth', async () => {
     const api = alpha('owner');
     const res = await api.post('/api/banking/widget-token');
-    // Will fail without Plaid/Belvo credentials — expected
+    // Will fail without Plaid credentials — expected
     expect([200, 400, 401, 403, 500]).toContain(res.status);
   });
 });

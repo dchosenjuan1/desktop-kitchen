@@ -475,7 +475,7 @@ router.get('/tenants/:id/export', async (req, res) => {
       'ai_config', 'ai_suggestion_cache', 'ai_suggestion_events',
       'ai_hourly_snapshots', 'ai_item_pairs', 'ai_inventory_velocity',
       'ai_restock_log', 'ai_category_roles', 'shrinkage_alerts', 'refunds',
-      'crypto_payments', 'role_permissions', 'financial_targets', 'financial_actuals',
+      'role_permissions', 'financial_targets', 'financial_actuals',
       'order_templates',
     ];
 
@@ -528,7 +528,7 @@ router.delete('/tenants/:id', async (req, res) => {
         'virtual_brand_items', 'category_printer_routes', 'menu_item_modifier_groups',
         'menu_item_ingredients', 'purchase_order_items', 'vendor_items',
         'ai_suggestion_events', 'ai_item_pairs', 'ai_inventory_velocity', 'ai_restock_log',
-        'ai_category_roles', 'inventory_counts', 'shrinkage_alerts', 'refunds', 'crypto_payments',
+        'ai_category_roles', 'inventory_counts', 'shrinkage_alerts', 'refunds',
         'cfdi_invoice_tokens', 'cfdi_invoices', 'price_history', 'pricing_experiments',
         'pricing_guardrails', 'waste_log',
         'bank_transactions', 'bank_sync_logs',

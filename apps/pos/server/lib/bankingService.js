@@ -1,17 +1,12 @@
 /**
- * BankingService — abstraction layer for open banking providers (Belvo / Plaid).
+ * BankingService — Plaid open banking integration.
  *
- * Delegates to the configured provider based on tenant settings or env vars.
- * Each provider adapter implements: createWidgetToken, exchangeToken, syncConnection, deleteLink.
+ * All bank connections use Plaid (US + LATAM).
  */
 
 import { all, get, run } from '../db/index.js';
 
-// ─── Provider Configuration ─────────────────────────────────────────
-
-const BELVO_API_URL = process.env.BELVO_API_URL || 'https://sandbox.belvo.com';
-const BELVO_SECRET_ID = process.env.BELVO_SECRET_ID || '';
-const BELVO_SECRET_PASSWORD = process.env.BELVO_SECRET_PASSWORD || '';
+// ─── Plaid Configuration ─────────────────────────────────────────
 
 const PLAID_CLIENT_ID = process.env.PLAID_CLIENT_ID || '';
 const PLAID_SECRET = process.env.PLAID_SECRET || '';
@@ -23,115 +18,18 @@ const PLAID_BASE_URLS = {
   production: 'https://production.plaid.com',
 };
 
-function getProvider(tenant) {
-  // Prefer tenant-level override, fall back to env-based detection
-  if (BELVO_SECRET_ID) return 'belvo';
-  if (PLAID_CLIENT_ID) return 'plaid';
-  return 'belvo'; // default for LATAM
+function getBaseUrl() {
+  return PLAID_BASE_URLS[PLAID_ENV] || PLAID_BASE_URLS.sandbox;
 }
 
-// ─── Belvo Adapter ──────────────────────────────────────────────────
+// ─── Public API ─────────────────────────────────────────────────
 
-const belvo = {
+export const BankingService = {
+  /**
+   * Create a Plaid Link token for the frontend widget.
+   */
   async createWidgetToken(tenant) {
-    const res = await fetch(`${BELVO_API_URL}/api/token/`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: 'Basic ' + Buffer.from(`${BELVO_SECRET_ID}:${BELVO_SECRET_PASSWORD}`).toString('base64'),
-      },
-      body: JSON.stringify({
-        id: BELVO_SECRET_ID,
-        password: BELVO_SECRET_PASSWORD,
-        scopes: 'read_institutions,connect_widget,read_accounts,read_transactions',
-        widget: {
-          branding: { company_name: tenant.name || 'Desktop Kitchen' },
-        },
-      }),
-    });
-
-    if (!res.ok) {
-      const err = await res.text();
-      throw new Error(`Belvo widget token failed: ${res.status} ${err}`);
-    }
-
-    const data = await res.json();
-    return {
-      token: data.access,
-      provider: 'belvo',
-      widgetJsUrl: 'https://cdn.belvo.io/belvo-widget-1-stable.js',
-    };
-  },
-
-  async exchangeToken(_tenant, publicToken) {
-    // In Belvo, the widget returns a link_id directly (not a public token exchange).
-    // The publicToken here IS the link_id from Belvo's widget callback.
-    return { linkId: publicToken, provider: 'belvo' };
-  },
-
-  async syncConnection(connection) {
-    const headers = {
-      'Content-Type': 'application/json',
-      Authorization: 'Basic ' + Buffer.from(`${BELVO_SECRET_ID}:${BELVO_SECRET_PASSWORD}`).toString('base64'),
-    };
-
-    // Fetch accounts
-    const accountsRes = await fetch(`${BELVO_API_URL}/api/accounts/`, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify({ link: connection.external_link_id }),
-    });
-
-    let accounts = [];
-    if (accountsRes.ok) {
-      accounts = await accountsRes.json();
-    }
-
-    // Fetch transactions (last 90 days)
-    const now = new Date();
-    const from = new Date(now);
-    from.setDate(from.getDate() - 90);
-    const dateTo = now.toISOString().split('T')[0];
-    const dateFrom = from.toISOString().split('T')[0];
-
-    const txRes = await fetch(`${BELVO_API_URL}/api/transactions/`, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify({
-        link: connection.external_link_id,
-        date_from: dateFrom,
-        date_to: dateTo,
-      }),
-    });
-
-    let transactions = [];
-    if (txRes.ok) {
-      transactions = await txRes.json();
-    }
-
-    return { accounts, transactions };
-  },
-
-  async deleteLink(externalLinkId) {
-    const res = await fetch(`${BELVO_API_URL}/api/links/${externalLinkId}/`, {
-      method: 'DELETE',
-      headers: {
-        Authorization: 'Basic ' + Buffer.from(`${BELVO_SECRET_ID}:${BELVO_SECRET_PASSWORD}`).toString('base64'),
-      },
-    });
-    // 204 = success, 404 = already deleted — both acceptable
-    if (!res.ok && res.status !== 404) {
-      throw new Error(`Belvo delete link failed: ${res.status}`);
-    }
-  },
-};
-
-// ─── Plaid Adapter ──────────────────────────────────────────────────
-
-const plaid = {
-  async createWidgetToken(tenant) {
-    const baseUrl = PLAID_BASE_URLS[PLAID_ENV] || PLAID_BASE_URLS.sandbox;
-    const res = await fetch(`${baseUrl}/link/token/create`, {
+    const res = await fetch(`${getBaseUrl()}/link/token/create`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -158,9 +56,12 @@ const plaid = {
     };
   },
 
-  async exchangeToken(_tenant, publicToken) {
-    const baseUrl = PLAID_BASE_URLS[PLAID_ENV] || PLAID_BASE_URLS.sandbox;
-    const res = await fetch(`${baseUrl}/item/public_token/exchange`, {
+  /**
+   * Exchange a public token from Plaid Link into a persistent access token.
+   * Returns { linkId, provider }.
+   */
+  async exchangeToken(tenant, publicToken) {
+    const res = await fetch(`${getBaseUrl()}/item/public_token/exchange`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -179,8 +80,13 @@ const plaid = {
     return { linkId: data.access_token, provider: 'plaid' };
   },
 
+  /**
+   * Sync accounts and transactions for a bank_connection row.
+   * Upserts into bank_accounts and bank_transactions.
+   * Returns { accountsSynced, transactionsSynced }.
+   */
   async syncConnection(connection) {
-    const baseUrl = PLAID_BASE_URLS[PLAID_ENV] || PLAID_BASE_URLS.sandbox;
+    const baseUrl = getBaseUrl();
     const headers = { 'Content-Type': 'application/json' };
     const auth = { client_id: PLAID_CLIENT_ID, secret: PLAID_SECRET, access_token: connection.external_link_id };
 
@@ -189,10 +95,10 @@ const plaid = {
       method: 'POST', headers,
       body: JSON.stringify(auth),
     });
-    let accounts = [];
+    let rawAccounts = [];
     if (accountsRes.ok) {
       const data = await accountsRes.json();
-      accounts = data.accounts || [];
+      rawAccounts = data.accounts || [];
     }
 
     // Fetch transactions (last 90 days)
@@ -209,79 +115,18 @@ const plaid = {
         options: { count: 500 },
       }),
     });
-    let transactions = [];
+    let rawTx = [];
     if (txRes.ok) {
       const data = await txRes.json();
-      transactions = data.transactions || [];
+      rawTx = data.transactions || [];
     }
-
-    return { accounts, transactions };
-  },
-
-  async deleteLink(externalLinkId) {
-    const baseUrl = PLAID_BASE_URLS[PLAID_ENV] || PLAID_BASE_URLS.sandbox;
-    const res = await fetch(`${baseUrl}/item/remove`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        client_id: PLAID_CLIENT_ID,
-        secret: PLAID_SECRET,
-        access_token: externalLinkId,
-      }),
-    });
-    if (!res.ok && res.status !== 404) {
-      throw new Error(`Plaid item remove failed: ${res.status}`);
-    }
-  },
-};
-
-// ─── Provider Registry ──────────────────────────────────────────────
-
-const providers = { belvo, plaid };
-
-function getAdapter(provider) {
-  return providers[provider] || providers.belvo;
-}
-
-// ─── Public API ─────────────────────────────────────────────────────
-
-export const BankingService = {
-  /**
-   * Create a widget token for the frontend to initialize the bank link widget.
-   */
-  async createWidgetToken(tenant) {
-    const provider = getProvider(tenant);
-    const adapter = getAdapter(provider);
-    return adapter.createWidgetToken(tenant);
-  },
-
-  /**
-   * Exchange a public/link token from the widget into a persistent connection.
-   * Returns { linkId, provider }.
-   */
-  async exchangeToken(tenant, publicToken) {
-    const provider = getProvider(tenant);
-    const adapter = getAdapter(provider);
-    return adapter.exchangeToken(tenant, publicToken);
-  },
-
-  /**
-   * Sync accounts and transactions for a bank_connection row.
-   * Upserts into bank_accounts and bank_transactions.
-   * Returns { accountsSynced, transactionsSynced }.
-   */
-  async syncConnection(connection) {
-    const adapter = getAdapter(connection.provider);
-    const { accounts: rawAccounts, transactions: rawTx } = await adapter.syncConnection(connection);
 
     let accountsSynced = 0;
     let transactionsSynced = 0;
 
     // Normalize and upsert accounts
     for (const acct of rawAccounts) {
-      const normalized = connection.provider === 'belvo'
-        ? normalizeBelvoAccount(acct)
-        : normalizePlaidAccount(acct);
+      const normalized = normalizePlaidAccount(acct);
 
       await run(`
         INSERT INTO bank_accounts (connection_id, external_account_id, name, type, currency, balance_current, balance_available, last_four, synced_at)
@@ -313,9 +158,7 @@ export const BankingService = {
 
     // Normalize and upsert transactions
     for (const tx of rawTx) {
-      const normalized = connection.provider === 'belvo'
-        ? normalizeBelvoTransaction(tx)
-        : normalizePlaidTransaction(tx);
+      const normalized = normalizePlaidTransaction(tx);
 
       const accountId = accountMap.get(normalized.externalAccountId);
       if (!accountId) continue; // skip orphaned transactions
@@ -356,35 +199,25 @@ export const BankingService = {
   },
 
   /**
-   * Revoke a link at the provider level.
+   * Revoke a Plaid item (bank link).
    */
-  async deleteLink(provider, externalLinkId) {
-    const adapter = getAdapter(provider);
-    await adapter.deleteLink(externalLinkId);
+  async deleteLink(_provider, externalLinkId) {
+    const res = await fetch(`${getBaseUrl()}/item/remove`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        client_id: PLAID_CLIENT_ID,
+        secret: PLAID_SECRET,
+        access_token: externalLinkId,
+      }),
+    });
+    if (!res.ok && res.status !== 404) {
+      throw new Error(`Plaid item remove failed: ${res.status}`);
+    }
   },
 };
 
-// ─── Normalizers ────────────────────────────────────────────────────
-
-const BELVO_ACCOUNT_TYPE_MAP = {
-  CHECKING: 'checking',
-  SAVINGS: 'savings',
-  CREDIT_CARD: 'credit_card',
-  LOAN: 'loan',
-  INVESTMENT: 'investment',
-};
-
-function normalizeBelvoAccount(acct) {
-  return {
-    externalAccountId: acct.id,
-    name: acct.name || acct.number || 'Account',
-    type: BELVO_ACCOUNT_TYPE_MAP[acct.category] || 'other',
-    currency: acct.currency || 'MXN',
-    balanceCurrent: acct.balance?.current ?? null,
-    balanceAvailable: acct.balance?.available ?? null,
-    lastFour: acct.number ? acct.number.slice(-4) : null,
-  };
-}
+// ─── Normalizers ────────────────────────────────────────────────
 
 function normalizePlaidAccount(acct) {
   const typeMap = { depository: acct.subtype === 'savings' ? 'savings' : 'checking', credit: 'credit_card', loan: 'loan', investment: 'investment' };
@@ -396,27 +229,6 @@ function normalizePlaidAccount(acct) {
     balanceCurrent: acct.balances?.current ?? null,
     balanceAvailable: acct.balances?.available ?? null,
     lastFour: acct.mask || null,
-  };
-}
-
-function normalizeBelvoTransaction(tx) {
-  let txType = 'OUTFLOW';
-  if (tx.type === 'INFLOW') txType = 'INFLOW';
-  else if (tx.type === 'OUTFLOW') txType = 'OUTFLOW';
-  else if (typeof tx.amount === 'number' && tx.amount > 0) txType = 'INFLOW';
-
-  return {
-    externalTransactionId: tx.id,
-    externalAccountId: tx.account?.id || tx.account,
-    amount: Math.abs(tx.amount),
-    currency: tx.currency || 'MXN',
-    description: tx.description || '',
-    merchantName: tx.merchant?.name || null,
-    category: tx.category || null,
-    subcategory: tx.subcategory || null,
-    transactionDate: tx.value_date || tx.accounting_date,
-    transactionType: txType,
-    status: tx.status === 'PENDING' ? 'pending' : 'posted',
   };
 }
 

@@ -48,7 +48,6 @@
     "amountReceived": "Amount Received:",
     "changeDue": "Change Due",
     "payWithCard": "Pay with Card",
-    "payWithCrypto": "Pay with Crypto",
     "cashPayment": "Cash Payment",
     "confirmCash": "Confirm Cash — Change: {{change}}",
     "processing": "Processing..."
@@ -79,8 +78,6 @@
     "cashFailed": "Cash payment failed",
     "splitDone": "Split payment completed!",
     "splitFailed": "Split payment failed",
-    "cryptoDone": "Crypto payment confirmed!",
-    "cryptoExpired": "Crypto payment expired",
     "orderCreateFailed": "Failed to create order",
     "comboAdded": "Combo added to order",
     "itemAdded": "Added {{name}}",
@@ -103,18 +100,6 @@
     "totalMustMatch": "Split amounts must equal the order total",
     "addSplit": "Add Split",
     "removeSplit": "Remove"
-  },
-  "crypto": {
-    "title": "Crypto Payment",
-    "scanQR": "Scan QR code or copy address to pay",
-    "amount": "Amount: {{amount}}",
-    "waitingPayment": "Waiting for payment...",
-    "paymentConfirmed": "Payment confirmed!",
-    "expired": "Payment expired",
-    "copyAddress": "Copy Address",
-    "copied": "Copied!",
-    "timeRemaining": "Time remaining: {{time}}",
-    "cancelPayment": "Cancel Payment"
   },
   "customerLookup": {
     "title": "Customer Lookup",
@@ -202,29 +187,6 @@
     "processing": "Processing...",
     "back": "Back",
     "cancel": "Cancel"
-  },
-  "crypto": {
-    "payWithCrypto": "Pay with Crypto",
-    "scanToPay": "Scan to Pay",
-    "selectCrypto": "Select cryptocurrency:",
-    "calculatingEstimate": "Calculating estimate...",
-    "estimated": "Estimated:",
-    "couldNotEstimate": "Could not get estimate",
-    "creatingPayment": "Creating payment...",
-    "payWith": "Pay with {{symbol}}",
-    "cancel": "Cancel",
-    "waitingPayment": "Waiting for payment...",
-    "confirmingBlockchain": "Confirming on blockchain...",
-    "paymentConfirmed": "Payment confirmed!",
-    "sending": "Sending...",
-    "partiallyPaid": "Partially paid",
-    "paymentComplete": "Payment complete!",
-    "paymentFailed": "Payment failed",
-    "paymentExpired": "Payment expired",
-    "refunded": "Refunded",
-    "sendExactly": "Send exactly",
-    "toAddress": "To address:",
-    "close": "Close"
   },
   "customerLookup": {
     "loyaltyProgram": "Loyalty Program",

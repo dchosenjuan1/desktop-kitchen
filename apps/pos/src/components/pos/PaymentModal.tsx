@@ -9,7 +9,6 @@ export interface PaymentModalProps {
   orderId?: number;
   onCardPayment: (tip: number) => void;
   onCashPayment: (tip: number, amountReceived: number) => void;
-  onCryptoPayment: (tip: number) => void;
   onTerminalPaymentSuccess?: () => void;
   onCancel: () => void;
   isProcessing: boolean;
@@ -21,7 +20,6 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
   orderId,
   onCardPayment,
   onCashPayment,
-  onCryptoPayment,
   onTerminalPaymentSuccess,
   onCancel,
   isProcessing,
@@ -302,14 +300,6 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
                 title={!isOnline ? t('offline.cardUnavailable') : undefined}
               >
                 {!isOnline ? t('offline.cardUnavailable') : isProcessing ? t('payment.processing') : t('payment.payWithCard')}
-              </button>
-              <button
-                onClick={() => onCryptoPayment(tip)}
-                disabled={isProcessing || !isOnline}
-                className="w-full py-4 bg-orange-600 text-white text-xl font-bold rounded-lg hover:bg-orange-700 disabled:bg-neutral-700 disabled:text-neutral-400 transition-all touch-manipulation"
-                title={!isOnline ? t('offline.cardUnavailable') : undefined}
-              >
-                {!isOnline ? t('offline.cardUnavailable') : t('payment.payWithCrypto')}
               </button>
               {showCashInput ? (
                 <button

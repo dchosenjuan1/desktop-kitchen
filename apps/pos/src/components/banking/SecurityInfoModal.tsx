@@ -11,7 +11,9 @@ const BANK_LOGOS = [
   { name: 'Santander', color: '#EC0000' },
   { name: 'Banamex', color: '#006BA6' },
   { name: 'Banorte', color: '#E30613' },
-  { name: 'HSBC', color: '#DB0011' },
+  { name: 'Chase', color: '#117ACA' },
+  { name: 'Bank of America', color: '#012169' },
+  { name: 'Wells Fargo', color: '#D71E28' },
 ];
 
 const SecurityInfoModal: React.FC<Props> = ({ open, onClose }) => {
@@ -85,14 +87,14 @@ const SecurityInfoModal: React.FC<Props> = ({ open, onClose }) => {
             <p className="text-xs text-neutral-500 uppercase tracking-wider mb-2">Powered by</p>
             <div className="flex items-center gap-3">
               <div className="px-3 py-1.5 bg-neutral-800 rounded-lg">
-                <span className="text-white font-bold text-sm">Belvo</span>
+                <span className="text-white font-bold text-sm">Plaid</span>
               </div>
               <p className="text-neutral-400 text-sm">
-                in Mexico &amp; Latin America
+                Secure bank connections for the US &amp; Mexico
               </p>
             </div>
             <p className="text-neutral-500 text-xs mt-2">
-              Belvo is a regulated open finance platform used by banks and fintechs across Latin America. All connections use bank-grade TLS encryption.
+              Plaid is a leading financial technology platform used by thousands of apps and banks worldwide. All connections use bank-grade TLS encryption.
             </p>
           </div>
 
@@ -111,7 +113,7 @@ const SecurityInfoModal: React.FC<Props> = ({ open, onClose }) => {
                 </div>
               ))}
               <div className="px-3 py-1.5 rounded-lg border border-neutral-700 bg-neutral-800">
-                <span className="text-sm text-neutral-400">+ 40 more</span>
+                <span className="text-sm text-neutral-400">+ 12,000 more</span>
               </div>
             </div>
           </div>
@@ -120,12 +122,12 @@ const SecurityInfoModal: React.FC<Props> = ({ open, onClose }) => {
         {/* Footer */}
         <div className="px-6 pb-6 flex items-center justify-between">
           <a
-            href="https://belvo.com/security/"
+            href="https://plaid.com/safety/"
             target="_blank"
             rel="noopener noreferrer"
             className="inline-flex items-center gap-1.5 text-sm text-brand-400 hover:text-brand-300 transition-colors"
           >
-            Learn more about Belvo security
+            Learn more about Plaid security
             <ExternalLink size={14} />
           </a>
           <button

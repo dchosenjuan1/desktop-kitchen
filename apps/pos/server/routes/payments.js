@@ -3,13 +3,6 @@ import crypto from 'crypto';
 import rateLimit from 'express-rate-limit';
 import { all, get, run, adminSql, getTenantId } from '../db/index.js';
 import { createPaymentIntent, createRefund, getPaymentIntent } from '../stripe.js';
-import {
-  createCryptoPayment as npCreatePayment,
-  getCryptoPaymentStatus as npGetStatus,
-  getEstimate as npGetEstimate,
-  getMinAmount as npGetMinAmount,
-  verifyIPNSignature,
-} from '../nowpayments.js';
 import { requireAuth } from '../middleware/auth.js';
 import { deductInventoryForOrder, restoreInventoryForItems } from '../helpers/inventory.js';
 import { generateInvoiceToken } from '../helpers/facturapi.js';
@@ -349,11 +342,9 @@ router.post('/refund', refundLimiter, requireAuth('process_refunds'), async (req
       return res.status(400).json({ error: 'Invalid refund amount' });
     }
 
-    // Process Stripe refund for card payments, manual for crypto
+    // Process Stripe refund for card payments
     let stripeRefundId = null;
-    if (order.payment_method === 'crypto') {
-      stripeRefundId = 'MANUAL_CRYPTO_REFUND';
-    } else if (order.payment_intent_id && order.payment_method === 'card') {
+    if (order.payment_intent_id && order.payment_method === 'card') {
       try {
         const refund = await createRefund(order.payment_intent_id, refundAmount);
         stripeRefundId = refund.id;
@@ -452,201 +443,6 @@ router.get('/refunds', async (req, res) => {
   }
 });
 
-// ==================== Crypto Payment Endpoints (NOWPayments) ====================
-
-// GET /api/payments/crypto/estimate - get estimated crypto amount for MXN price
-router.get('/crypto/estimate', async (req, res) => {
-  try {
-    const { amount, currency } = req.query;
-    if (!amount || !currency) {
-      return res.status(400).json({ error: 'Missing amount or currency' });
-    }
-    const estimate = await npGetEstimate(parseFloat(amount), currency);
-    res.json(estimate);
-  } catch (error) {
-    console.error('Error getting crypto estimate:', error);
-    res.status(500).json({ error: 'Failed to get crypto estimate' });
-  }
-});
-
-// GET /api/payments/crypto/min-amount - get minimum payment amount for a currency
-router.get('/crypto/min-amount', async (req, res) => {
-  try {
-    const { currency } = req.query;
-    if (!currency) {
-      return res.status(400).json({ error: 'Missing currency' });
-    }
-    const minAmount = await npGetMinAmount(currency);
-    res.json(minAmount);
-  } catch (error) {
-    console.error('Error getting crypto min amount:', error);
-    res.status(500).json({ error: 'Failed to get minimum amount' });
-  }
-});
-
-// POST /api/payments/crypto/create - create a crypto payment for an order
-router.post('/crypto/create', requireAuth('pos_access'), async (req, res) => {
-  try {
-    const { order_id, pay_currency, tip = 0 } = req.body;
-
-    if (!order_id || !pay_currency) {
-      return res.status(400).json({ error: 'Missing order_id or pay_currency' });
-    }
-
-    const order = await get('SELECT id, total, payment_status FROM orders WHERE id = $1', [order_id]);
-    if (!order) return res.status(404).json({ error: 'Order not found' });
-    if (order.payment_status === 'paid') return res.status(400).json({ error: 'Order is already paid' });
-
-    const tipAmount = typeof tip === 'number' ? tip : 0;
-    const totalAmount = order.total + tipAmount;
-
-    // Create payment via NOWPayments
-    const npPayment = await npCreatePayment({
-      price_amount: totalAmount,
-      pay_currency,
-      order_id,
-    });
-
-    // Insert into crypto_payments table
-    const cryptoTid = getTenantId();
-    const result = await run(`
-      INSERT INTO crypto_payments (tenant_id, order_id, nowpayments_payment_id, pay_address, pay_amount, pay_currency, price_amount, status)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-    `, [
-      cryptoTid,
-      order_id,
-      String(npPayment.payment_id),
-      npPayment.pay_address,
-      npPayment.pay_amount,
-      npPayment.pay_currency,
-      totalAmount,
-      npPayment.payment_status || 'waiting',
-    ]);
-
-    // Update order with crypto payment reference and tip
-    await run(`
-      UPDATE orders SET crypto_payment_id = $1, payment_status = 'processing', tip = $2
-      WHERE id = $3
-    `, [result.lastInsertRowid, tipAmount, order_id]);
-
-    res.json({
-      crypto_payment_id: result.lastInsertRowid,
-      nowpayments_payment_id: npPayment.payment_id,
-      pay_address: npPayment.pay_address,
-      pay_amount: npPayment.pay_amount,
-      pay_currency: npPayment.pay_currency,
-      status: npPayment.payment_status || 'waiting',
-    });
-  } catch (error) {
-    console.error('Error creating crypto payment:', error);
-    res.status(500).json({ error: 'Failed to create crypto payment' });
-  }
-});
-
-// GET /api/payments/crypto/status/:payment_id - poll crypto payment status
-router.get('/crypto/status/:payment_id', async (req, res) => {
-  try {
-    const { payment_id } = req.params;
-
-    const cryptoPayment = await get(
-      'SELECT * FROM crypto_payments WHERE nowpayments_payment_id = $1',
-      [payment_id]
-    );
-    if (!cryptoPayment) {
-      return res.status(404).json({ error: 'Crypto payment not found' });
-    }
-
-    // Poll NOWPayments for latest status
-    const npStatus = await npGetStatus(payment_id);
-    const newStatus = npStatus.payment_status || cryptoPayment.status;
-
-    // Update local DB if status changed
-    if (newStatus !== cryptoPayment.status) {
-      await run(`
-        UPDATE crypto_payments
-        SET status = $1, actually_paid = $2, outcome_amount = $3, outcome_currency = $4, updated_at = NOW()
-        WHERE nowpayments_payment_id = $5
-      `, [
-        newStatus,
-        npStatus.actually_paid || 0,
-        npStatus.outcome_amount || null,
-        npStatus.outcome_currency || null,
-        payment_id,
-      ]);
-
-      // If confirmed/finished, mark order as paid
-      if (newStatus === 'confirmed' || newStatus === 'finished') {
-        const order = await get('SELECT id, payment_status FROM orders WHERE id = $1', [cryptoPayment.order_id]);
-        if (order && order.payment_status !== 'paid') {
-          await run(`
-            UPDATE orders SET payment_status = 'paid', payment_method = 'crypto', status = 'preparing'
-            WHERE id = $1
-          `, [cryptoPayment.order_id]);
-
-          await deductInventoryForOrder(cryptoPayment.order_id);
-        }
-      }
-    }
-
-    res.json({
-      nowpayments_payment_id: payment_id,
-      status: newStatus,
-      pay_address: cryptoPayment.pay_address,
-      pay_amount: cryptoPayment.pay_amount,
-      pay_currency: cryptoPayment.pay_currency,
-      price_amount: cryptoPayment.price_amount,
-      actually_paid: npStatus.actually_paid || cryptoPayment.actually_paid || 0,
-      order_id: cryptoPayment.order_id,
-    });
-  } catch (error) {
-    console.error('Error polling crypto payment status:', error);
-    res.status(500).json({ error: 'Failed to get crypto payment status' });
-  }
-});
-
-// POST /api/payments/crypto/ipn - NOWPayments IPN webhook callback
-router.post('/crypto/ipn', async (req, res) => {
-  try {
-    const signature = req.headers['x-nowpayments-sig'];
-    if (!signature || !verifyIPNSignature(req.body, signature)) {
-      return res.status(403).json({ error: 'Invalid IPN signature' });
-    }
-
-    const { payment_id, payment_status, actually_paid, outcome_amount, outcome_currency } = req.body;
-    if (!payment_id) return res.status(400).json({ error: 'Missing payment_id' });
-
-    const cryptoPayment = await get(
-      'SELECT * FROM crypto_payments WHERE nowpayments_payment_id = $1',
-      [String(payment_id)]
-    );
-    if (!cryptoPayment) return res.status(404).json({ error: 'Crypto payment not found' });
-
-    // Update crypto payment record
-    await run(`
-      UPDATE crypto_payments
-      SET status = $1, actually_paid = $2, outcome_amount = $3, outcome_currency = $4, updated_at = NOW()
-      WHERE nowpayments_payment_id = $5
-    `, [payment_status, actually_paid || 0, outcome_amount || null, outcome_currency || null, String(payment_id)]);
-
-    // Mark order as paid on confirmation
-    if (payment_status === 'confirmed' || payment_status === 'finished') {
-      const order = await get('SELECT id, payment_status FROM orders WHERE id = $1', [cryptoPayment.order_id]);
-      if (order && order.payment_status !== 'paid') {
-        await run(`
-          UPDATE orders SET payment_status = 'paid', payment_method = 'crypto', status = 'preparing'
-          WHERE id = $1
-        `, [cryptoPayment.order_id]);
-
-        await deductInventoryForOrder(cryptoPayment.order_id);
-      }
-    }
-
-    res.json({ success: true });
-  } catch (error) {
-    console.error('Error processing crypto IPN:', error);
-    res.status(500).json({ error: 'IPN processing failed' });
-  }
-});
 
 // ==================== Mercado Pago Point Endpoints (Pro+) ====================
 

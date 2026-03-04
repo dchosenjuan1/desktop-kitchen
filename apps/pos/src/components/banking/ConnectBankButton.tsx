@@ -4,9 +4,6 @@ import { getBankingWidgetToken, exchangeBankToken } from '../../api';
 
 declare global {
   interface Window {
-    belvoSDK?: {
-      createWidget: (token: string, options: Record<string, unknown>) => { build: () => void };
-    };
     Plaid?: {
       create: (config: Record<string, unknown>) => { open: () => void };
     };
@@ -36,39 +33,6 @@ interface Props {
 const ConnectBankButton: React.FC<Props> = ({ variant = 'button', onSuccess }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-
-  const launchBelvoWidget = useCallback(async (token: string, widgetJsUrl: string) => {
-    await loadScript(widgetJsUrl);
-
-    // Wait for belvoSDK to be available
-    await new Promise<void>(resolve => {
-      const check = () => {
-        if (window.belvoSDK) { resolve(); return; }
-        setTimeout(check, 100);
-      };
-      check();
-    });
-
-    window.belvoSDK!.createWidget(token, {
-      callback: async (link: string, institution: string) => {
-        try {
-          await exchangeBankToken(link, {
-            institutionName: institution,
-            countryCode: 'MX',
-          });
-          onSuccess?.();
-        } catch (err) {
-          setError(err instanceof Error ? err.message : 'Failed to connect');
-        } finally {
-          setLoading(false);
-        }
-      },
-      onExit: () => {
-        setLoading(false);
-      },
-      onEvent: () => {},
-    }).build();
-  }, [onSuccess]);
 
   const launchPlaidWidget = useCallback(async (token: string, widgetJsUrl: string) => {
     await loadScript(widgetJsUrl);
@@ -110,13 +74,8 @@ const ConnectBankButton: React.FC<Props> = ({ variant = 'button', onSuccess }) =
     setError('');
 
     try {
-      const { token, provider, widgetJsUrl } = await getBankingWidgetToken();
-
-      if (provider === 'plaid') {
-        await launchPlaidWidget(token, widgetJsUrl);
-      } else {
-        await launchBelvoWidget(token, widgetJsUrl);
-      }
+      const { token, widgetJsUrl } = await getBankingWidgetToken();
+      await launchPlaidWidget(token, widgetJsUrl);
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Failed to start connection';
       if (msg.includes('PLAN_UPGRADE_REQUIRED')) {

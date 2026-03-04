@@ -60,7 +60,6 @@
   "paymentMethods": {
     "card": "Tarjeta",
     "cash": "Efectivo",
-    "crypto": "Cripto",
     "split": "Dividido"
   },
   "login": {

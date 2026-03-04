@@ -34,7 +34,7 @@ const tenantId = process.argv[2] || 'default';
       'category_printer_routes', 'printers',
       'menu_items', 'menu_categories',
       'inventory_items', 'inventory_counts', 'shrinkage_alerts',
-      'refunds', 'crypto_payments',
+      'refunds',
       'vendor_items', 'purchase_order_items', 'purchase_orders', 'vendors',
       'financial_actuals', 'financial_targets',
       'role_permissions', 'loyalty_config', 'order_templates',

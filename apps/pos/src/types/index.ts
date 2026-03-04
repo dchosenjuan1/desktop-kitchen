@@ -89,7 +89,7 @@ export interface Order {
   total: number;
   payment_intent_id?: string;
   payment_status: 'unpaid' | 'processing' | 'paid' | 'completed' | 'failed' | 'refunded';
-  payment_method?: 'card' | 'cash' | 'split' | 'crypto' | 'transfer' | null;
+  payment_method?: 'card' | 'cash' | 'split' | 'transfer' | null;
   source?: 'pos' | 'uber_eats' | 'rappi' | 'didi_food';
   invoice_token?: string;
   cfdi_invoice_id?: number;
@@ -711,36 +711,6 @@ export interface Refund {
   items_json?: string;
   inventory_restored: boolean;
   created_at: string;
-}
-
-/* Crypto Payment Types */
-export type CryptoPaymentStatus =
-  | 'waiting'
-  | 'confirming'
-  | 'confirmed'
-  | 'sending'
-  | 'partially_paid'
-  | 'finished'
-  | 'failed'
-  | 'expired'
-  | 'refunded';
-
-export interface CryptoPayment {
-  crypto_payment_id: number;
-  nowpayments_payment_id: string;
-  order_id: number;
-  pay_address: string;
-  pay_amount: number;
-  pay_currency: string;
-  price_amount: number;
-  status: CryptoPaymentStatus;
-  actually_paid: number;
-}
-
-export interface CryptoEstimate {
-  estimated_amount: number;
-  currency_from: string;
-  currency_to: string;
 }
 
 export interface ReconciliationRow {

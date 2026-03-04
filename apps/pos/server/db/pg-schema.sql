@@ -98,7 +98,6 @@ CREATE TABLE IF NOT EXISTS orders (
   source TEXT DEFAULT 'pos',
   delivery_order_id INTEGER DEFAULT NULL,
   refund_total NUMERIC(10,2) DEFAULT 0,
-  crypto_payment_id INTEGER DEFAULT NULL,
   loyalty_customer_id INTEGER DEFAULT NULL,
   cfdi_invoice_id INTEGER,
   invoice_token TEXT,
@@ -454,24 +453,6 @@ CREATE TABLE IF NOT EXISTS refunds (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Crypto Payments
-CREATE TABLE IF NOT EXISTS crypto_payments (
-  id SERIAL PRIMARY KEY,
-  tenant_id TEXT NOT NULL DEFAULT current_setting('app.tenant_id', true),
-  order_id INTEGER NOT NULL REFERENCES orders(id),
-  nowpayments_payment_id TEXT,
-  pay_address TEXT,
-  pay_amount REAL,
-  pay_currency TEXT,
-  price_amount NUMERIC(10,2),
-  price_currency TEXT DEFAULT 'mxn',
-  status TEXT DEFAULT 'waiting',
-  actually_paid REAL DEFAULT 0,
-  outcome_amount REAL,
-  outcome_currency TEXT,
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  updated_at TIMESTAMPTZ DEFAULT NOW()
-);
 
 -- Inventory Counts
 CREATE TABLE IF NOT EXISTS inventory_counts (
@@ -965,7 +946,6 @@ CREATE INDEX IF NOT EXISTS idx_role_permissions_tenant ON role_permissions(tenan
 CREATE INDEX IF NOT EXISTS idx_role_permissions_role ON role_permissions(tenant_id, role);
 CREATE INDEX IF NOT EXISTS idx_refunds_tenant ON refunds(tenant_id);
 CREATE INDEX IF NOT EXISTS idx_refunds_order ON refunds(tenant_id, order_id);
-CREATE INDEX IF NOT EXISTS idx_crypto_payments_tenant ON crypto_payments(tenant_id);
 CREATE INDEX IF NOT EXISTS idx_inventory_counts_tenant ON inventory_counts(tenant_id);
 CREATE INDEX IF NOT EXISTS idx_shrinkage_alerts_tenant ON shrinkage_alerts(tenant_id);
 CREATE INDEX IF NOT EXISTS idx_vendors_tenant ON vendors(tenant_id);
@@ -1029,7 +1009,7 @@ BEGIN
       'order_payment_items', 'printers', 'category_printer_routes',
       'delivery_platforms', 'delivery_orders', 'delivery_markup_rules',
       'virtual_brands', 'virtual_brand_items', 'delivery_recapture',
-      'role_permissions', 'refunds', 'crypto_payments',
+      'role_permissions', 'refunds',
       'inventory_counts', 'shrinkage_alerts', 'vendors', 'vendor_items',
       'purchase_orders', 'purchase_order_items', 'financial_targets',
       'financial_actuals', 'loyalty_customers', 'stamp_cards',

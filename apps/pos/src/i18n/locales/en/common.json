@@ -60,7 +60,6 @@
   "paymentMethods": {
     "card": "Card",
     "cash": "Cash",
-    "crypto": "Crypto",
     "split": "Split"
   },
   "login": {

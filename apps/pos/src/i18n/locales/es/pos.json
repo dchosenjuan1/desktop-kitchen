@@ -48,7 +48,6 @@
     "amountReceived": "Monto Recibido:",
     "changeDue": "Cambio",
     "payWithCard": "Pagar con Tarjeta",
-    "payWithCrypto": "Pagar con Cripto",
     "cashPayment": "Pago en Efectivo",
     "confirmCash": "Confirmar Efectivo — Cambio: {{change}}",
     "processing": "Procesando..."
@@ -79,8 +78,6 @@
     "cashFailed": "Error en pago en efectivo",
     "splitDone": "¡Pago dividido completado!",
     "splitFailed": "Error en pago dividido",
-    "cryptoDone": "¡Pago con cripto confirmado!",
-    "cryptoExpired": "Pago con cripto expirado",
     "orderCreateFailed": "Error al crear la orden",
     "comboAdded": "Combo agregado a la orden",
     "itemAdded": "{{name}} agregado",
@@ -103,18 +100,6 @@
     "totalMustMatch": "Los montos deben sumar el total de la orden",
     "addSplit": "Agregar División",
     "removeSplit": "Quitar"
-  },
-  "crypto": {
-    "title": "Pago con Cripto",
-    "scanQR": "Escanea el código QR o copia la dirección para pagar",
-    "amount": "Monto: {{amount}}",
-    "waitingPayment": "Esperando pago...",
-    "paymentConfirmed": "¡Pago confirmado!",
-    "expired": "Pago expirado",
-    "copyAddress": "Copiar Dirección",
-    "copied": "¡Copiado!",
-    "timeRemaining": "Tiempo restante: {{time}}",
-    "cancelPayment": "Cancelar Pago"
   },
   "customerLookup": {
     "title": "Buscar Cliente",
@@ -202,29 +187,6 @@
     "processing": "Procesando...",
     "back": "Atrás",
     "cancel": "Cancelar"
-  },
-  "crypto": {
-    "payWithCrypto": "Pagar con Cripto",
-    "scanToPay": "Escanea para Pagar",
-    "selectCrypto": "Selecciona criptomoneda:",
-    "calculatingEstimate": "Calculando estimado...",
-    "estimated": "Estimado:",
-    "couldNotEstimate": "No se pudo obtener estimado",
-    "creatingPayment": "Creando pago...",
-    "payWith": "Pagar con {{symbol}}",
-    "cancel": "Cancelar",
-    "waitingPayment": "Esperando pago...",
-    "confirmingBlockchain": "Confirmando en blockchain...",
-    "paymentConfirmed": "¡Pago confirmado!",
-    "sending": "Enviando...",
-    "partiallyPaid": "Pago parcial",
-    "paymentComplete": "¡Pago completado!",
-    "paymentFailed": "Pago fallido",
-    "paymentExpired": "Pago expirado",
-    "refunded": "Reembolsado",
-    "sendExactly": "Envía exactamente",
-    "toAddress": "A la dirección:",
-    "close": "Cerrar"
   },
   "customerLookup": {
     "loyaltyProgram": "Programa de Lealtad",

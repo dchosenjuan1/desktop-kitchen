@@ -39,8 +39,6 @@ import {
   PricingExperiment,
   GrokPricingSuggestion,
   Refund,
-  CryptoPayment,
-  CryptoEstimate,
   ReconciliationRow,
   PaymentFeeSummary,
   RefundSummary,
@@ -215,20 +213,26 @@ async function apiRequest<T>(
   if (!response.ok) {
     let errorMessage = `API Error: ${response.status} ${response.statusText}`;
     let trialExpired = false;
+    let errorData: Record<string, unknown> = {};
     try {
-      const errorData = await response.json();
-      errorMessage = errorData.error || errorData.message || errorMessage;
+      errorData = await response.json();
+      errorMessage = (errorData.error as string) || (errorData.message as string) || errorMessage;
       if (response.status === 402 && errorData.trial_expired) {
         trialExpired = true;
       }
     } catch {
       // Use default error message if response is not JSON
     }
-    const err = new Error(errorMessage) as Error & { trialExpired?: boolean };
+    const err = new Error(errorMessage) as Error & { trialExpired?: boolean; planUpgradeRequired?: boolean; requiredPlan?: string; feature?: string };
     if (trialExpired) {
       err.trialExpired = true;
       // Dispatch a custom event so the UI can react (e.g., show upgrade prompt)
       window.dispatchEvent(new CustomEvent('trial-expired'));
+    }
+    if (response.status === 403 && errorData.error === 'PLAN_UPGRADE_REQUIRED') {
+      err.planUpgradeRequired = true;
+      err.requiredPlan = errorData.requiredPlan as string;
+      err.feature = errorData.feature as string;
     }
     throw err;
   }
@@ -588,31 +592,6 @@ export async function cashPayment(data: {
 
 export async function getPaymentStatus(orderId: number): Promise<any> {
   return apiRequest(`/payments/${orderId}`);
-}
-
-/* ==================== Crypto Payment Endpoints ==================== */
-
-export async function getCryptoEstimate(amount: number, currency: string): Promise<CryptoEstimate> {
-  return apiRequest<CryptoEstimate>(`/payments/crypto/estimate?amount=${amount}&currency=${currency}`);
-}
-
-export async function getCryptoMinAmount(currency: string): Promise<{ min_amount: number }> {
-  return apiRequest(`/payments/crypto/min-amount?currency=${currency}`);
-}
-
-export async function createCryptoPayment(data: {
-  order_id: number;
-  pay_currency: string;
-  tip?: number;
-}): Promise<CryptoPayment> {
-  return apiRequest<CryptoPayment>('/payments/crypto/create', {
-    method: 'POST',
-    body: JSON.stringify(data),
-  });
-}
-
-export async function getCryptoPaymentStatus(paymentId: string): Promise<CryptoPayment> {
-  return apiRequest<CryptoPayment>(`/payments/crypto/status/${paymentId}`);
 }
 
 /* ==================== Inventory Endpoints ==================== */
@@ -2178,8 +2157,14 @@ async function ownerApiRequest<T>(endpoint: string, options: RequestInit = {}): 
     headers: { ...ownerHeaders(), ...(options.headers || {}) },
   });
   if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err.error || `API Error: ${res.status}`);
+    const errorData = await res.json().catch(() => ({}));
+    const err = new Error(errorData.error || `API Error: ${res.status}`) as Error & { planUpgradeRequired?: boolean; requiredPlan?: string; feature?: string };
+    if (res.status === 403 && errorData.error === 'PLAN_UPGRADE_REQUIRED') {
+      err.planUpgradeRequired = true;
+      err.requiredPlan = errorData.requiredPlan;
+      err.feature = errorData.feature;
+    }
+    throw err;
   }
   const data = await res.json();
   return coerceNumerics(data) as T;
