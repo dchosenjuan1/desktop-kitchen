@@ -12,6 +12,7 @@
  */
 
 import 'dotenv/config';
+import crypto from 'crypto';
 import bcrypt from 'bcrypt';
 import { adminSql, initDb } from './db/index.js';
 
@@ -21,7 +22,7 @@ const TENANT_ID = 'demo';
 const TENANT_NAME = 'Desktop Kitchen Demo';
 const TENANT_SUBDOMAIN = 'demo';
 const OWNER_EMAIL = 'admin@desktop.kitchen';
-const OWNER_PASSWORD = 'desktopkitchen2024'; // change after first login
+const OWNER_PASSWORD = process.env.DEMO_OWNER_PASSWORD || crypto.randomBytes(16).toString('hex');
 const PLAN = 'pro';
 
 const BRANDING = {
@@ -340,6 +341,7 @@ const BRANDING = {
     console.log(`   Tenant ID:  ${TENANT_ID}`);
     console.log(`   Subdomain:  ${TENANT_SUBDOMAIN}.desktop.kitchen`);
     console.log(`   Owner:      ${OWNER_EMAIL}`);
+    console.log(`   Password:   ${OWNER_PASSWORD}`);
     console.log(`   Plan:       ${PLAN}`);
     console.log(`   Branding:   Teal (#0d9488)`);
   } catch (error) {

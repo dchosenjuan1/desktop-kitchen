@@ -152,6 +152,7 @@ router.post('/register', registerLimiter, async (req, res) => {
       tenantId: tenant.id,
       email: tenant.owner_email,
       role: 'owner',
+      type: 'owner',
     });
 
     res.status(201).json({
@@ -202,6 +203,7 @@ router.post('/login', loginLimiter, async (req, res) => {
       tenantId: tenant.id,
       email: tenant.owner_email,
       role: 'owner',
+      type: 'owner',
     });
 
     res.json({
@@ -236,6 +238,7 @@ router.post('/refresh', (req, res) => {
       tenantId: decoded.tenantId,
       email: decoded.email,
       role: decoded.role,
+      type: 'owner',
     });
 
     res.json({ token: newToken });

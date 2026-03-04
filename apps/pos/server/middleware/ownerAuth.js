@@ -43,7 +43,11 @@ export async function requireOwner(req, res, next) {
       return next();
     }
 
-    // Standard owner JWT path
+    // Standard owner JWT path — reject any non-owner token type
+    if (decoded.type && decoded.type !== 'owner') {
+      return res.status(403).json({ error: 'Owner token required' });
+    }
+
     const tenant = await getTenant(decoded.tenantId);
     if (!tenant) {
       return res.status(401).json({ error: 'Tenant not found' });

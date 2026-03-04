@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import crypto from 'crypto';
 import rateLimit from 'express-rate-limit';
+import { JWT_SECRET } from '../lib/constants.js';
 import { all, get, run, adminSql, getTenantId } from '../db/index.js';
 import { createPaymentIntent, createRefund, getPaymentIntent } from '../stripe.js';
 import { requireAuth } from '../middleware/auth.js';
@@ -466,7 +467,7 @@ router.get('/mp/connect', requireAuth('pos_access'), requirePro, async (req, res
     response_type: 'code',
     platform_id: 'mp',
     redirect_uri: `${BASE_URL}/api/payments/mp/callback`,
-    state: req.tenant.id,
+    state: `${req.tenant.id}:${crypto.createHmac('sha256', JWT_SECRET).update(req.tenant.id).digest('hex')}`,
   });
   res.redirect(`https://auth.mercadopago.com/authorization?${params}`);
 });
@@ -637,13 +638,25 @@ router.get('/:order_id', async (req, res) => {
 
 // ==================== MP OAuth Callback (mounted before tenant middleware) ====================
 export async function mpOAuthCallback(req, res) {
-  const { code, state: tenantId } = req.query;
-  if (!code || !tenantId) {
+  const { code, state } = req.query;
+  if (!code || !state) {
     return res.status(400).send('Missing code or state');
   }
 
+  // Verify HMAC-signed state to prevent tenant ID spoofing
+  const sepIdx = state.lastIndexOf(':');
+  if (sepIdx === -1) {
+    return res.status(400).send('Invalid state parameter');
+  }
+  const tenantId = state.slice(0, sepIdx);
+  const signature = state.slice(sepIdx + 1);
+  const expected = crypto.createHmac('sha256', JWT_SECRET).update(tenantId).digest('hex');
+  if (!crypto.timingSafeEqual(Buffer.from(signature, 'hex'), Buffer.from(expected, 'hex'))) {
+    return res.status(403).send('Invalid state signature');
+  }
+
   try {
-    // Resolve MP credentials for this tenant (state param = tenantId)
+    // Resolve MP credentials for this tenant
     const mpCreds = await getServiceCredentials(tenantId, 'mercadopago', {
       client_id: 'MP_CLIENT_ID',
       client_secret: 'MP_CLIENT_SECRET',

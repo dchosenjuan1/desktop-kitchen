@@ -220,7 +220,7 @@ router.post('/demo-login', demoLoginLimiter, async (req, res) => {
 
     // Sign owner JWT
     const ownerToken = jwt.sign(
-      { tenantId: tokenRow.tenant_id, email: '', role: 'owner' },
+      { tenantId: tokenRow.tenant_id, email: '', role: 'owner', type: 'owner' },
       JWT_SECRET,
       { expiresIn: JWT_OWNER_EXPIRY }
     );
