@@ -530,6 +530,19 @@ export default function AdminPanel() {
             </button>
           )}
 
+          <Link to="/admin/ai">
+            <div className="bg-neutral-900 p-8 rounded-lg border border-violet-700/30 hover:border-violet-500 transition-all cursor-pointer h-full relative overflow-hidden">
+              <div className="absolute inset-0 bg-gradient-to-br from-violet-600/5 to-transparent pointer-events-none" />
+              <div className="relative">
+                <div className="flex items-center justify-center w-12 h-12 bg-violet-600/10 rounded-lg mb-4">
+                  <Sparkles className="text-violet-400" size={28} />
+                </div>
+                <h2 className="text-xl font-bold text-white mb-2">{t('cards.aiIntelligence')}</h2>
+                <p className="text-neutral-400 text-sm">{t('cards.aiDesc')}</p>
+              </div>
+            </div>
+          </Link>
+
           <Link to="/admin/menu">
             <div className="bg-neutral-900 p-8 rounded-lg border border-neutral-800 hover:border-brand-600 transition-all cursor-pointer h-full">
               <div className="flex items-center justify-center w-12 h-12 bg-brand-600/10 rounded-lg mb-4">
@@ -577,16 +590,6 @@ export default function AdminPanel() {
               </div>
               <h2 className="text-xl font-bold text-white mb-2">{t('cards.reports')}</h2>
               <p className="text-neutral-400 text-sm">{t('cards.reportsDesc')}</p>
-            </div>
-          </Link>
-
-          <Link to="/admin/ai">
-            <div className="bg-neutral-900 p-8 rounded-lg border border-neutral-800 hover:border-brand-600 transition-all cursor-pointer h-full">
-              <div className="flex items-center justify-center w-12 h-12 bg-brand-600/10 rounded-lg mb-4">
-                <Sparkles className="text-brand-500" size={28} />
-              </div>
-              <h2 className="text-xl font-bold text-white mb-2">{t('cards.aiIntelligence')}</h2>
-              <p className="text-neutral-400 text-sm">{t('cards.aiDesc')}</p>
             </div>
           </Link>
 

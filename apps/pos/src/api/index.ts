@@ -76,6 +76,7 @@ import {
   MenuImportStats,
   CSVImportPreview,
   AIMenuParseResult,
+  MenuEngineeringReport,
 } from '../types';
 
 // Employee ID for display/sync use - set after login
@@ -1068,6 +1069,13 @@ export async function runGrokAnalysis(type?: string): Promise<any> {
   });
 }
 
+export async function askAIAssistant(questionType: string, customQuestion?: string): Promise<import('../types').AIAssistantResponse> {
+  return apiRequest('/ai/ask', {
+    method: 'POST',
+    body: JSON.stringify({ question_type: questionType, custom_question: customQuestion }),
+  });
+}
+
 /* ==================== Dynamic Pricing Endpoints ==================== */
 
 export async function getPricingDashboard(): Promise<PricingDashboard> {
@@ -1187,6 +1195,10 @@ export async function updateFinancialTargets(targets: Array<{ category: string; 
     method: 'PUT',
     body: JSON.stringify({ targets }),
   });
+}
+
+export async function getMenuEngineering(period: string): Promise<MenuEngineeringReport> {
+  return apiRequest<MenuEngineeringReport>(`/reports/menu-engineering?period=${period}`);
 }
 
 export async function updateFinancialActual(data: { period: string; category: string; amount: number }): Promise<any> {

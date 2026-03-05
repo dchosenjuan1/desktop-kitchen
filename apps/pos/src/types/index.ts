@@ -1148,6 +1148,53 @@ export interface AIMenuParseResult {
   fallback?: boolean;
 }
 
+/* AI Assistant Types */
+export interface AIAssistantResponse {
+  success: boolean;
+  answer: string;
+  error?: string;
+}
+
+/* Menu Engineering Types */
+export interface MenuEngineeringItem {
+  menu_item_id: number;
+  item_name: string;
+  category_name: string;
+  price: number;
+  cogs_per_unit: number;
+  contribution_margin: number;
+  total_contribution: number;
+  quantity_sold: number;
+  revenue: number;
+  popularity_index: number;
+  classification: 'star' | 'workhorse' | 'puzzle' | 'dog';
+}
+
+export interface MenuEngineeringReport {
+  period: string;
+  startDate: string;
+  items: MenuEngineeringItem[];
+  summary: {
+    total_items: number;
+    stars: number;
+    workhorses: number;
+    puzzles: number;
+    dogs: number;
+    avg_contribution_margin: number;
+    avg_popularity_index: number;
+    popularity_threshold: number;
+    margin_threshold: number;
+    total_revenue: number;
+    total_contribution: number;
+  };
+  recommendations: Array<{
+    type: 'star' | 'workhorse' | 'puzzle' | 'dog';
+    items: string[];
+    action: string;
+    detail: string;
+  }>;
+}
+
 /* API Response Types */
 export interface ApiResponse<T> {
   success: boolean;

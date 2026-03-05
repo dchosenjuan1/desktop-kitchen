@@ -4,6 +4,7 @@ import {
   Routes,
   Route,
   Navigate,
+  useLocation,
 } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { AuthProvider, useAuth } from './context/AuthContext';
@@ -16,6 +17,7 @@ import { useDeviceType } from './hooks/useDeviceType';
 import { setCurrentEmployeeId, setCurrentEmployeeToken } from './api';
 import DemoLoadingScreen from './components/DemoLoadingScreen';
 import UpgradeCTABar from './components/UpgradeCTABar';
+import AIAssistantFAB from './components/AIAssistantFAB';
 
 // Screens - these will be created as separate components
 // For now, we'll create placeholder components
@@ -250,6 +252,35 @@ const TenantContext = React.createContext<TenantInfo>({
 });
 
 export const useTenant = () => React.useContext(TenantContext);
+
+/* ==================== Admin AI FAB ==================== */
+
+const ROUTE_CONTEXT_MAP: Record<string, string> = {
+  '/admin/menu': 'menu',
+  '/admin/recipes': 'recipes',
+  '/admin/inventory': 'inventory',
+  '/admin/employees': 'employees',
+  '/admin/reports': 'reports',
+  '/admin/ai': 'ai',
+  '/admin/pricing': 'pricing',
+  '/admin/dashboard': 'reports',
+  '/admin/delivery': 'delivery',
+  '/admin/prep-forecast': 'prep-forecast',
+  '/admin/loyalty': 'loyalty',
+  '/admin': 'admin',
+};
+
+function AdminAIFAB() {
+  const { currentEmployee } = useAuth();
+  const location = useLocation();
+  const isAdmin = currentEmployee && ['manager', 'admin'].includes(currentEmployee.role);
+  const isAdminRoute = location.pathname.startsWith('/admin');
+
+  if (!isAdmin || !isAdminRoute) return null;
+
+  const ctx = ROUTE_CONTEXT_MAP[location.pathname] || undefined;
+  return <AIAssistantFAB screenContext={ctx} />;
+}
 
 /* ==================== Protected Route ==================== */
 
@@ -628,6 +659,7 @@ const TenantRoutes: React.FC = () => {
         }
       />
     </Routes>
+    <AdminAIFAB />
     <UpgradeCTABar />
     </>
   );

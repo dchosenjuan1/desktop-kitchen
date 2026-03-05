@@ -7,11 +7,12 @@ import { getAIStatus } from '../ai/index.js';
 import { getTopItemPairs } from '../ai/data-pipeline.js';
 import { generatePricingSuggestions } from '../ai/suggestions/dynamic-pricing.js';
 import { generateInventoryForecast } from '../ai/suggestions/inventory-forecast.js';
-import { getGrokStats, analyzeUpsellPatterns, analyzeInventoryTrends, enhanceForecast } from '../ai/claude-client.js';
+import { getGrokStats, analyzeUpsellPatterns, analyzeInventoryTrends, enhanceForecast, askAssistantQuestion } from '../ai/claude-client.js';
 import { getConfigBool } from '../ai/config.js';
 import { requireAuth } from '../middleware/auth.js';
 import { generatePrepForecast } from '../ai/suggestions/prep-forecast.js';
 import { getPlanLimits, planUpgradeError, getRequiredPlan } from '../planLimits.js';
+import { gatherContext } from '../ai/context-gatherer.js';
 
 const router = Router();
 
@@ -117,6 +118,8 @@ router.get('/config', async (req, res) => {
 });
 
 // PUT /api/ai/config
+const SUPER_ADMIN_ONLY_KEYS = new Set(['grok_max_calls_per_hour', 'grok_model']);
+
 router.put('/config', requireAuth('manage_ai'), async (req, res) => {
   try {
     // Only Pro plan can modify AI config
@@ -129,8 +132,12 @@ router.put('/config', requireAuth('manage_ai'), async (req, res) => {
     const { entries } = req.body;
 
     if (entries && Array.isArray(entries)) {
-      await setMultipleConfig(entries);
+      const filtered = entries.filter(e => !SUPER_ADMIN_ONLY_KEYS.has(e.key));
+      if (filtered.length > 0) await setMultipleConfig(filtered);
     } else if (req.body.key && req.body.value !== undefined) {
+      if (SUPER_ADMIN_ONLY_KEYS.has(req.body.key)) {
+        return res.status(403).json({ error: 'This setting can only be changed by super admin' });
+      }
       await setConfig(req.body.key, req.body.value, req.body.description);
     } else {
       return res.status(400).json({ error: 'Missing config data' });
@@ -424,6 +431,68 @@ router.post('/analyze', requireAuth('manage_ai'), async (req, res) => {
   } catch (error) {
     console.error('Error running Grok analysis:', error);
     res.status(500).json({ error: 'Failed to run Claude analysis' });
+  }
+});
+
+// ==================== AI Assistant ====================
+
+// POST /api/ai/ask - AI assistant with context-aware answers
+router.post('/ask', requireAuth(), async (req, res) => {
+  try {
+    const plan = req.tenant?.plan || 'trial';
+    const limits = getPlanLimits(plan);
+
+    if (limits.ai.mode === 'locked') {
+      return res.status(403).json({ success: false, error: 'AI Assistant requires a paid plan. Upgrade to access AI-powered insights.' });
+    }
+
+    if (!await getConfigBool('grok_api_enabled')) {
+      return res.status(400).json({ success: false, error: 'AI is not enabled. Ask your admin to enable Grok API in AI Config.' });
+    }
+
+    if (!process.env.XAI_API_KEY) {
+      return res.status(400).json({ success: false, error: 'AI service is not configured.' });
+    }
+
+    const { question_type, custom_question } = req.body;
+    if (!question_type) {
+      return res.status(400).json({ success: false, error: 'Missing question_type' });
+    }
+
+    const QUESTION_PROMPTS = {
+      ingredient_ideas: 'What new menu items can I create using the ingredients I already have in stock? Suggest creative dishes.',
+      combo_ideas: 'Based on items that sell well together, what combo deals should I create? Include suggested pricing.',
+      customer_persona: 'Create a detailed persona of my typical customer based on order patterns, timing, and spending.',
+      delivery_promo: 'What menu items should I promote on delivery apps to maximize profit after commissions?',
+      prep_timing: 'When should I start prep tomorrow based on historical order patterns? Include a timeline.',
+      closing_time: 'Based on order patterns, what time does my last meaningful batch of orders come in? When should I stop accepting orders?',
+      top_ingredient: 'What is my most used and most costly ingredient? How can I optimize its usage?',
+      waste_reduction: 'Analyze my waste patterns and give me specific actions to reduce food waste and save money.',
+      pricing_review: 'Review my menu prices. Are they competitive? Which items are underpriced or overpriced based on COGS?',
+      menu_optimization: 'Which menu items should I remove, rework, or promote more? Focus on profitability and popularity.',
+      employee_scheduling: 'Based on order patterns by hour and day, how should I schedule my staff for optimal coverage?',
+      inventory_reorder: 'Which items are running low and need reordering? Suggest quantities based on usage velocity.',
+      loyalty_insights: 'Analyze my loyalty program performance. How can I improve customer retention and repeat visits?',
+      upsell_suggestions: 'What upsell suggestions should my cashiers make based on common item pairings?',
+      profit_margins: 'Analyze my profit margins. Which items or categories have the best and worst margins?',
+    };
+
+    const question = question_type === 'custom'
+      ? (custom_question || 'Give me a general overview of how my restaurant is performing.')
+      : (QUESTION_PROMPTS[question_type] || custom_question || 'How is my restaurant performing?');
+
+    const contextType = question_type === 'custom' ? 'custom' : question_type;
+    const context = await gatherContext(contextType);
+    const result = await askAssistantQuestion(question, context);
+
+    if (!result.success) {
+      return res.json({ success: false, error: result.error || 'AI could not generate a response. Try again later.' });
+    }
+
+    res.json({ success: true, answer: result.content });
+  } catch (error) {
+    console.error('Error in AI assistant:', error);
+    res.status(500).json({ success: false, error: 'Failed to get AI response' });
   }
 });
 

@@ -62,7 +62,7 @@ export default function ConfigTab({ config, categoryRoles, saving, onConfigUpdat
       <div className="bg-neutral-900 p-6 rounded-lg border border-neutral-800">
         <h3 className="text-lg font-bold text-white mb-4">{t('ai.config.aiSettings')}</h3>
         <div className="space-y-3">
-          {Object.entries(config).map(([key, entry]) => (
+          {Object.entries(config).filter(([key]) => key !== 'grok_max_calls_per_hour' && key !== 'grok_model').map(([key, entry]) => (
             <div key={key} className="flex items-center gap-4 p-3 bg-neutral-800 rounded-lg">
               <div className="flex-1 min-w-0">
                 <p className="text-white text-sm font-medium">{key}</p>

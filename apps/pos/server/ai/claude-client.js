@@ -256,6 +256,17 @@ Rules:
 }
 
 /**
+ * Ask the AI assistant a question with gathered context data
+ */
+export async function askAssistantQuestion(question, context) {
+  const systemPrompt = `You are a restaurant business consultant with access to this restaurant's actual operational data. Give specific, actionable advice based on the numbers. Keep responses under 400 words. Format with markdown (headers, bullets, bold). Be direct and practical. Currency is MXN.`;
+
+  const prompt = `Restaurant data:\n${JSON.stringify(context)}\n\nQuestion: ${question}`;
+
+  return sendMessage(prompt, { systemPrompt, maxTokens: 2048, useCache: true });
+}
+
+/**
  * Get current stats
  */
 export async function getGrokStats() {

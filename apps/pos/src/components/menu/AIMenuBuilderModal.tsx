@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { X, Loader2, Check, Sparkles, Trash2, ChevronDown, ChevronRight, AlertTriangle, ArrowLeft, Wand2 } from 'lucide-react';
+import { X, Loader2, Check, Sparkles, Trash2, ChevronDown, ChevronRight, AlertTriangle, ArrowLeft, Wand2, MessageSquare } from 'lucide-react';
 import { parseMenuWithAI, parseMenuWithAIAsOwner, commitAIMenu, commitAIMenuAsOwner } from '../../api';
 import type { AIMenuParseResult, MenuImportStats } from '../../types';
 import { usePlan } from '../../context/PlanContext';
@@ -256,6 +256,17 @@ export default function AIMenuBuilderModal({ isOpen, onClose, onMenuCreated, isF
                 className="w-full py-3 bg-brand-600 hover:bg-brand-500 disabled:opacity-40 disabled:cursor-not-allowed text-white font-semibold rounded-xl transition-colors text-sm flex items-center justify-center gap-2"
               >
                 <Sparkles size={16} /> Build My Menu
+              </button>
+
+              <button
+                onClick={() => {
+                  onClose();
+                  // Open FAB modal via DOM event
+                  window.dispatchEvent(new CustomEvent('open-ai-assistant', { detail: { context: 'menu' } }));
+                }}
+                className="w-full mt-3 py-2.5 text-violet-400 hover:text-violet-300 text-xs flex items-center justify-center gap-2 transition-colors"
+              >
+                <MessageSquare size={14} /> Need help deciding? Try the AI Assistant
               </button>
             </>
           )}
