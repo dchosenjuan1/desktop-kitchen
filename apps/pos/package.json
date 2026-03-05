@@ -1,5 +1,5 @@
 {
-  "name": "desktop-kitchen",
+  "name": "@desktop-kitchen/pos",
   "version": "1.0.0",
   "description": "Desktop Kitchen — White-label POS for restaurants",
   "type": "module",
@@ -41,6 +41,7 @@
     "node-cron": "^4.2.1",
     "papaparse": "^5.5.3",
     "postgres": "^3.4.8",
+    "prop-types": "^15.8.1",
     "qrcode.react": "^4.2.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",

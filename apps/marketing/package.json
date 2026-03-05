@@ -1,4 +1,5 @@
 {
+  "name": "@desktop-kitchen/marketing",
   "private": true,
   "scripts": {
     "dev": "next dev",
@@ -10,7 +11,7 @@
     "@vercel/analytics": "^1.6.1",
     "@vercel/og": "^0.9.0",
     "framer-motion": "^7.6.4",
-    "next": "latest",
+    "next": "^15.0.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0"
   },

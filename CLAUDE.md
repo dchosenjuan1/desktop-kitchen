@@ -7,28 +7,43 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - You are a native Swift developer. Do not assume anything, always go back to the documentation for the correct usage and development.
 - Always use context7 when code generation, setup/configuration steps, or library/API documentation is needed.
 
-## Parent Repository Context
-
-This monorepo lives inside a broader project at `juanbertos/POS/juanbertos-pos/`. Sibling projects outside this repo:
-
-- **`es-landing/`** — Spanish landing page (Next.js, pnpm) → es.juanbertos.com
-- **`my-mcp-server/`** — Custom MCP server (TypeScript, `@modelcontextprotocol/sdk`)
-- **`migrations/`** + **`scripts/`** — Standalone SQL migrations run against Neon Postgres
-
 ## Monorepo Structure
 
+npm workspaces monorepo. All apps under `apps/*`, root `package.json` orchestrates.
+
 ```
-desktop-kitchen/
+desktop-kitchen/                          # Git repo root
+├── package.json                          # Root: private, npm workspaces
+├── .npmrc                                # Workspace settings
+├── .gitignore                            # Comprehensive, covers all apps
+├── CLAUDE.md                             # This file
 ├── apps/
-│   ├── pos/           # POS system (Vite + Express)
-│   ├── sales/         # Sales rep dashboard (Vite + React, static SPA)
-│   ├── marketing/     # Desktop Kitchen marketing landing (Next.js + i18n)
-│   ├── landing/       # Legacy restaurant landing page (Next.js + i18n) — OFF LIMITS
-│   └── docs/          # Documentation site (Docusaurus 3)
-├── assets/            # Brand assets (PDF, logo) — not in git
-├── CLAUDE.md
-└── .gitignore
+│   ├── pos/                              # POS system (Vite + Express) → Railway → pos.desktop.kitchen
+│   ├── marketing/                        # Marketing (Next.js + i18n) → Vercel → www/es.desktop.kitchen
+│   ├── sales/                            # Sales SPA (Vite + React) → Vercel → sales.desktop.kitchen
+│   ├── docs/                             # Docusaurus 3 → Vercel → docs.desktop.kitchen
+│   ├── landing/                          # EN landing (Next.js) → Vercel → www.juanbertos.com — OFF LIMITS
+│   ├── es-landing/                       # ES landing (Next.js) → Vercel → es.juanbertos.com
+│   └── menu-boards/                      # In development
+├── db/
+│   └── migrations/                       # SQL migration files
+├── scripts/                              # Utility scripts
+└── assets/                               # Brand assets (PDF, logo)
 ```
+
+**Root commands** (run from repo root):
+```bash
+npm run dev:pos          # Start POS dev (client + server)
+npm run dev:marketing    # Start marketing dev
+npm run dev:sales        # Start sales dev
+npm run dev:docs         # Start docs dev
+npm run build:pos        # Build POS for production
+npm run build:sales      # Build sales for production
+npm run test             # Run POS test suite
+npm run clean            # Remove all node_modules and build outputs
+```
+
+**Note**: Marketing, docs, landing, and es-landing apps may have hoisting issues when built via workspace root. These apps build fine from their own directories (`cd apps/marketing && npm run build`) and on Vercel (which installs from their Root Directory).
 
 ## Apps
 
@@ -125,6 +140,20 @@ npm run preview          # Preview production build locally
 
 **Environment variables** (set in Vercel dashboard):
 - `VITE_API_URL` — Leave empty (Vercel rewrites handle proxying). Only set if you need to point directly to a different backend (e.g., `https://pos.desktop.kitchen`).
+
+### ES Landing (`apps/es-landing/`)
+
+Spanish landing page for Juanberto's restaurant. Next.js + Tailwind.
+
+**Commands** (run from `apps/es-landing/`):
+```bash
+npm run dev              # Next.js dev server on :3000
+npm run build            # Production build
+npm run start            # Production mode
+```
+
+**URL**: `es.juanbertos.com`
+**Deployment**: Vercel → es.juanbertos.com (Root Directory: `apps/es-landing`)
 
 ## POS Architecture
 
@@ -302,7 +331,10 @@ RESEND_API_KEY=...                      # Resend API key for transactional email
 | POS | Railway | pos.desktop.kitchen | npm |
 | Marketing | Vercel | www.desktop.kitchen / es.desktop.kitchen | npm |
 | Landing (EN) | Vercel | www.juanbertos.com | npm |
+| ES Landing | Vercel | es.juanbertos.com | npm |
 | Docs | Vercel | docs.desktop.kitchen | npm |
 | Sales | Vercel | sales.desktop.kitchen | npm |
 
 DNS managed in Cloudflare for both `desktop.kitchen` and `juanbertos.com` zones.
+
+**Vercel build filtering**: Each Vercel app has `ignoreCommand` in `vercel.json` — builds are skipped when only other apps change.

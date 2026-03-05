@@ -1,4 +1,5 @@
 {
+  "ignoreCommand": "git diff HEAD^ HEAD --quiet -- apps/sales/",
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
   "framework": "vite",

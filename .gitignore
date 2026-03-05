@@ -1,14 +1,26 @@
+# Vercel (all levels)
+.vercel
+
+# npm workspaces
 node_modules/
+
+# Build outputs
 dist/
 dist2/
-.env
-.env.ios
-.env.local
-*.timestamp-*.mjs
-.DS_Store
-tsconfig.tsbuildinfo
 
-# App-specific
+# Environment
+.env
+.env.*
+!.env.example
+
+# OS
+.DS_Store
+
+# TypeScript
+tsconfig.tsbuildinfo
+*.timestamp-*.mjs
+
+# POS specific
 apps/pos/data/
 apps/pos/native-ios/DesktopKitchenPOS.xcodeproj/xcuserdata/
 apps/pos/native-ios/DesktopKitchenPOS.xcodeproj/project.xcworkspace/xcuserdata/
@@ -27,11 +39,10 @@ apps/pos/native-ios/scripts/stress-test-*.txt
 apps/docs/.docusaurus/
 apps/docs/build/
 
-# Landing
+# Next.js apps
 apps/landing/.next/
 apps/landing/out/
-
-# Marketing
 apps/marketing/.next/
 apps/marketing/out/
-.vercel
+apps/es-landing/.next/
+apps/es-landing/out/

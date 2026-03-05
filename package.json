@@ -1,0 +1,20 @@
+{
+  "name": "desktop-kitchen",
+  "private": true,
+  "workspaces": [
+    "apps/*"
+  ],
+  "scripts": {
+    "dev:pos": "npm run dev -w @desktop-kitchen/pos",
+    "dev:marketing": "npm run dev -w @desktop-kitchen/marketing",
+    "dev:sales": "npm run dev -w @desktop-kitchen/sales",
+    "dev:docs": "npm run start -w @desktop-kitchen/docs",
+    "build:pos": "npm run build -w @desktop-kitchen/pos",
+    "build:sales": "npm run build -w @desktop-kitchen/sales",
+    "test": "npm run test -w @desktop-kitchen/pos",
+    "clean": "rm -rf apps/*/node_modules apps/*/dist apps/*/.next apps/*/.docusaurus node_modules"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
