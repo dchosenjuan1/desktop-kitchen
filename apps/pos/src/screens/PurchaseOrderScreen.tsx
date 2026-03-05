@@ -55,7 +55,7 @@ export default function PurchaseOrderScreen() {
 
   useEffect(() => {
     loadData();
-  }, []);
+  }, [statusFilter]);
 
   const loadData = async () => {
     try {

@@ -16,6 +16,7 @@ import {
   getPaymentFees,
   getRefundSummary,
   getFinancialProjection,
+  getMenuEngineering,
 } from '../api';
 import { useAuth } from '../context/AuthContext';
 import { formatPrice } from '../utils/currency';
@@ -33,6 +34,7 @@ import {
   PaymentFeeSummary,
   RefundSummary,
   FinancialProjection,
+  MenuEngineeringReport,
 } from '../types';
 import OverviewTab from '../components/reports/OverviewTab';
 import CashCardTab from '../components/reports/CashCardTab';
@@ -43,9 +45,10 @@ import DeliveryTab from '../components/reports/DeliveryTab';
 import FeesTab from '../components/reports/FeesTab';
 import RefundsTab from '../components/reports/RefundsTab';
 import FinancialsTab from '../components/reports/FinancialsTab';
+import MenuEngineeringTab from '../components/reports/MenuEngineeringTab';
 
 type Period = 'today' | 'week' | 'month';
-type Tab = 'overview' | 'cashcard' | 'cogs' | 'categories' | 'margin' | 'delivery' | 'fees' | 'refunds' | 'financials';
+type Tab = 'overview' | 'cashcard' | 'cogs' | 'categories' | 'margin' | 'delivery' | 'fees' | 'refunds' | 'financials' | 'engineering';
 
 export default function ReportsScreen() {
   const { t } = useTranslation('reports');
@@ -66,6 +69,7 @@ export default function ReportsScreen() {
   const [feesData, setFeesData] = useState<PaymentFeeSummary | null>(null);
   const [refundData, setRefundData] = useState<RefundSummary | null>(null);
   const [financialData, setFinancialData] = useState<FinancialProjection | null>(null);
+  const [engineeringData, setEngineeringData] = useState<MenuEngineeringReport | null>(null);
   const [financialMonth, setFinancialMonth] = useState(() => new Date().toISOString().slice(0, 7));
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -116,6 +120,9 @@ export default function ReportsScreen() {
       } else if (tab === 'refunds') {
         const data = await getRefundSummary();
         setRefundData(data);
+      } else if (tab === 'engineering') {
+        const data = await getMenuEngineering(period);
+        setEngineeringData(data);
       } else if (tab === 'financials') {
         const data = await getFinancialProjection(financialMonth);
         setFinancialData(data);
@@ -170,6 +177,7 @@ export default function ReportsScreen() {
     { key: 'delivery', label: t('sales.tabs.delivery') },
     { key: 'fees', label: t('sales.tabs.fees') },
     { key: 'refunds', label: t('sales.tabs.refunds') },
+    { key: 'engineering', label: '⭐ Ingeniería de Menú' },
     { key: 'financials', label: t('sales.tabs.financials') },
   ];
 
@@ -271,6 +279,9 @@ export default function ReportsScreen() {
             )}
             {tab === 'refunds' && refundData && (
               <RefundsTab refundData={refundData} />
+            )}
+            {tab === 'engineering' && engineeringData && (
+              <MenuEngineeringTab data={engineeringData} />
             )}
             {tab === 'financials' && (
               <FinancialsTab
