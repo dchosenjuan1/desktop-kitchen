@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  App Installer file for auto-updating sideloaded POS installs.
+
+  How to use:
+  1. Host this file and the .msix on a web server (e.g., https://pos.desktop.kitchen/downloads/)
+  2. Update the Uri attributes to point to your hosted files
+  3. Bump the Version on each release
+  4. Distribute the .appinstaller URL to devices — they'll auto-update on launch
+
+  Install: Open this URL on the target device, or run:
+    Add-AppPackage -AppInstallerFile "https://pos.desktop.kitchen/downloads/DesktopKitchenPOS.appinstaller"
+-->
+<AppInstaller
+    Uri="https://pos.desktop.kitchen/downloads/DesktopKitchenPOS.appinstaller"
+    Version="1.0.0.0"
+    xmlns="http://schemas.microsoft.com/appx/appinstaller/2018">
+
+  <MainPackage
+      Name="com.desktopkitchen.pos"
+      Version="1.0.0.0"
+      Publisher="CN=DesktopKitchen"
+      Uri="https://pos.desktop.kitchen/downloads/DesktopKitchenPOS.msix"
+      ProcessorArchitecture="x64" />
+
+  <UpdateSettings>
+    <OnLaunch HoursBetweenUpdateChecks="12" />
+    <AutomaticBackgroundTask />
+  </UpdateSettings>
+
+</AppInstaller>

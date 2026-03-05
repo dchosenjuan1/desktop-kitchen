@@ -1,0 +1,147 @@
+<?xml version="1.0" encoding="utf-8"?>
+<UserControl
+    x:Class="DesktopKitchenPOS.Views.POS.POSPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <Grid Background="{StaticResource BackgroundBrush}">
+        <!-- Loading -->
+        <ProgressRing x:Name="LoadingRing" IsActive="True"
+                      HorizontalAlignment="Center" VerticalAlignment="Center"
+                      Foreground="{StaticResource AccentBrush}" />
+
+        <!-- Main layout: Menu (65%) | Cart (35%) -->
+        <Grid x:Name="MainLayout" Visibility="Collapsed">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="65*" />
+                <ColumnDefinition Width="35*" />
+            </Grid.ColumnDefinitions>
+
+            <!-- Menu area -->
+            <Grid Grid.Column="0" Padding="12">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
+
+                <!-- Category pills -->
+                <ScrollViewer Grid.Row="0" HorizontalScrollBarVisibility="Auto"
+                              VerticalScrollBarVisibility="Disabled" Margin="0,0,0,8">
+                    <StackPanel x:Name="CategoryPills" Orientation="Horizontal" Spacing="8" />
+                </ScrollViewer>
+
+                <!-- Menu grid -->
+                <GridView x:Name="MenuGrid" Grid.Row="1"
+                          ItemClick="OnMenuItemClick" IsItemClickEnabled="True"
+                          SelectionMode="None">
+                    <GridView.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <ItemsWrapGrid Orientation="Horizontal" ItemWidth="180" ItemHeight="180" />
+                        </ItemsPanelTemplate>
+                    </GridView.ItemsPanel>
+                </GridView>
+
+                <!-- Empty state -->
+                <TextBlock x:Name="EmptyText" Grid.Row="1"
+                           Text="No items found" FontSize="16"
+                           Foreground="{StaticResource TextTertiaryBrush}"
+                           HorizontalAlignment="Center" VerticalAlignment="Center"
+                           Visibility="Collapsed" />
+            </Grid>
+
+            <!-- Cart sidebar -->
+            <Grid Grid.Column="1" Background="{StaticResource CardBackgroundBrush}" Padding="12">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+
+                <!-- Cart header -->
+                <Grid Grid.Row="0">
+                    <TextBlock Text="Cart" FontSize="20" FontWeight="SemiBold"
+                               Foreground="{StaticResource TextPrimaryBrush}" />
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="4">
+                        <Button Click="OnKitchenClick" Background="Transparent" BorderBrush="Transparent"
+                                ToolTipService.ToolTip="Kitchen">
+                            <FontIcon Glyph="&#xE7B7;" Foreground="{StaticResource TextSecondaryBrush}" FontSize="18" />
+                        </Button>
+                        <Button Click="OnReportsClick" Background="Transparent" BorderBrush="Transparent"
+                                ToolTipService.ToolTip="Reports">
+                            <FontIcon Glyph="&#xE9D9;" Foreground="{StaticResource TextSecondaryBrush}" FontSize="18" />
+                        </Button>
+                        <Button Click="OnLogoutClick" Background="Transparent" BorderBrush="Transparent"
+                                ToolTipService.ToolTip="Logout">
+                            <FontIcon Glyph="&#xE7E8;" Foreground="{StaticResource TextSecondaryBrush}" FontSize="18" />
+                        </Button>
+                    </StackPanel>
+                </Grid>
+
+                <Border Grid.Row="1" Height="1" Background="{StaticResource BorderBrush}" Margin="0,8" />
+
+                <!-- Cart items -->
+                <ListView x:Name="CartList" Grid.Row="2" SelectionMode="None" />
+
+                <!-- Cart empty -->
+                <TextBlock x:Name="CartEmptyText" Grid.Row="2"
+                           Text="Cart is empty" FontSize="16"
+                           Foreground="{StaticResource TextTertiaryBrush}"
+                           HorizontalAlignment="Center" VerticalAlignment="Center" />
+
+                <!-- Totals and pay button -->
+                <StackPanel x:Name="TotalsPanel" Grid.Row="3" Spacing="4" Visibility="Collapsed">
+                    <Border Height="1" Background="{StaticResource BorderBrush}" Margin="0,8" />
+                    <Grid>
+                        <TextBlock Text="Subtotal" Foreground="{StaticResource TextSecondaryBrush}" />
+                        <TextBlock x:Name="SubtotalText" HorizontalAlignment="Right"
+                                   Foreground="{StaticResource TextSecondaryBrush}" />
+                    </Grid>
+                    <Grid>
+                        <TextBlock x:Name="TaxLabel" Foreground="{StaticResource TextSecondaryBrush}" />
+                        <TextBlock x:Name="TaxText" HorizontalAlignment="Right"
+                                   Foreground="{StaticResource TextSecondaryBrush}" />
+                    </Grid>
+                    <Grid Margin="0,8,0,0">
+                        <TextBlock Text="Total" FontSize="16" FontWeight="SemiBold"
+                                   Foreground="{StaticResource TextPrimaryBrush}" />
+                        <TextBlock x:Name="TotalText" HorizontalAlignment="Right" FontSize="16" FontWeight="SemiBold"
+                                   Foreground="{StaticResource AccentBrush}" />
+                    </Grid>
+                    <Grid Margin="0,12,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="2*" />
+                        </Grid.ColumnDefinitions>
+                        <Button Grid.Column="0" Click="OnClearCartClick" HorizontalAlignment="Stretch"
+                                Background="Transparent" Foreground="{StaticResource ErrorBrush}">
+                            <StackPanel Orientation="Horizontal" Spacing="4">
+                                <FontIcon Glyph="&#xE74D;" FontSize="14" />
+                                <TextBlock Text="Clear" />
+                            </StackPanel>
+                        </Button>
+                        <Button x:Name="PayButton" Grid.Column="1" Click="OnPayClick"
+                                HorizontalAlignment="Stretch"
+                                Background="{StaticResource AccentBrush}"
+                                Foreground="White" FontWeight="SemiBold" FontSize="16"
+                                CornerRadius="12" Padding="16,12" Margin="8,0,0,0" />
+                    </Grid>
+                </StackPanel>
+            </Grid>
+        </Grid>
+
+        <!-- Order confirmation overlay -->
+        <Grid x:Name="ConfirmationOverlay" Visibility="Collapsed"
+              Background="#DD000000" Tapped="OnConfirmationDismiss">
+            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="8">
+                <FontIcon Glyph="&#xE73E;" FontSize="60" Foreground="{StaticResource SuccessBrush}" />
+                <TextBlock Text="Order Confirmed!" FontSize="28" FontWeight="Bold"
+                           Foreground="{StaticResource TextPrimaryBrush}" HorizontalAlignment="Center" />
+                <TextBlock x:Name="ConfirmedOrderText" FontSize="22" FontWeight="Bold"
+                           Foreground="{StaticResource AccentBrush}" HorizontalAlignment="Center" />
+                <TextBlock Text="Tap anywhere to dismiss" FontSize="14"
+                           Foreground="{StaticResource TextTertiaryBrush}" HorizontalAlignment="Center" Margin="0,16,0,0" />
+            </StackPanel>
+        </Grid>
+    </Grid>
+</UserControl>

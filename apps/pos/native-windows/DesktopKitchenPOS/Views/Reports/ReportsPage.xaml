@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="utf-8"?>
+<UserControl
+    x:Class="DesktopKitchenPOS.Views.Reports.ReportsPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <Grid Background="{StaticResource BackgroundBrush}" Padding="16">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <!-- Header -->
+        <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="8">
+            <Button Click="OnBackClick" Background="Transparent" BorderBrush="Transparent">
+                <FontIcon Glyph="&#xE72B;" Foreground="{StaticResource TextSecondaryBrush}" FontSize="18" />
+            </Button>
+            <TextBlock Text="Reports" FontSize="22" FontWeight="Bold"
+                       Foreground="{StaticResource TextPrimaryBrush}" VerticalAlignment="Center" />
+        </StackPanel>
+
+        <!-- Period selector -->
+        <StackPanel Grid.Row="1" Orientation="Horizontal" Spacing="8" Margin="0,12,0,16">
+            <Button x:Name="TodayBtn" Content="Today" Click="OnPeriodClick" Tag="Today"
+                    CornerRadius="16" Padding="16,8" />
+            <Button x:Name="WeekBtn" Content="This Week" Click="OnPeriodClick" Tag="Week"
+                    CornerRadius="16" Padding="16,8" />
+            <Button x:Name="MonthBtn" Content="This Month" Click="OnPeriodClick" Tag="Month"
+                    CornerRadius="16" Padding="16,8" />
+        </StackPanel>
+
+        <!-- Loading -->
+        <ProgressRing x:Name="LoadingRing" Grid.Row="2" IsActive="True"
+                      HorizontalAlignment="Center" VerticalAlignment="Center"
+                      Foreground="{StaticResource AccentBrush}" />
+
+        <!-- Content: KPIs (left) + Top Items (right) -->
+        <Grid x:Name="ContentGrid" Grid.Row="2" Visibility="Collapsed">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+
+            <!-- KPI Cards -->
+            <StackPanel Grid.Column="0" Spacing="12" Margin="0,0,8,0">
+                <Border x:Name="RevenueCard" Background="{StaticResource CardBackgroundBrush}" CornerRadius="12" Padding="16">
+                    <StackPanel>
+                        <TextBlock Text="Total Revenue" FontSize="12" Foreground="{StaticResource TextTertiaryBrush}" />
+                        <TextBlock x:Name="RevenueValue" FontSize="22" FontWeight="Bold" Foreground="{StaticResource TextPrimaryBrush}" />
+                    </StackPanel>
+                </Border>
+                <Border Background="{StaticResource CardBackgroundBrush}" CornerRadius="12" Padding="16">
+                    <StackPanel>
+                        <TextBlock Text="Orders" FontSize="12" Foreground="{StaticResource TextTertiaryBrush}" />
+                        <TextBlock x:Name="OrdersValue" FontSize="22" FontWeight="Bold" Foreground="{StaticResource TextPrimaryBrush}" />
+                    </StackPanel>
+                </Border>
+                <Border Background="{StaticResource CardBackgroundBrush}" CornerRadius="12" Padding="16">
+                    <StackPanel>
+                        <TextBlock Text="Avg Ticket" FontSize="12" Foreground="{StaticResource TextTertiaryBrush}" />
+                        <TextBlock x:Name="AvgTicketValue" FontSize="22" FontWeight="Bold" Foreground="{StaticResource TextPrimaryBrush}" />
+                    </StackPanel>
+                </Border>
+                <Border Background="{StaticResource CardBackgroundBrush}" CornerRadius="12" Padding="16">
+                    <StackPanel>
+                        <TextBlock Text="Tips" FontSize="12" Foreground="{StaticResource TextTertiaryBrush}" />
+                        <TextBlock x:Name="TipsValue" FontSize="22" FontWeight="Bold" Foreground="{StaticResource TextPrimaryBrush}" />
+                    </StackPanel>
+                </Border>
+            </StackPanel>
+
+            <!-- Top Items -->
+            <StackPanel Grid.Column="1" Margin="8,0,0,0">
+                <TextBlock Text="Top Items" FontSize="16" FontWeight="SemiBold"
+                           Foreground="{StaticResource TextPrimaryBrush}" Margin="0,0,0,8" />
+                <ListView x:Name="TopItemsList" SelectionMode="None" />
+                <TextBlock x:Name="NoDataText" Text="No data available" FontSize="14"
+                           Foreground="{StaticResource TextTertiaryBrush}" Visibility="Collapsed" />
+            </StackPanel>
+        </Grid>
+    </Grid>
+</UserControl>

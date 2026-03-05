@@ -27,7 +27,7 @@ struct ServerSettingsSheet: View {
                             .textInputAutocapitalization(.never)
                             .autocorrectionDisabled()
 
-                        field(label: "Tenant ID", text: $tenantID, placeholder: "juanbertos")
+                        field(label: "Tenant ID", text: $tenantID, placeholder: "apple-demo")
                             .textInputAutocapitalization(.never)
                             .autocorrectionDisabled()
 

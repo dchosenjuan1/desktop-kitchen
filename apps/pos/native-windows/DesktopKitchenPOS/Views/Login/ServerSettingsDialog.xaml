@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ContentDialog
+    x:Class="DesktopKitchenPOS.Views.Login.ServerSettingsDialog"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    Title="Server Settings"
+    PrimaryButtonText="Save"
+    CloseButtonText="Cancel"
+    DefaultButton="Primary"
+    PrimaryButtonClick="OnSave">
+
+    <StackPanel Spacing="12" MinWidth="350">
+        <TextBox x:Name="BaseUrlBox" Header="Server URL" PlaceholderText="https://pos.desktop.kitchen" />
+        <TextBox x:Name="TenantIdBox" Header="Tenant ID" PlaceholderText="juanbertos" />
+        <PasswordBox x:Name="AdminSecretBox" Header="Admin Secret" PlaceholderText="(optional)" />
+    </StackPanel>
+</ContentDialog>

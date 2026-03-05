@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Red "DK" text placeholder -->
+    <path
+        android:fillColor="#DC2626"
+        android:pathData="M30,40 L30,68 L40,68 L40,58 L44,58 C52,58 56,54 56,49 C56,44 52,40 44,40 L30,40 Z M40,50 L40,48 L43,48 C45,48 46,48.5 46,49 C46,49.5 45,50 43,50 L40,50 Z" />
+    <path
+        android:fillColor="#DC2626"
+        android:pathData="M58,40 L58,68 L68,68 L68,56 L78,68 L90,68 L76,52 L88,40 L76,40 L68,50 L68,40 L58,40 Z" />
+</vector>

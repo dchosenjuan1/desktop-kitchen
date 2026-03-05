@@ -29,7 +29,7 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.desktopkitchen.pos
         INFOPLIST_KEY_CFBundleDisplayName: "Desktop Kitchen POS"
-        CURRENT_PROJECT_VERSION: "6"
+        CURRENT_PROJECT_VERSION: "8"
         MARKETING_VERSION: "1.0"
         PRODUCT_NAME: "DesktopKitchenPOS"
         DEVELOPMENT_TEAM: "U76V8DL3W4"

@@ -1,0 +1,20 @@
+bin/
+obj/
+.vs/
+*.user
+*.suo
+*.cache
+*.bak
+*.log
+AppPackages/
+BundleArtifacts/
+*.appx
+*.msix
+*.appxbundle
+*.msixbundle
+*.msixupload
+*.appxupload
+
+# Signing certificates
+*.pfx
+*.cer

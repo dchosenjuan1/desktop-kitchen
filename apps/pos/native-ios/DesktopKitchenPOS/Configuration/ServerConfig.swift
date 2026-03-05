@@ -8,7 +8,7 @@ final class ServerConfig: @unchecked Sendable {
     private let tenantKey = "tenant_id"
     private let adminSecretKey = "admin_secret"
     private let defaultURL = "https://pos.desktop.kitchen"
-    private let defaultTenant = "juanbertos"
+    private let defaultTenant = "apple-demo"
 
     var baseURL: String {
         didSet {
