@@ -11,6 +11,10 @@ export async function writeSuggestion({ type, context, data, priority = 50, ttlM
   await run(`
     INSERT INTO ai_suggestion_cache (suggestion_type, trigger_context, suggestion_data, priority, expires_at)
     VALUES ($1, $2, $3, $4, $5)
+    ON CONFLICT (tenant_id, suggestion_type, trigger_context)
+    DO UPDATE SET suggestion_data = EXCLUDED.suggestion_data,
+                  priority = EXCLUDED.priority,
+                  expires_at = EXCLUDED.expires_at
   `, [type, triggerContext, suggestionData, priority, expiresAt]);
 }
 
