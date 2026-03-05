@@ -16,5 +16,9 @@
   },
   "engines": {
     "node": ">=18"
+  },
+  "dependencies": {
+    "fdir": "^6.5.0",
+    "tinyglobby": "^0.2.15"
   }
 }
