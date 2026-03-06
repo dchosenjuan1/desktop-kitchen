@@ -12,11 +12,7 @@ const config = {
   baseUrl: '/',
 
   onBrokenLinks: 'throw',
-  markdown: {
-    hooks: {
-      onBrokenMarkdownLinks: 'warn',
-    },
-  },
+  onBrokenMarkdownLinks: 'warn',
 
   headTags: [
     {
