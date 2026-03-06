@@ -38,14 +38,16 @@ const router = Router();
 const consentLimiter = rateLimit({
   windowMs: 60 * 60 * 1000, // 1 hour
   max: 5,
-  keyGenerator: (req) => `consent-${req.owner?.tenantId || req.ip}`,
+  keyGenerator: (req) => `consent-${req.owner?.tenantId || 'anon'}`,
   message: { error: 'Too many consent requests, please try again later' },
+  validate: false,
 });
 
 const acceptLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 3,
   message: { error: 'Too many acceptance requests, please try again later' },
+  validate: false,
 });
 
 /**

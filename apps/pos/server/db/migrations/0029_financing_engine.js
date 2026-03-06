@@ -8,7 +8,7 @@ export async function up(sql) {
   await sql`
     CREATE TABLE IF NOT EXISTS merchant_financial_profiles (
       id SERIAL PRIMARY KEY,
-      tenant_id INTEGER NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+      tenant_id TEXT NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
       monthly_avg_revenue NUMERIC(12,2) DEFAULT 0,
       monthly_avg_orders INTEGER DEFAULT 0,
       avg_ticket_size NUMERIC(10,2) DEFAULT 0,
@@ -35,7 +35,7 @@ export async function up(sql) {
   await sql`
     CREATE TABLE IF NOT EXISTS merchant_financing_offers (
       id SERIAL PRIMARY KEY,
-      tenant_id INTEGER NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+      tenant_id TEXT NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
       offer_amount NUMERIC(12,2) NOT NULL,
       holdback_percent NUMERIC(5,2) NOT NULL,
       factor_rate NUMERIC(4,2) NOT NULL,
@@ -54,7 +54,7 @@ export async function up(sql) {
   await sql`
     CREATE TABLE IF NOT EXISTS merchant_financing_events (
       id SERIAL PRIMARY KEY,
-      tenant_id INTEGER NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+      tenant_id TEXT NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
       event_type TEXT NOT NULL,
       details JSONB DEFAULT '{}',
       created_at TIMESTAMPTZ DEFAULT NOW()
@@ -82,7 +82,7 @@ export async function up(sql) {
   await sql`
     CREATE TABLE IF NOT EXISTS data_processing_consent (
       id SERIAL PRIMARY KEY,
-      tenant_id INTEGER NOT NULL DEFAULT current_setting('app.tenant_id')::int,
+      tenant_id TEXT NOT NULL DEFAULT current_setting('app.tenant_id'),
       consent_type TEXT NOT NULL,
       accepted BOOLEAN DEFAULT false,
       accepted_at TIMESTAMPTZ,
@@ -97,7 +97,7 @@ export async function up(sql) {
   await sql`ALTER TABLE data_processing_consent ENABLE ROW LEVEL SECURITY`;
   await sql`
     CREATE POLICY data_processing_consent_isolation ON data_processing_consent
-    FOR ALL USING (tenant_id = current_setting('app.tenant_id')::int)
+    FOR ALL USING (tenant_id = current_setting('app.tenant_id'))
   `;
 
   // Grant app_user access to RLS-enforced table
