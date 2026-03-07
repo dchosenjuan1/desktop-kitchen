@@ -122,10 +122,26 @@ export default function FinancingTab() {
         getAdminOffers({ status: offerFilter || undefined }),
         getFinancingEvents({ event_type: eventTypeFilter || undefined, limit: 50 }),
       ]);
-      setOverview(ov);
-      setProfiles(pr);
-      setOffers(of);
-      setEvents(ev);
+      // Backend wraps lists in objects: { profiles: [...], total }, etc.
+      // Overview returns score_distribution as object { '0-20': N, ... } — convert to array
+      const rawDist = (ov as any).score_distribution || {};
+      const distArray = Array.isArray(rawDist)
+        ? rawDist
+        : Object.entries(rawDist).map(([bucket, count]) => ({ bucket, count: count as number }));
+      setOverview({
+        total_consented: (ov as any).total_consented_merchants ?? (ov as any).total_consented ?? 0,
+        total_eligible: (ov as any).total_eligible ?? 0,
+        total_pre_eligible: (ov as any).total_pre_eligible ?? 0,
+        total_ineligible: (ov as any).total_ineligible ?? 0,
+        active_offers: (ov as any).active_offers ?? (ov as any).total_offers_generated ?? 0,
+        total_capital_offered: (ov as any).total_capital_offered ?? 0,
+        total_capital_accepted: (ov as any).total_capital_accepted ?? 0,
+        acceptance_rate: ((ov as any).acceptance_rate ?? 0) * 100,
+        score_distribution: distArray,
+      });
+      setProfiles(Array.isArray(pr) ? pr : (pr as any).profiles ?? []);
+      setOffers(Array.isArray(of) ? of : (of as any).offers ?? []);
+      setEvents(Array.isArray(ev) ? ev : (ev as any).events ?? []);
     } catch {
       // non-critical
     } finally {
@@ -329,7 +345,7 @@ export default function FinancingTab() {
                       onClick={() => setExpandedProfile(expandedProfile === p.tenant_id ? null : p.tenant_id)}
                     >
                       <td className="px-4 py-3 text-white font-medium">{p.tenant_name}</td>
-                      <td className="px-4 py-3 text-neutral-400 capitalize">{p.tenant_plan}</td>
+                      <td className="px-4 py-3 text-neutral-400 capitalize">{p.tenant_plan || (p as any).plan || '-'}</td>
                       <td className="px-4 py-3 text-center">
                         <span className={`inline-block w-8 h-8 leading-8 text-xs font-bold rounded-full ${
                           p.risk_score >= 65 ? 'bg-green-600/20 text-green-400' :
@@ -340,7 +356,7 @@ export default function FinancingTab() {
                         </span>
                       </td>
                       <td className="px-4 py-3 text-right text-white">{fmtAmt(p.monthly_avg_revenue)}</td>
-                      <td className="px-4 py-3 text-center text-neutral-300">{p.card_payment_percent.toFixed(0)}%</td>
+                      <td className="px-4 py-3 text-center text-neutral-300">{(p.card_payment_percent ?? (p as any).card_revenue_percent ?? 0).toFixed(0)}%</td>
                       <td className="px-4 py-3 text-center">
                         <span className={`px-2 py-0.5 text-xs font-semibold rounded-full ${eb.color} ${eb.bg}`}>
                           {p.eligibility_status.replace('_', ' ')}
