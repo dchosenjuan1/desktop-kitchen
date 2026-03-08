@@ -404,7 +404,7 @@ function PricingCard({
 
       <button
         onClick={onCtaClick}
-        className={`block w-full text-center font-semibold py-3 rounded-xl mb-6 transition-colors cursor-pointer ${
+        className={`block w-full text-center font-semibold py-3 rounded-xl transition-colors cursor-pointer ${
           highlighted
             ? "bg-teal-600 hover:bg-teal-700 text-white"
             : monthlyUsd === 0
@@ -414,6 +414,10 @@ function PricingCard({
       >
         {cta}
       </button>
+      {monthlyUsd > 0 && (
+        <p className="text-[11px] text-white/25 text-center mt-2 mb-4">{t.pricingComingSoon}</p>
+      )}
+      {monthlyUsd === 0 && <div className="mb-6" />}
 
       <ul className="space-y-3 flex-1">
         {features.map((f) => (
