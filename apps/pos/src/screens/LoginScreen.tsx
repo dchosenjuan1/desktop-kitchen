@@ -6,6 +6,7 @@ import LanguageSwitcher from '../components/LanguageSwitcher';
 import BrandLogo from '../components/BrandLogo';
 import { useBranding } from '../context/BrandingContext';
 import { usePlan } from '../context/PlanContext';
+import PWAInstallBanner from '../components/PWAInstallBanner';
 
 const LoginScreen: React.FC = () => {
   const navigate = useNavigate();
@@ -60,6 +61,7 @@ const LoginScreen: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-neutral-950 flex flex-col items-center justify-center p-4">
+      <PWAInstallBanner />
       {/* Logo & Header */}
       <div className="text-center mb-12">
         <BrandLogo className="h-28 mx-auto mb-6" />

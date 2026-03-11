@@ -226,6 +226,12 @@ const SettlementScreen = React.lazy(() =>
   }))
 );
 
+const ExpensesScreen = React.lazy(() =>
+  import('./screens/ExpensesScreen').then((module) => ({
+    default: module.default || (() => <div>Expenses</div>),
+  }))
+);
+
 const MobileShell = React.lazy(() =>
   import('./components/mobile/MobileShell').then((module) => ({
     default: module.default,
@@ -292,6 +298,7 @@ const ROUTE_CONTEXT_MAP: Record<string, string> = {
   '/admin/delivery': 'delivery',
   '/admin/prep-forecast': 'prep-forecast',
   '/admin/loyalty': 'loyalty',
+  '/admin/expenses': 'expenses',
   '/admin': 'admin',
 };
 
@@ -677,6 +684,17 @@ const TenantRoutes: React.FC = () => {
         element={
           <ProtectedRoute
             element={<BankingPage />}
+            requiredRole={['manager', 'admin']}
+          />
+        }
+      />
+
+      {/* Expenses — manager/admin */}
+      <Route
+        path="/admin/expenses"
+        element={
+          <ProtectedRoute
+            element={<ExpensesScreen />}
             requiredRole={['manager', 'admin']}
           />
         }

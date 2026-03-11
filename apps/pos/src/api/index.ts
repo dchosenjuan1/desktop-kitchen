@@ -2656,3 +2656,108 @@ export async function getAdvanceRepayments(params?: { limit?: number }): Promise
   return apiRequest(`/financing/advance/repayments${qs}`, { headers: ownerHeaders() });
 }
 
+// ==================== Expenses ====================
+
+export interface Expense {
+  id: number;
+  tenant_id: string;
+  category: string;
+  vendor: string | null;
+  description: string | null;
+  amount: number;
+  tax_amount: number;
+  receipt_image_url: string | null;
+  receipt_data: Record<string, unknown> | null;
+  expense_date: string;
+  payment_method: string | null;
+  notes: string | null;
+  created_by: number | null;
+  created_by_name?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ReceiptScanResult {
+  image_url: string;
+  parsed: {
+    vendor?: string | null;
+    date?: string | null;
+    items?: { description: string; amount: number }[];
+    subtotal?: number | null;
+    tax?: number | null;
+    total?: number | null;
+    payment_method?: string | null;
+    category?: string | null;
+  } | null;
+  message: string;
+}
+
+export async function getExpenses(params?: { from?: string; to?: string }): Promise<Expense[]> {
+  const qs = new URLSearchParams();
+  if (params?.from) qs.set('from', params.from);
+  if (params?.to) qs.set('to', params.to);
+  const query = qs.toString() ? `?${qs}` : '';
+  return apiRequest(`/expenses${query}`);
+}
+
+export async function createExpense(data: Partial<Expense>): Promise<Expense> {
+  return apiRequest('/expenses', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function updateExpense(id: number, data: Partial<Expense>): Promise<Expense> {
+  return apiRequest(`/expenses/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function deleteExpense(id: number): Promise<{ success: boolean }> {
+  return apiRequest(`/expenses/${id}`, { method: 'DELETE' });
+}
+
+export async function scanReceipt(file: File): Promise<ReceiptScanResult> {
+  const formData = new FormData();
+  formData.append('receipt', file);
+  const base = FALLBACK_URLS.length ? await resolveBaseUrl() : activeBaseUrl;
+  const headers: Record<string, string> = {};
+  if (currentEmployeeToken) {
+    headers['Authorization'] = `Bearer ${currentEmployeeToken}`;
+  }
+  if (!isCapacitor && window.location.hostname === 'localhost') {
+    const tenantId = localStorage.getItem('tenant_id');
+    if (tenantId) headers['X-Tenant-ID'] = tenantId;
+  }
+  const response = await fetch(`${base}/expenses/scan-receipt`, {
+    method: 'POST',
+    headers,
+    body: formData,
+  });
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}));
+    throw new Error((err as Record<string, string>).error || 'Failed to scan receipt');
+  }
+  return response.json();
+}
+
+export async function exportExpenses(params?: { from?: string; to?: string }): Promise<Blob> {
+  const qs = new URLSearchParams();
+  if (params?.from) qs.set('from', params.from);
+  if (params?.to) qs.set('to', params.to);
+  const query = qs.toString() ? `?${qs}` : '';
+  const base = FALLBACK_URLS.length ? await resolveBaseUrl() : activeBaseUrl;
+  const headers: Record<string, string> = {};
+  if (currentEmployeeToken) {
+    headers['Authorization'] = `Bearer ${currentEmployeeToken}`;
+  }
+  if (!isCapacitor && window.location.hostname === 'localhost') {
+    const tenantId = localStorage.getItem('tenant_id');
+    if (tenantId) headers['X-Tenant-ID'] = tenantId;
+  }
+  const response = await fetch(`${base}/expenses/export${query}`, { headers });
+  if (!response.ok) throw new Error('Failed to export expenses');
+  return response.blob();
+}
+

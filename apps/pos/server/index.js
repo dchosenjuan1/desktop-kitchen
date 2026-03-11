@@ -55,6 +55,7 @@ import { startSettlementScheduler, stopSettlementScheduler } from './services/se
 import plaidWebhook from './routes/webhooks/plaid.js';
 import getnetWebhook from './routes/getnetWebhook.js';
 import getnetRoutes from './routes/getnet.js';
+import expensesRoutes from './routes/expenses.js';
 import { initAI, shutdownAI } from './ai/index.js';
 import { startBankingSyncScheduler } from './services/banking/SyncScheduler.js';
 import { startFinancingScheduler, stopFinancingScheduler } from './services/financing/scheduler.js';
@@ -234,6 +235,7 @@ app.use('/api/financing', financingRoutes);
 app.use('/api/settlement', settlementRoutes);
 app.use('/api/merchant-banking', merchantBankingRoutes);
 app.use('/api/getnet', getnetRoutes);
+app.use('/api/expenses', expensesRoutes);
 
 // Serve index.html for all other routes (SPA)
 app.get('*', (req, res) => {
