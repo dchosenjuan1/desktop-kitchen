@@ -630,6 +630,26 @@ export async function lookupInventoryItem(value: string): Promise<InventoryItem>
   return apiRequest<InventoryItem>(`/inventory/lookup?barcode=${encodeURIComponent(value)}`);
 }
 
+export interface InventoryMatch {
+  inventory_item_id: number;
+  inventory_item_name: string;
+  quantity: number;
+  cost_price?: number;
+}
+
+export interface InventorySearchResult {
+  id: number;
+  name: string;
+  quantity: number;
+  unit: string;
+  cost_price: number;
+  category: string;
+}
+
+export async function searchInventory(query: string): Promise<InventorySearchResult[]> {
+  return apiRequest<InventorySearchResult[]>(`/inventory/search?q=${encodeURIComponent(query)}`);
+}
+
 export async function scanRestock(data: {
   barcode: string;
   quantity: number;
@@ -2700,7 +2720,7 @@ export async function getExpenses(params?: { from?: string; to?: string }): Prom
   return apiRequest(`/expenses${query}`);
 }
 
-export async function createExpense(data: Partial<Expense>): Promise<Expense> {
+export async function createExpense(data: Partial<Expense> & { inventory_matches?: InventoryMatch[] }): Promise<Expense> {
   return apiRequest('/expenses', {
     method: 'POST',
     body: JSON.stringify(data),

@@ -17,6 +17,7 @@ import {
   FileText,
   CalendarDays,
   Eye,
+  Package,
 } from 'lucide-react';
 import {
   getExpenses,
@@ -25,6 +26,7 @@ import {
   deleteExpense,
   exportExpenses,
   type Expense,
+  type InventoryMatch,
 } from '../api';
 import { formatPrice } from '../utils/currency';
 import ExpenseFormModal from '../components/expenses/ExpenseFormModal';
@@ -91,9 +93,24 @@ interface ExpenseDetailProps {
 
 const ExpenseDetail: React.FC<ExpenseDetailProps> = ({ expense, onEdit, onDelete, onViewReceipt }) => {
   const receiptItems = (expense.receipt_data as any)?.items as { description: string; amount: number }[] | undefined;
+  const inventoryMatches = (expense.receipt_data as any)?.inventory_matches as { inventory_item_name: string; quantity: number }[] | undefined;
 
   return (
     <div className="px-4 pb-4 space-y-3 animate-in slide-in-from-top-2">
+      {/* Inventory updated badge */}
+      {inventoryMatches && inventoryMatches.length > 0 && (
+        <div className="flex items-center gap-2 px-3 py-2 bg-green-500/10 border border-green-500/20 rounded-lg">
+          <Package size={14} className="text-green-400 shrink-0" />
+          <div className="text-sm">
+            <span className="text-green-400 font-medium">Inventory updated</span>
+            <span className="text-neutral-400"> — </span>
+            <span className="text-neutral-300">
+              {inventoryMatches.map(m => `${m.inventory_item_name} (+${m.quantity})`).join(', ')}
+            </span>
+          </div>
+        </div>
+      )}
+
       {/* Receipt image + parsed items side by side */}
       {(expense.receipt_image_url || receiptItems) && (
         <div className="flex gap-3">
@@ -178,6 +195,7 @@ const ExpensesScreen: React.FC = () => {
   const [showScan, setShowScan] = useState(false);
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
   const [scanInitialData, setScanInitialData] = useState<Partial<Expense> | undefined>(undefined);
+  const [pendingInventoryMatches, setPendingInventoryMatches] = useState<InventoryMatch[] | undefined>(undefined);
   const [saving, setSaving] = useState(false);
   const [exporting, setExporting] = useState(false);
 
@@ -207,11 +225,12 @@ const ExpensesScreen: React.FC = () => {
       if (editingExpense) {
         await updateExpense(editingExpense.id, data);
       } else {
-        await createExpense(data);
+        await createExpense({ ...data, inventory_matches: pendingInventoryMatches });
       }
       setShowForm(false);
       setEditingExpense(null);
       setScanInitialData(undefined);
+      setPendingInventoryMatches(undefined);
       fetchExpenses();
     } catch (err) {
       console.error('Failed to save expense:', err);
@@ -248,9 +267,11 @@ const ExpensesScreen: React.FC = () => {
     }
   };
 
-  const handleScanComplete = (data: Partial<Expense> & { receipt_image_url?: string }) => {
+  const handleScanComplete = (data: Partial<Expense> & { receipt_image_url?: string; inventory_matches?: InventoryMatch[] }) => {
     setShowScan(false);
-    setScanInitialData(data);
+    const { inventory_matches, ...expenseData } = data;
+    setScanInitialData(expenseData);
+    setPendingInventoryMatches(inventory_matches);
     setEditingExpense(null);
     setShowForm(true);
   };
@@ -290,6 +311,7 @@ const ExpensesScreen: React.FC = () => {
               onClick={() => {
                 setEditingExpense(null);
                 setScanInitialData(undefined);
+                setPendingInventoryMatches(undefined);
                 setShowForm(true);
               }}
               className="flex items-center gap-2 px-4 py-2 bg-brand-600 text-white rounded-lg hover:bg-brand-700 transition-colors text-sm font-medium"
@@ -387,7 +409,7 @@ const ExpensesScreen: React.FC = () => {
                   Scan Receipt
                 </button>
                 <button
-                  onClick={() => { setEditingExpense(null); setScanInitialData(undefined); setShowForm(true); }}
+                  onClick={() => { setEditingExpense(null); setScanInitialData(undefined); setPendingInventoryMatches(undefined); setShowForm(true); }}
                   className="flex items-center gap-2 px-4 py-2 bg-brand-600 rounded-lg hover:bg-brand-700 transition-colors text-sm text-white"
                 >
                   <Plus size={16} />
@@ -430,6 +452,9 @@ const ExpensesScreen: React.FC = () => {
                           </span>
                           {expense.receipt_image_url && (
                             <Image size={12} className="text-brand-400 shrink-0" />
+                          )}
+                          {(expense.receipt_data as any)?.inventory_matches?.length > 0 && (
+                            <Package size={12} className="text-green-400 shrink-0" />
                           )}
                         </div>
                         <div className="flex items-center gap-2 text-xs text-neutral-500">
@@ -490,6 +515,7 @@ const ExpensesScreen: React.FC = () => {
             setShowForm(false);
             setEditingExpense(null);
             setScanInitialData(undefined);
+            setPendingInventoryMatches(undefined);
           }}
           saving={saving}
         />

@@ -23,6 +23,29 @@ router.get('/', async (req, res) => {
   }
 });
 
+// GET /api/inventory/search - fuzzy name search for inventory matching
+router.get('/search', async (req, res) => {
+  try {
+    const { q } = req.query;
+    if (!q || typeof q !== 'string' || q.trim().length === 0) {
+      return res.status(400).json({ error: 'q query parameter is required' });
+    }
+
+    const items = await all(`
+      SELECT id, name, quantity, unit, cost_price, category
+      FROM inventory_items
+      WHERE name ILIKE '%' || $1 || '%'
+      ORDER BY name ASC
+      LIMIT 10
+    `, [q.trim()]);
+
+    res.json(items);
+  } catch (error) {
+    console.error('Error searching inventory:', error);
+    res.status(500).json({ error: 'Failed to search inventory' });
+  }
+});
+
 // GET /api/inventory/lookup - look up item by barcode or sku
 router.get('/lookup', async (req, res) => {
   try {
@@ -365,7 +388,7 @@ router.post('/', requireAuth('manage_inventory'), async (req, res) => {
 
     // Plan limit check
     const plan = req.tenant?.plan || 'free';
-    const { cnt } = await get('SELECT COUNT(*) as cnt FROM inventory_items WHERE active = true') || { cnt: 0 };
+    const { cnt } = await get('SELECT COUNT(*) as cnt FROM inventory_items') || { cnt: 0 };
     const check = checkLimit(plan, 'inventoryItems', cnt);
     if (!check.allowed) {
       return res.status(403).json(planUpgradeError('inventoryItems', plan, { limit: check.limit, current: check.current }));

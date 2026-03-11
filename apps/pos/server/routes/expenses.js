@@ -6,6 +6,7 @@ import { fileURLToPath } from 'url';
 import { all, get, run, getTenantId } from '../db/index.js';
 import { requireAuth } from '../middleware/auth.js';
 import { getConfig } from '../ai/config.js';
+import { logRestockEvent } from '../ai/data-pipeline.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const receiptsDir = path.join(__dirname, '../../data/uploads/receipts');
@@ -77,7 +78,7 @@ router.get('/', requireAuth('view_reports'), async (req, res) => {
 // POST /api/expenses — create expense
 router.post('/', requireAuth('manage_inventory'), async (req, res) => {
   try {
-    const { category, vendor, description, amount, tax_amount, expense_date, payment_method, notes, receipt_image_url, receipt_data } = req.body;
+    const { category, vendor, description, amount, tax_amount, expense_date, payment_method, notes, receipt_image_url, receipt_data, inventory_matches } = req.body;
 
     if (!category || !VALID_CATEGORIES.includes(category)) {
       return res.status(400).json({ error: `category must be one of: ${VALID_CATEGORIES.join(', ')}` });
@@ -95,12 +96,46 @@ router.post('/', requireAuth('manage_inventory'), async (req, res) => {
     const tenantId = getTenantId();
     const employeeId = req.employee?.id || null;
 
+    // Store inventory_matches in receipt_data for audit trail
+    const finalReceiptData = receipt_data ? { ...receipt_data } : null;
+    if (inventory_matches && inventory_matches.length > 0 && finalReceiptData) {
+      finalReceiptData.inventory_matches = inventory_matches;
+    }
+
     const result = await get(
       `INSERT INTO expenses (tenant_id, category, vendor, description, amount, tax_amount, expense_date, payment_method, notes, receipt_image_url, receipt_data, created_by)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
        RETURNING *`,
-      [tenantId, category, vendor || null, description || null, amount, tax_amount || 0, expense_date, payment_method || null, notes || null, receipt_image_url || null, receipt_data ? JSON.stringify(receipt_data) : null, employeeId]
+      [tenantId, category, vendor || null, description || null, amount, tax_amount || 0, expense_date, payment_method || null, notes || null, receipt_image_url || null, finalReceiptData ? JSON.stringify(finalReceiptData) : null, employeeId]
     );
+
+    // Process inventory restocks from matches
+    if (inventory_matches && Array.isArray(inventory_matches)) {
+      for (const match of inventory_matches) {
+        if (!match.inventory_item_id || !match.quantity || match.quantity <= 0) continue;
+
+        try {
+          const item = await get('SELECT id, quantity FROM inventory_items WHERE id = $1', [match.inventory_item_id]);
+          if (!item) continue;
+
+          const quantityBefore = item.quantity;
+          const newQuantity = quantityBefore + match.quantity;
+
+          if (match.cost_price !== undefined && match.cost_price !== null) {
+            await run('UPDATE inventory_items SET quantity = $1, cost_price = $2 WHERE id = $3',
+              [newQuantity, match.cost_price, match.inventory_item_id]);
+          } else {
+            await run('UPDATE inventory_items SET quantity = $1 WHERE id = $2',
+              [newQuantity, match.inventory_item_id]);
+          }
+
+          // Fire-and-forget: log restock for AI
+          setImmediate(() => logRestockEvent(match.inventory_item_id, quantityBefore, match.quantity));
+        } catch (restockErr) {
+          console.error(`[Expenses] Restock error for item ${match.inventory_item_id}:`, restockErr.message);
+        }
+      }
+    }
 
     res.json(result);
   } catch (err) {
