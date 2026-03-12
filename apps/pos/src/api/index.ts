@@ -976,6 +976,13 @@ export async function updateDeliveryPlatform(id: number, data: Partial<DeliveryP
   });
 }
 
+export async function batchCreateDeliveryPlatforms(platforms: { name: string; display_name: string; commission_percent: number; default_markup_percent?: number }[]): Promise<{ success: boolean; platforms_created: number; platforms_updated: number }> {
+  return apiRequest('/delivery/platforms/batch', {
+    method: 'POST',
+    body: JSON.stringify({ platforms }),
+  });
+}
+
 export async function getDeliveryOrders(status?: string): Promise<DeliveryOrder[]> {
   const endpoint = status ? `/delivery/orders?status=${status}` : '/delivery/orders';
   return apiRequest<DeliveryOrder[]>(endpoint);

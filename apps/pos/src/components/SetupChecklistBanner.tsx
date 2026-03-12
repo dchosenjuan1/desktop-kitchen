@@ -5,6 +5,8 @@ import { CheckCircle2, ChevronDown, ChevronUp, X, Rocket, PartyPopper, ArrowRigh
 import { invalidateMenuCache } from '../lib/menuCache';
 import TemplatePickerModal from './menu/TemplatePickerModal';
 import AIMenuBuilderModal from './menu/AIMenuBuilderModal';
+import DeliverySetupModal from './delivery/DeliverySetupModal';
+import AddStaffModal from './staff/AddStaffModal';
 
 interface Step {
   key: string;
@@ -19,14 +21,26 @@ const CREATED_AT_KEY = 'setup_checklist_created';
 const COLLAPSED_KEY = 'setup_checklist_collapsed';
 const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
 
+const SETUP_NAV_KEY = 'setup_checklist_navigated';
+
 const SetupChecklistBanner: React.FC = () => {
   const navigate = useNavigate();
   const [steps, setSteps] = useState<Step[] | null>(null);
   const [dismissed, setDismissed] = useState(false);
-  const [collapsed, setCollapsed] = useState(() => localStorage.getItem(COLLAPSED_KEY) === '1');
+  const [collapsed, setCollapsed] = useState(() => {
+    // Auto-expand if returning from an admin screen during onboarding
+    if (sessionStorage.getItem(SETUP_NAV_KEY) === '1') {
+      sessionStorage.removeItem(SETUP_NAV_KEY);
+      localStorage.setItem(COLLAPSED_KEY, '0');
+      return false;
+    }
+    return localStorage.getItem(COLLAPSED_KEY) === '1';
+  });
   const [celebrating, setCelebrating] = useState(false);
   const [showTemplatePicker, setShowTemplatePicker] = useState(false);
   const [showAIBuilder, setShowAIBuilder] = useState(false);
+  const [showDeliverySetup, setShowDeliverySetup] = useState(false);
+  const [showAddStaff, setShowAddStaff] = useState(false);
 
   useEffect(() => {
     if (localStorage.getItem(STORAGE_KEY) === '1') {
@@ -57,9 +71,9 @@ const SetupChecklistBanner: React.FC = () => {
 
         setSteps([
           { key: 'menu', label: 'Add your menu', description: 'Use a template or add items manually in Menu Management', route: '/admin/menu', done: status.has_menu_items },
-          { key: 'staff', label: 'Add staff', description: 'Create PINs for your cashiers, bartenders, and kitchen staff', route: '/admin/employees', done: status.has_extra_staff },
+          { key: 'staff', label: 'Add staff', description: 'Create PINs for your cashiers, bartenders, and kitchen staff', route: '/admin/employees', done: status.has_extra_staff || localStorage.getItem('staff_setup_skipped') === '1' },
           { key: 'branding', label: 'Customize branding', description: 'Set your restaurant colors and logo so the POS feels like yours', route: '/admin/branding', done: status.has_branding },
-          { key: 'delivery', label: 'Set up delivery', description: 'Connect Uber Eats, Rappi, or DidiFood to track all orders in one place', route: '/admin/delivery', done: status.has_delivery },
+          { key: 'delivery', label: 'Set up delivery', description: 'Connect Uber Eats, Rappi, or DidiFood to track all orders in one place', route: '/admin/delivery', done: status.has_delivery || localStorage.getItem('delivery_setup_skipped') === '1' },
           { key: 'order', label: 'Take a test order', description: 'Ring up a quick order to see the full flow in action', route: '', done: status.real_order_count > 0 },
         ]);
       } catch {
@@ -105,8 +119,26 @@ const SetupChecklistBanner: React.FC = () => {
       localStorage.setItem(COLLAPSED_KEY, '1');
       return;
     }
-    if (step.route) navigate(step.route);
+    if (step.key === 'staff') {
+      setShowAddStaff(true);
+      return;
+    }
+    if (step.key === 'delivery') {
+      setShowDeliverySetup(true);
+      return;
+    }
+    if (step.route) {
+      sessionStorage.setItem(SETUP_NAV_KEY, '1');
+      navigate(`${step.route}?from=setup`);
+    }
   }, [navigate]);
+
+  const handleSkipStep = useCallback((key: string) => {
+    localStorage.setItem(`${key}_setup_skipped`, '1');
+    setSteps(prev => prev ? prev.map(s =>
+      s.key === key ? { ...s, done: true } : s
+    ) : prev);
+  }, []);
 
   if (dismissed || !steps) return null;
 
@@ -226,6 +258,14 @@ const SetupChecklistBanner: React.FC = () => {
                         </button>
                       </>
                     )}
+                    {(step.key === 'delivery' || step.key === 'staff') && (
+                      <button
+                        onClick={(e) => { e.stopPropagation(); handleSkipStep(step.key); }}
+                        className="px-3 py-1.5 rounded-md text-xs font-medium transition-colors touch-manipulation text-neutral-400 hover:text-neutral-200"
+                      >
+                        Skip
+                      </button>
+                    )}
                     <button
                       onClick={() => handleStepAction(step)}
                       className={`flex items-center gap-1 px-3 py-1.5 rounded-md text-xs font-semibold transition-colors touch-manipulation ${
@@ -268,6 +308,32 @@ const SetupChecklistBanner: React.FC = () => {
             const status = await getOnboardingStatus();
             setSteps(prev => prev ? prev.map(s =>
               s.key === 'menu' ? { ...s, done: status.has_menu_items } : s
+            ) : prev);
+          } catch {}
+        }}
+      />
+
+      <AddStaffModal
+        isOpen={showAddStaff}
+        onClose={() => setShowAddStaff(false)}
+        onStaffAdded={async () => {
+          try {
+            const status = await getOnboardingStatus();
+            setSteps(prev => prev ? prev.map(s =>
+              s.key === 'staff' ? { ...s, done: status.has_extra_staff } : s
+            ) : prev);
+          } catch {}
+        }}
+      />
+
+      <DeliverySetupModal
+        isOpen={showDeliverySetup}
+        onClose={() => setShowDeliverySetup(false)}
+        onDeliverySetup={async () => {
+          try {
+            const status = await getOnboardingStatus();
+            setSteps(prev => prev ? prev.map(s =>
+              s.key === 'delivery' ? { ...s, done: status.has_delivery } : s
             ) : prev);
           } catch {}
         }}

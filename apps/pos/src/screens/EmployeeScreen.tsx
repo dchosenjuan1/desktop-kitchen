@@ -23,6 +23,7 @@ import { Employee } from '../types';
 import BrandLogo from '../components/BrandLogo';
 import { usePlan } from '../context/PlanContext';
 import UpgradePrompt from '../components/UpgradePrompt';
+import BackToSetupButton from '../components/BackToSetupButton';
 
 type ModalMode = 'add' | 'edit' | null;
 type RoleType = 'cashier' | 'kitchen' | 'bar' | 'manager' | 'admin';
@@ -475,6 +476,7 @@ export default function EmployeeScreen() {
           </div>
         </div>
       )}
+      <BackToSetupButton />
     </div>
   );
 }

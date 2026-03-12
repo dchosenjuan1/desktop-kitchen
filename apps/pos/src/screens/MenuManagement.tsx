@@ -27,6 +27,7 @@ import ItemFormModal from '../components/menu/ItemFormModal';
 import TemplatePickerModal from '../components/menu/TemplatePickerModal';
 import ImportMenuModal from '../components/menu/ImportMenuModal';
 import AIMenuBuilderModal from '../components/menu/AIMenuBuilderModal';
+import BackToSetupButton from '../components/BackToSetupButton';
 
 type ModalMode = 'add' | 'edit' | null;
 type View = 'items' | 'categories';
@@ -461,6 +462,7 @@ export default function MenuManagement() {
           invalidateMenuCache();
         }}
       />
+      <BackToSetupButton />
     </div>
   );
 }

@@ -24,6 +24,8 @@ import { DeliveryPlatform, DeliveryOrder } from '../types';
 import { formatPrice } from '../utils/currency';
 import BrandLogo from '../components/BrandLogo';
 import FeatureGate from '../components/FeatureGate';
+import DeliverySetupModal from '../components/delivery/DeliverySetupModal';
+import BackToSetupButton from '../components/BackToSetupButton';
 
 type Tab = 'orders' | 'analytics' | 'markups' | 'brands' | 'recapture' | 'platforms';
 
@@ -39,6 +41,7 @@ export default function DeliveryScreen() {
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<Tab>('analytics');
   const [selectedPlatform, setSelectedPlatform] = useState<number | null>(null);
+  const [showDeliverySetup, setShowDeliverySetup] = useState(false);
 
   useEffect(() => {
     fetchData();
@@ -224,7 +227,20 @@ export default function DeliveryScreen() {
         ) : (
           <>
             {/* ===== Analytics Tab ===== */}
-            {tab === 'analytics' && (
+            {tab === 'analytics' && platforms.length === 0 && (
+              <div className="bg-neutral-900 rounded-lg border border-neutral-800 p-12 text-center">
+                <Truck size={48} className="mx-auto text-neutral-600 mb-4" />
+                <h3 className="text-white text-lg font-bold mb-2">No delivery platforms configured</h3>
+                <p className="text-neutral-400 text-sm mb-6">Set up Uber Eats, Rappi, or DiDi Food to start tracking delivery orders and analytics.</p>
+                <button
+                  onClick={() => setShowDeliverySetup(true)}
+                  className="px-6 py-2.5 bg-brand-600 hover:bg-brand-500 text-white rounded-xl font-bold transition-colors"
+                >
+                  Set Up Delivery Platforms
+                </button>
+              </div>
+            )}
+            {tab === 'analytics' && platforms.length > 0 && (
               <div className="space-y-6">
                 {/* Summary Cards */}
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -565,7 +581,17 @@ export default function DeliveryScreen() {
                   </div>
                 ))}
                 {platforms.length === 0 && (
-                  <p className="text-neutral-500 text-center py-6">{t('delivery.noPlatforms')}</p>
+                  <div className="bg-neutral-900 rounded-lg border border-neutral-800 p-12 text-center">
+                    <Truck size={48} className="mx-auto text-neutral-600 mb-4" />
+                    <h3 className="text-white text-lg font-bold mb-2">No delivery platforms configured</h3>
+                    <p className="text-neutral-400 text-sm mb-6">Add your delivery platforms to manage commissions and track orders.</p>
+                    <button
+                      onClick={() => setShowDeliverySetup(true)}
+                      className="px-6 py-2.5 bg-brand-600 hover:bg-brand-500 text-white rounded-xl font-bold transition-colors"
+                    >
+                      Set Up Delivery Platforms
+                    </button>
+                  </div>
                 )}
               </div>
             )}
@@ -573,6 +599,13 @@ export default function DeliveryScreen() {
         )}
       </div>
     </div>
+
+    <DeliverySetupModal
+      isOpen={showDeliverySetup}
+      onClose={() => setShowDeliverySetup(false)}
+      onDeliverySetup={() => fetchData()}
+    />
+    <BackToSetupButton />
     </FeatureGate>
   );
 }

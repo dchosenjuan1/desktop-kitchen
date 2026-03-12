@@ -9,6 +9,7 @@ import BrandLogo from '../components/BrandLogo';
 import { generatePalette, type BrandPalette } from '../lib/colorUtils';
 import { usePlan } from '../context/PlanContext';
 import UpgradePrompt from '../components/UpgradePrompt';
+import BackToSetupButton from '../components/BackToSetupButton';
 
 const PRESET_COLORS = [
   '#0d9488', // teal
@@ -341,6 +342,7 @@ export default function BrandingSettingsScreen() {
           )}
         </button>
       </div>
+      <BackToSetupButton />
     </div>
   );
 }

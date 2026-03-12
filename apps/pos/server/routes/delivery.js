@@ -69,6 +69,49 @@ router.put('/platforms/:id', requireAuth('manage_delivery'), requirePlanFeature(
   }
 });
 
+// POST /api/delivery/platforms/batch - batch upsert delivery platforms (onboarding)
+router.post('/platforms/batch', requireAuth('manage_delivery'), async (req, res) => {
+  try {
+    const { platforms } = req.body;
+    if (!Array.isArray(platforms) || platforms.length === 0) {
+      return res.status(400).json({ error: 'platforms array is required' });
+    }
+
+    const tenantId = getTenantId();
+    let created = 0;
+    let updated = 0;
+
+    for (const p of platforms) {
+      if (!p.name || !p.display_name) continue;
+
+      const existing = await get(
+        'SELECT id FROM delivery_platforms WHERE name = $1',
+        [p.name]
+      );
+
+      if (existing) {
+        await run(
+          `UPDATE delivery_platforms SET display_name = $1, commission_percent = $2, default_markup_percent = $3 WHERE id = $4`,
+          [p.display_name, p.commission_percent ?? 0, p.default_markup_percent ?? 0, existing.id]
+        );
+        updated++;
+      } else {
+        await run(
+          `INSERT INTO delivery_platforms (tenant_id, name, display_name, commission_percent, default_markup_percent, active)
+           VALUES ($1, $2, $3, $4, $5, true)`,
+          [tenantId, p.name, p.display_name, p.commission_percent ?? 0, p.default_markup_percent ?? 0]
+        );
+        created++;
+      }
+    }
+
+    res.json({ success: true, platforms_created: created, platforms_updated: updated });
+  } catch (error) {
+    console.error('Error batch creating delivery platforms:', error);
+    res.status(500).json({ error: 'Failed to batch create delivery platforms' });
+  }
+});
+
 // GET /api/delivery/orders - list delivery orders
 router.get('/orders', async (req, res) => {
   try {
