@@ -51,8 +51,10 @@ describe('Delivery Flow', () => {
       const platforms = await api.get('/api/delivery/platforms');
       if (platforms.data.length === 0) return;
 
-      const state = getTestState();
-      const categoryId = Object.values(state.tenantAlpha.categoryIds)[0];
+      // Fetch fresh category IDs (re-seed may have changed them)
+      const cats = await api.get('/api/menu/categories');
+      if (cats.data.length === 0) return;
+      const categoryId = cats.data[0].id;
 
       const res = await api.post('/api/delivery-intel/markup-rules', {
         platform_id: platforms.data[0].id,
@@ -108,8 +110,12 @@ describe('Delivery Flow', () => {
 
     it('adds items to a virtual brand', async () => {
       if (!brandId) return;
-      const state = getTestState();
-      const itemId = Object.values(state.tenantAlpha.menuItemIds)[0];
+      // Fetch fresh menu item IDs (re-seed may have changed them)
+      const api2 = alpha('manager');
+      const items = await api2.get('/api/menu/items');
+      const allItems = items.data.items || items.data;
+      if (allItems.length === 0) return;
+      const itemId = allItems[0].id;
 
       const api = alpha('manager');
       const res = await api.post(`/api/delivery-intel/virtual-brands/${brandId}/items`, {

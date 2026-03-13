@@ -748,4 +748,43 @@ router.post('/config/import', requireAuth('manage_ai'), async (req, res) => {
   }
 });
 
+// GET /api/ai/category-roles — returns [{category_id, role}] for Android on-device AI
+router.get('/category-roles', async (req, res) => {
+  try {
+    // Try ai_category_roles table first
+    const roles = await all(`
+      SELECT acr.category_id, acr.role
+      FROM ai_category_roles acr
+      JOIN menu_categories mc ON acr.category_id = mc.id
+      WHERE mc.active = true
+      ORDER BY mc.sort_order
+    `);
+
+    if (roles.length > 0) {
+      return res.json(roles);
+    }
+
+    // Fallback: infer roles from category names
+    const categories = await all(`
+      SELECT id as category_id, name FROM menu_categories WHERE active = true ORDER BY sort_order
+    `);
+
+    const inferred = categories.map(cat => {
+      const name = cat.name.toLowerCase();
+      let role = 'unknown';
+      if (name.includes('taco') || name.includes('burger') || name.includes('torta') || name.includes('main') || name.includes('entrée') || name.includes('entree')) role = 'main';
+      else if (name.includes('drink') || name.includes('bebida') || name.includes('beverage') || name.includes('agua') || name.includes('refresco') || name.includes('juice')) role = 'drink';
+      else if (name.includes('side') || name.includes('acompañ') || name.includes('guarnicion')) role = 'side';
+      else if (name.includes('combo') || name.includes('pack') || name.includes('family')) role = 'combo';
+      else if (name.includes('dessert') || name.includes('postre') || name.includes('churro') || name.includes('sweet')) role = 'dessert';
+      return { category_id: cat.category_id, role };
+    });
+
+    res.json(inferred);
+  } catch (error) {
+    console.error('Error getting category roles:', error);
+    res.status(500).json({ error: 'Failed to get category roles' });
+  }
+});
+
 export default router;

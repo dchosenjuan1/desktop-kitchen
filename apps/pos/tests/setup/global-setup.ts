@@ -196,8 +196,8 @@ export async function setup() {
     throw new Error(`Failed to create alpha tenant: ${JSON.stringify(alphaRes.data)}`);
   }
 
-  // Seed alpha
-  const seedAlpha = await fetchJson(`/admin/tenants/${ALPHA_ID}/seed`, {
+  // Seed alpha (with retry — seeding is connection-heavy and most prone to timeouts)
+  const seedAlpha = await fetchJsonRetry(`/admin/tenants/${ALPHA_ID}/seed`, {
     method: 'POST',
     headers: adminHeaders(),
   });
@@ -223,8 +223,8 @@ export async function setup() {
     throw new Error(`Failed to create beta tenant: ${JSON.stringify(betaRes.data)}`);
   }
 
-  // Seed beta
-  await fetchJson(`/admin/tenants/${BETA_ID}/seed`, {
+  // Seed beta (with retry)
+  await fetchJsonRetry(`/admin/tenants/${BETA_ID}/seed`, {
     method: 'POST',
     headers: adminHeaders(),
   });

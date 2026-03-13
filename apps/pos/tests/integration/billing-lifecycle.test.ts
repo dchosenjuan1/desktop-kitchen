@@ -75,9 +75,9 @@ describe('Billing Lifecycle', () => {
       if (cats.data.length === 0) return;
       const catId = cats.data[0].id;
 
-      // Try to create items up to the free limit (10)
+      // Try to create items up to the free limit (50)
       // If already at limit, creation should fail
-      if (currentItems.length >= 10) {
+      if (currentItems.length >= 50) {
         const res = await api.post('/api/menu/items', {
           category_id: catId,
           name: 'Over Limit Item',
