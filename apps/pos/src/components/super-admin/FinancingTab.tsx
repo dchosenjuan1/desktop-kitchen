@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell,
 } from 'recharts';
@@ -54,6 +55,7 @@ function fmtDate(d: string) {
 type Section = 'profiles' | 'offers' | 'events';
 
 export default function FinancingTab() {
+  const { t } = useTranslation('superAdmin');
   const [overview, setOverview] = useState<FinancingOverview | null>(null);
   const [profiles, setProfiles] = useState<FinancingProfileWithTenant[]>([]);
   const [offers, setOffers] = useState<(FinancingOffer & { tenant_name?: string })[]>([]);
@@ -208,13 +210,13 @@ export default function FinancingTab() {
       {overview && (
         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3">
           {[
-            { label: 'Consented', value: overview.total_consented, color: 'text-white' },
-            { label: 'Eligible', value: overview.total_eligible, color: 'text-green-400' },
-            { label: 'Pre-Eligible', value: overview.total_pre_eligible, color: 'text-blue-400' },
-            { label: 'Active Offers', value: overview.active_offers, color: 'text-amber-400' },
-            { label: 'Capital Offered', value: fmtAmt(overview.total_capital_offered), color: 'text-white' },
-            { label: 'Capital Accepted', value: fmtAmt(overview.total_capital_accepted), color: 'text-green-400' },
-            { label: 'Accept Rate', value: `${overview.acceptance_rate.toFixed(0)}%`, color: 'text-brand-400' },
+            { label: t('financing.kpi.consented'), value: overview.total_consented, color: 'text-white' },
+            { label: t('financing.kpi.eligible'), value: overview.total_eligible, color: 'text-green-400' },
+            { label: t('financing.kpi.preEligible'), value: overview.total_pre_eligible, color: 'text-blue-400' },
+            { label: t('financing.kpi.activeOffers'), value: overview.active_offers, color: 'text-amber-400' },
+            { label: t('financing.kpi.capitalOffered'), value: fmtAmt(overview.total_capital_offered), color: 'text-white' },
+            { label: t('financing.kpi.capitalAccepted'), value: fmtAmt(overview.total_capital_accepted), color: 'text-green-400' },
+            { label: t('financing.kpi.acceptRate'), value: `${overview.acceptance_rate.toFixed(0)}%`, color: 'text-brand-400' },
           ].map((kpi) => (
             <div key={kpi.label} className="bg-neutral-900 border border-neutral-800 rounded-lg p-4">
               <p className="text-neutral-500 text-xs font-medium">{kpi.label}</p>
@@ -227,7 +229,7 @@ export default function FinancingTab() {
       {/* Score Distribution Chart */}
       {overview && overview.score_distribution.length > 0 && (
         <div className="bg-neutral-900 border border-neutral-800 rounded-lg p-6">
-          <h3 className="text-white font-bold mb-4">Score Distribution</h3>
+          <h3 className="text-white font-bold mb-4">{t('financing.scoreDistribution')}</h3>
           <ResponsiveContainer width="100%" height={200}>
             <BarChart data={overview.score_distribution}>
               <CartesianGrid strokeDasharray="3 3" stroke="#333" />
@@ -249,31 +251,31 @@ export default function FinancingTab() {
         <div className="flex items-center justify-between p-4">
           <div className="flex items-center gap-2">
             <Activity size={16} className="text-brand-400" />
-            <h3 className="text-white font-bold">Activity Feed</h3>
-            <span className="text-neutral-500 text-xs">(auto-refreshes)</span>
+            <h3 className="text-white font-bold">{t('financing.activityFeed')}</h3>
+            <span className="text-neutral-500 text-xs">{t('financing.autoRefreshes')}</span>
           </div>
           <select
             value={activityFilter}
             onChange={(e) => { setActivityFilter(e.target.value); lastActivityTs.current = null; setActivity([]); }}
             className="bg-neutral-800 border border-neutral-700 rounded px-2 py-1 text-sm text-neutral-300"
           >
-            <option value="">All Types</option>
-            <option value="consent_granted">Consent Granted</option>
-            <option value="consent_revoked">Consent Revoked</option>
-            <option value="profile_calculated">Profile Calculated</option>
-            <option value="offer_generated">Offer Generated</option>
-            <option value="offer_viewed">Offer Viewed</option>
-            <option value="offer_accepted">Offer Accepted</option>
-            <option value="offer_declined">Offer Declined</option>
-            <option value="offer_expired">Offer Expired</option>
-            <option value="offer_withdrawn">Offer Withdrawn</option>
-            <option value="offer_modified">Offer Modified</option>
-            <option value="data_export_requested">Data Export</option>
+            <option value="">{t('financing.allTypes')}</option>
+            <option value="consent_granted">{t('financing.eventTypes.consent_granted')}</option>
+            <option value="consent_revoked">{t('financing.eventTypes.consent_revoked')}</option>
+            <option value="profile_calculated">{t('financing.eventTypes.profile_calculated')}</option>
+            <option value="offer_generated">{t('financing.eventTypes.offer_generated')}</option>
+            <option value="offer_viewed">{t('financing.eventTypes.offer_viewed')}</option>
+            <option value="offer_accepted">{t('financing.eventTypes.offer_accepted')}</option>
+            <option value="offer_declined">{t('financing.eventTypes.offer_declined')}</option>
+            <option value="offer_expired">{t('financing.eventTypes.offer_expired')}</option>
+            <option value="offer_withdrawn">{t('financing.eventTypes.offer_withdrawn')}</option>
+            <option value="offer_modified">{t('financing.eventTypes.offer_modified')}</option>
+            <option value="data_export_requested">{t('financing.eventTypes.data_export_requested')}</option>
           </select>
         </div>
         <div className="max-h-64 overflow-y-auto border-t border-neutral-800">
           {activity.length === 0 ? (
-            <p className="px-4 py-6 text-center text-neutral-500 text-sm">No recent activity</p>
+            <p className="px-4 py-6 text-center text-neutral-500 text-sm">{t('financing.noRecentActivity')}</p>
           ) : (
             <div className="divide-y divide-neutral-800/50">
               {activity.map((ev) => {
@@ -305,7 +307,7 @@ export default function FinancingTab() {
           onClick={() => setOpenSection(openSection === 'profiles' ? 'profiles' : 'profiles')}
           className="w-full flex items-center justify-between p-4 text-left"
         >
-          <h3 className="text-white font-bold">Financial Profiles ({profiles.length})</h3>
+          <h3 className="text-white font-bold">{t('financing.financialProfiles', { count: profiles.length })}</h3>
           <div className="flex items-center gap-3">
             <select
               value={eligibilityFilter}
@@ -313,10 +315,10 @@ export default function FinancingTab() {
               onClick={(e) => e.stopPropagation()}
               className="bg-neutral-800 border border-neutral-700 rounded px-2 py-1 text-sm text-neutral-300"
             >
-              <option value="">All</option>
-              <option value="eligible">Eligible</option>
-              <option value="pre_eligible">Pre-Eligible</option>
-              <option value="ineligible">Ineligible</option>
+              <option value="">{t('financing.all')}</option>
+              <option value="eligible">{t('financing.eligible')}</option>
+              <option value="pre_eligible">{t('financing.preEligible')}</option>
+              <option value="ineligible">{t('financing.ineligible')}</option>
             </select>
           </div>
         </button>
@@ -325,13 +327,13 @@ export default function FinancingTab() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-t border-neutral-800 text-neutral-500 text-xs uppercase">
-                <th className="text-left px-4 py-2">Restaurant</th>
-                <th className="text-left px-4 py-2">Plan</th>
-                <th className="text-center px-4 py-2">Score</th>
-                <th className="text-right px-4 py-2">Monthly Revenue</th>
-                <th className="text-center px-4 py-2">Card %</th>
-                <th className="text-center px-4 py-2">Eligibility</th>
-                <th className="text-right px-4 py-2">Last Calculated</th>
+                <th className="text-left px-4 py-2">{t('financing.profileColumns.restaurant')}</th>
+                <th className="text-left px-4 py-2">{t('financing.profileColumns.plan')}</th>
+                <th className="text-center px-4 py-2">{t('financing.profileColumns.score')}</th>
+                <th className="text-right px-4 py-2">{t('financing.profileColumns.monthlyRevenue')}</th>
+                <th className="text-center px-4 py-2">{t('financing.profileColumns.cardPercent')}</th>
+                <th className="text-center px-4 py-2">{t('financing.profileColumns.eligibility')}</th>
+                <th className="text-right px-4 py-2">{t('financing.profileColumns.lastCalculated')}</th>
                 <th className="px-4 py-2"></th>
               </tr>
             </thead>
@@ -370,7 +372,7 @@ export default function FinancingTab() {
                           onClick={(e) => { e.stopPropagation(); handleRecalculate(p.tenant_id); }}
                           disabled={recalcTenantId === p.tenant_id}
                           className="text-neutral-400 hover:text-brand-400 transition-colors disabled:opacity-50"
-                          title="Recalculate"
+                          title={t('financing.recalculate')}
                         >
                           <RefreshCw size={14} className={recalcTenantId === p.tenant_id ? 'animate-spin' : ''} />
                         </button>
@@ -381,21 +383,21 @@ export default function FinancingTab() {
                         <td colSpan={8} className="px-4 py-4 bg-neutral-800/20 border-t border-neutral-800/50">
                           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
                             <div>
-                              <p className="text-neutral-500 text-xs">Avg Daily Orders</p>
+                              <p className="text-neutral-500 text-xs">{t('financing.expandedProfile.avgDailyOrders')}</p>
                               <p className="text-white font-medium">{Number(p.avg_daily_orders).toFixed(0)}</p>
                             </div>
                             <div>
-                              <p className="text-neutral-500 text-xs">Refund Rate</p>
+                              <p className="text-neutral-500 text-xs">{t('financing.expandedProfile.refundRate')}</p>
                               <p className="text-white font-medium">{Number(p.refund_rate).toFixed(1)}%</p>
                             </div>
                             <div>
-                              <p className="text-neutral-500 text-xs">Revenue Trend</p>
+                              <p className="text-neutral-500 text-xs">{t('financing.expandedProfile.revenueTrend')}</p>
                               <p className={`font-medium ${p.revenue_trend >= 0 ? 'text-green-400' : 'text-red-400'}`}>
                                 {Number(p.revenue_trend) >= 0 ? '+' : ''}{Number(p.revenue_trend).toFixed(1)}%
                               </p>
                             </div>
                             <div>
-                              <p className="text-neutral-500 text-xs">Days Operating</p>
+                              <p className="text-neutral-500 text-xs">{t('financing.expandedProfile.daysOperating')}</p>
                               <p className="text-white font-medium">{p.days_operating} / {p.days_required}</p>
                             </div>
                           </div>
@@ -408,7 +410,7 @@ export default function FinancingTab() {
               {profiles.length === 0 && (
                 <tr>
                   <td colSpan={8} className="px-4 py-8 text-center text-neutral-500">
-                    No profiles found
+                    {t('financing.noProfilesFound')}
                   </td>
                 </tr>
               )}
@@ -420,17 +422,17 @@ export default function FinancingTab() {
       {/* Offers Table */}
       <div className="bg-neutral-900 border border-neutral-800 rounded-lg overflow-hidden">
         <div className="flex items-center justify-between p-4">
-          <h3 className="text-white font-bold">Offers ({offers.length})</h3>
+          <h3 className="text-white font-bold">{t('financing.offers', { count: offers.length })}</h3>
           <select
             value={offerFilter}
             onChange={(e) => setOfferFilter(e.target.value)}
             className="bg-neutral-800 border border-neutral-700 rounded px-2 py-1 text-sm text-neutral-300"
           >
-            <option value="">All</option>
-            <option value="available">Available</option>
-            <option value="accepted">Accepted</option>
-            <option value="declined">Declined</option>
-            <option value="expired">Expired</option>
+            <option value="">{t('financing.offerFilters.all')}</option>
+            <option value="available">{t('financing.offerFilters.available')}</option>
+            <option value="accepted">{t('financing.offerFilters.accepted')}</option>
+            <option value="declined">{t('financing.offerFilters.declined')}</option>
+            <option value="expired">{t('financing.offerFilters.expired')}</option>
           </select>
         </div>
 
@@ -438,12 +440,12 @@ export default function FinancingTab() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-t border-neutral-800 text-neutral-500 text-xs uppercase">
-                <th className="text-left px-4 py-2">Restaurant</th>
-                <th className="text-right px-4 py-2">Amount</th>
-                <th className="text-center px-4 py-2">Holdback %</th>
-                <th className="text-center px-4 py-2">Status</th>
-                <th className="text-right px-4 py-2">Created</th>
-                <th className="text-right px-4 py-2">Expires</th>
+                <th className="text-left px-4 py-2">{t('financing.offerColumns.restaurant')}</th>
+                <th className="text-right px-4 py-2">{t('financing.offerColumns.amount')}</th>
+                <th className="text-center px-4 py-2">{t('financing.offerColumns.holdbackPercent')}</th>
+                <th className="text-center px-4 py-2">{t('financing.offerColumns.status')}</th>
+                <th className="text-right px-4 py-2">{t('financing.offerColumns.created')}</th>
+                <th className="text-right px-4 py-2">{t('financing.offerColumns.expires')}</th>
                 <th className="px-4 py-2"></th>
               </tr>
             </thead>
@@ -477,7 +479,7 @@ export default function FinancingTab() {
                             <div className="space-y-3 max-w-md">
                               <div className="grid grid-cols-2 gap-3">
                                 <div>
-                                  <label className="text-neutral-400 text-xs">Amount</label>
+                                  <label className="text-neutral-400 text-xs">{t('financing.editOffer.amount')}</label>
                                   <input
                                     type="number"
                                     value={editOffer.amount}
@@ -486,7 +488,7 @@ export default function FinancingTab() {
                                   />
                                 </div>
                                 <div>
-                                  <label className="text-neutral-400 text-xs">Holdback %</label>
+                                  <label className="text-neutral-400 text-xs">{t('financing.editOffer.holdback')}</label>
                                   <input
                                     type="number"
                                     value={editOffer.holdback}
@@ -496,7 +498,7 @@ export default function FinancingTab() {
                                 </div>
                               </div>
                               <div>
-                                <label className="text-neutral-400 text-xs">Notes</label>
+                                <label className="text-neutral-400 text-xs">{t('financing.editOffer.notes')}</label>
                                 <textarea
                                   value={editOffer.notes}
                                   onChange={(e) => setEditOffer({ ...editOffer, notes: e.target.value })}
@@ -510,13 +512,13 @@ export default function FinancingTab() {
                                   disabled={editSaving}
                                   className="flex items-center gap-1.5 px-3 py-1.5 bg-brand-600 text-white text-sm rounded hover:bg-brand-700 disabled:opacity-50"
                                 >
-                                  <Save size={14} /> {editSaving ? '...' : 'Save'}
+                                  <Save size={14} /> {editSaving ? '...' : t('financing.editOffer.save')}
                                 </button>
                                 <button
                                   onClick={() => setEditOffer(null)}
                                   className="flex items-center gap-1.5 px-3 py-1.5 border border-neutral-600 text-neutral-300 text-sm rounded hover:bg-neutral-800"
                                 >
-                                  <X size={14} /> Cancel
+                                  <X size={14} /> {t('financing.editOffer.cancel')}
                                 </button>
                               </div>
                             </div>
@@ -524,23 +526,23 @@ export default function FinancingTab() {
                             <div className="space-y-3">
                               <div className="grid grid-cols-3 gap-3 text-sm">
                                 <div>
-                                  <p className="text-neutral-500 text-xs">Total Repayment</p>
+                                  <p className="text-neutral-500 text-xs">{t('financing.offerDetails.totalRepayment')}</p>
                                   <p className="text-white font-medium">{fmtAmt(o.total_repayment)}</p>
                                 </div>
                                 <div>
-                                  <p className="text-neutral-500 text-xs">Est. Daily Holdback</p>
+                                  <p className="text-neutral-500 text-xs">{t('financing.offerDetails.estDailyHoldback')}</p>
                                   <p className="text-white font-medium">{fmtAmt(o.estimated_daily_holdback)}</p>
                                 </div>
                                 <div>
-                                  <p className="text-neutral-500 text-xs">Est. Duration</p>
-                                  <p className="text-white font-medium">{o.estimated_duration_days} days</p>
+                                  <p className="text-neutral-500 text-xs">{t('financing.offerDetails.estDuration')}</p>
+                                  <p className="text-white font-medium">{t('financing.offerDetails.days', { count: o.estimated_duration_days })}</p>
                                 </div>
                               </div>
                               {o.notes && (
-                                <p className="text-neutral-400 text-sm">Notes: {o.notes}</p>
+                                <p className="text-neutral-400 text-sm">{t('financing.offerDetails.notes')} {o.notes}</p>
                               )}
                               {o.decline_reason && (
-                                <p className="text-red-400 text-sm">Decline reason: {o.decline_reason}</p>
+                                <p className="text-red-400 text-sm">{t('financing.offerDetails.declineReason')} {o.decline_reason}</p>
                               )}
                               <div className="flex gap-2">
                                 {(o.status === 'available' || o.status === 'viewed') && (
@@ -549,13 +551,13 @@ export default function FinancingTab() {
                                       onClick={(e) => { e.stopPropagation(); setEditOffer({ id: o.id, amount: String(o.offer_amount), holdback: String(o.holdback_percent), notes: o.notes || '' }); }}
                                       className="px-3 py-1.5 border border-neutral-600 text-neutral-300 text-xs rounded hover:bg-neutral-800"
                                     >
-                                      Edit
+                                      {t('financing.edit')}
                                     </button>
                                     <button
                                       onClick={(e) => { e.stopPropagation(); handleWithdrawOffer(o.id); }}
                                       className="px-3 py-1.5 border border-red-700 text-red-400 text-xs rounded hover:bg-red-900/20"
                                     >
-                                      Withdraw
+                                      {t('financing.withdraw')}
                                     </button>
                                   </>
                                 )}
@@ -571,7 +573,7 @@ export default function FinancingTab() {
               {offers.length === 0 && (
                 <tr>
                   <td colSpan={7} className="px-4 py-8 text-center text-neutral-500">
-                    No offers found
+                    {t('financing.noOffersFound')}
                   </td>
                 </tr>
               )}
@@ -583,20 +585,20 @@ export default function FinancingTab() {
       {/* Events Log */}
       <div className="bg-neutral-900 border border-neutral-800 rounded-lg overflow-hidden">
         <div className="flex items-center justify-between p-4">
-          <h3 className="text-white font-bold">Event Log ({events.length})</h3>
+          <h3 className="text-white font-bold">{t('financing.eventLog', { count: events.length })}</h3>
           <select
             value={eventTypeFilter}
             onChange={(e) => setEventTypeFilter(e.target.value)}
             className="bg-neutral-800 border border-neutral-700 rounded px-2 py-1 text-sm text-neutral-300"
           >
-            <option value="">All Types</option>
-            <option value="consent_granted">Consent Granted</option>
-            <option value="consent_revoked">Consent Revoked</option>
-            <option value="profile_calculated">Profile Calculated</option>
-            <option value="offer_created">Offer Created</option>
-            <option value="offer_viewed">Offer Viewed</option>
-            <option value="offer_accepted">Offer Accepted</option>
-            <option value="offer_declined">Offer Declined</option>
+            <option value="">{t('financing.allTypes')}</option>
+            <option value="consent_granted">{t('financing.eventTypes.consent_granted')}</option>
+            <option value="consent_revoked">{t('financing.eventTypes.consent_revoked')}</option>
+            <option value="profile_calculated">{t('financing.eventTypes.profile_calculated')}</option>
+            <option value="offer_created">{t('financing.eventTypes.offer_created')}</option>
+            <option value="offer_viewed">{t('financing.eventTypes.offer_viewed')}</option>
+            <option value="offer_accepted">{t('financing.eventTypes.offer_accepted')}</option>
+            <option value="offer_declined">{t('financing.eventTypes.offer_declined')}</option>
           </select>
         </div>
 
@@ -604,10 +606,10 @@ export default function FinancingTab() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-t border-neutral-800 text-neutral-500 text-xs uppercase">
-                <th className="text-left px-4 py-2">Timestamp</th>
-                <th className="text-left px-4 py-2">Restaurant</th>
-                <th className="text-left px-4 py-2">Event Type</th>
-                <th className="text-left px-4 py-2">Details</th>
+                <th className="text-left px-4 py-2">{t('financing.eventColumns.timestamp')}</th>
+                <th className="text-left px-4 py-2">{t('financing.eventColumns.restaurant')}</th>
+                <th className="text-left px-4 py-2">{t('financing.eventColumns.eventType')}</th>
+                <th className="text-left px-4 py-2">{t('financing.eventColumns.details')}</th>
               </tr>
             </thead>
             <tbody>
@@ -630,7 +632,7 @@ export default function FinancingTab() {
               {events.length === 0 && (
                 <tr>
                   <td colSpan={4} className="px-4 py-8 text-center text-neutral-500">
-                    No events found
+                    {t('financing.noEventsFound')}
                   </td>
                 </tr>
               )}

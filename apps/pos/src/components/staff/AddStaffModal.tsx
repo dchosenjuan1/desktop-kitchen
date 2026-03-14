@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import { X, Loader2, Check, Users, Copy, Plus, KeyRound } from 'lucide-react';
 import { createEmployee } from '../../api';
 
@@ -17,13 +18,7 @@ interface Props {
   onStaffAdded?: () => void;
 }
 
-const ROLE_OPTIONS: { value: RoleType; label: string; description: string }[] = [
-  { value: 'cashier', label: 'Cashier', description: 'Takes orders and payments' },
-  { value: 'kitchen', label: 'Kitchen', description: 'Views kitchen display' },
-  { value: 'bar', label: 'Bar', description: 'Views bar orders' },
-  { value: 'manager', label: 'Manager', description: 'Reports + settings access' },
-  { value: 'admin', label: 'Admin', description: 'Full access to everything' },
-];
+const ROLE_KEYS: RoleType[] = ['cashier', 'kitchen', 'bar', 'manager', 'admin'];
 
 const ROLE_COLORS: Record<RoleType, string> = {
   cashier: 'bg-green-600/20 text-green-400 border-green-800',
@@ -38,6 +33,7 @@ function generatePin(): string {
 }
 
 export default function AddStaffModal({ isOpen, onClose, onStaffAdded }: Props) {
+  const { t } = useTranslation('admin');
   const [step, setStep] = useState<Step>('form');
   const [name, setName] = useState('');
   const [pin, setPin] = useState(generatePin());
@@ -65,11 +61,11 @@ export default function AddStaffModal({ isOpen, onClose, onStaffAdded }: Props) 
 
   const handleSave = async () => {
     if (!name.trim()) {
-      setError('Enter the employee name');
+      setError(t('staff.errorNameRequired'));
       return;
     }
     if (!/^\d{4}$/.test(pin)) {
-      setError('PIN must be 4 digits');
+      setError(t('staff.errorPinFormat'));
       return;
     }
 
@@ -84,7 +80,7 @@ export default function AddStaffModal({ isOpen, onClose, onStaffAdded }: Props) 
       setStep('success');
       onStaffAdded?.();
     } catch (err: any) {
-      setError(err.message || 'Failed to create employee');
+      setError(err.message || t('staff.errorCreating'));
       setStep('form');
     }
   };
@@ -118,11 +114,11 @@ export default function AddStaffModal({ isOpen, onClose, onStaffAdded }: Props) 
               <Users size={18} className="text-brand-400" />
             </div>
             <div>
-              <h2 className="text-lg font-bold text-white">Add Staff</h2>
+              <h2 className="text-lg font-bold text-white">{t('staff.addStaff')}</h2>
               <p className="text-xs text-neutral-400">
                 {addedEmployees.length === 0
-                  ? 'Create login PINs for your team'
-                  : `${addedEmployees.length} employee${addedEmployees.length > 1 ? 's' : ''} added`}
+                  ? t('staff.createPins')
+                  : t('staff.employeesAdded', { count: addedEmployees.length })}
               </p>
             </div>
           </div>
@@ -139,44 +135,44 @@ export default function AddStaffModal({ isOpen, onClose, onStaffAdded }: Props) 
             <div className="space-y-4">
               {/* Name */}
               <div>
-                <label className="block text-sm font-medium text-neutral-300 mb-1.5">Name</label>
+                <label className="block text-sm font-medium text-neutral-300 mb-1.5">{t('staff.name')}</label>
                 <input
                   ref={nameRef}
                   type="text"
                   value={name}
                   onChange={e => setName(e.target.value)}
                   onKeyDown={e => e.key === 'Enter' && handleSave()}
-                  placeholder="e.g. Maria, Carlos..."
+                  placeholder={t('staff.namePlaceholder')}
                   className="w-full px-4 py-2.5 bg-neutral-800 border border-neutral-700 rounded-lg text-white placeholder-neutral-500 focus:outline-none focus:border-brand-600"
                 />
               </div>
 
               {/* Role selector */}
               <div>
-                <label className="block text-sm font-medium text-neutral-300 mb-1.5">Role</label>
+                <label className="block text-sm font-medium text-neutral-300 mb-1.5">{t('staff.role')}</label>
                 <div className="grid grid-cols-3 gap-2">
-                  {ROLE_OPTIONS.map(r => (
+                  {ROLE_KEYS.map(r => (
                     <button
-                      key={r.value}
-                      onClick={() => setRole(r.value)}
+                      key={r}
+                      onClick={() => setRole(r)}
                       className={`px-3 py-2 rounded-lg text-sm font-medium border transition-colors ${
-                        role === r.value
+                        role === r
                           ? 'bg-brand-600/20 border-brand-600 text-brand-400'
                           : 'bg-neutral-800 border-neutral-700 text-neutral-400 hover:border-neutral-600'
                       }`}
                     >
-                      {r.label}
+                      {t(`staff.roles.${r}`)}
                     </button>
                   ))}
                 </div>
                 <p className="text-xs text-neutral-500 mt-1.5">
-                  {ROLE_OPTIONS.find(r => r.value === role)?.description}
+                  {t(`staff.roleDescriptions.${role}`)}
                 </p>
               </div>
 
               {/* PIN */}
               <div>
-                <label className="block text-sm font-medium text-neutral-300 mb-1.5">Login PIN</label>
+                <label className="block text-sm font-medium text-neutral-300 mb-1.5">{t('staff.loginPin')}</label>
                 <div className="flex items-center gap-2">
                   <input
                     type="text"
@@ -192,10 +188,10 @@ export default function AddStaffModal({ isOpen, onClose, onStaffAdded }: Props) 
                     onClick={() => setPin(generatePin())}
                     className="px-3 py-2.5 bg-neutral-800 border border-neutral-700 rounded-lg text-neutral-400 hover:text-neutral-200 hover:border-neutral-600 text-sm transition-colors"
                   >
-                    Randomize
+                    {t('staff.randomize')}
                   </button>
                 </div>
-                <p className="text-xs text-neutral-500 mt-1">This PIN is used to clock in at the POS</p>
+                <p className="text-xs text-neutral-500 mt-1">{t('staff.pinHint')}</p>
               </div>
 
               {error && (
@@ -209,7 +205,7 @@ export default function AddStaffModal({ isOpen, onClose, onStaffAdded }: Props) 
                 disabled={!name.trim()}
                 className="w-full py-3 rounded-xl font-bold text-white transition-colors disabled:opacity-40 disabled:cursor-not-allowed bg-brand-600 hover:bg-brand-500"
               >
-                Add Employee
+                {t('staff.addEmployee')}
               </button>
             </div>
           )}
@@ -217,7 +213,7 @@ export default function AddStaffModal({ isOpen, onClose, onStaffAdded }: Props) 
           {step === 'saving' && (
             <div className="flex flex-col items-center justify-center py-12 gap-4">
               <Loader2 size={36} className="text-brand-400 animate-spin" />
-              <p className="text-neutral-300 text-sm">Creating employee...</p>
+              <p className="text-neutral-300 text-sm">{t('staff.creatingEmployee')}</p>
             </div>
           )}
 
@@ -227,7 +223,7 @@ export default function AddStaffModal({ isOpen, onClose, onStaffAdded }: Props) 
                 <div className="w-14 h-14 rounded-full bg-green-900/30 flex items-center justify-center mb-3">
                   <Check size={28} className="text-green-400" />
                 </div>
-                <p className="text-white font-bold text-lg">{lastAdded.name} added!</p>
+                <p className="text-white font-bold text-lg">{t('staff.employeeAdded', { name: lastAdded.name })}</p>
                 <span className={`mt-1 px-2.5 py-0.5 rounded-full text-xs font-medium border ${ROLE_COLORS[lastAdded.role]}`}>
                   {lastAdded.role}
                 </span>
@@ -237,7 +233,7 @@ export default function AddStaffModal({ isOpen, onClose, onStaffAdded }: Props) 
               <div className="bg-neutral-800 border border-neutral-700 rounded-xl p-4 text-center">
                 <div className="flex items-center justify-center gap-2 text-neutral-400 text-xs mb-2">
                   <KeyRound size={14} />
-                  <span>Login PIN — share with {lastAdded.name}</span>
+                  <span>{t('staff.loginPinShare', { name: lastAdded.name })}</span>
                 </div>
                 <p className="text-3xl font-bold text-white tracking-[0.3em] mb-3">{lastAdded.pin}</p>
                 <button
@@ -245,14 +241,14 @@ export default function AddStaffModal({ isOpen, onClose, onStaffAdded }: Props) 
                   className="inline-flex items-center gap-1.5 px-4 py-1.5 border border-neutral-700 rounded-lg text-sm text-neutral-300 hover:bg-neutral-700 transition-colors"
                 >
                   <Copy size={14} />
-                  {copied ? 'Copied!' : 'Copy PIN'}
+                  {copied ? t('staff.copied') : t('staff.copyPin')}
                 </button>
               </div>
 
               {/* Previously added list */}
               {addedEmployees.length > 1 && (
                 <div className="border border-neutral-800 rounded-lg p-3">
-                  <p className="text-xs text-neutral-500 mb-2">Added this session:</p>
+                  <p className="text-xs text-neutral-500 mb-2">{t('staff.addedThisSession')}</p>
                   <div className="space-y-1.5">
                     {addedEmployees.slice(0, -1).map((e, i) => (
                       <div key={i} className="flex items-center justify-between text-sm">
@@ -269,13 +265,13 @@ export default function AddStaffModal({ isOpen, onClose, onStaffAdded }: Props) 
                   onClick={handleAddAnother}
                   className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl font-medium border border-neutral-700 text-neutral-300 hover:bg-neutral-800 transition-colors"
                 >
-                  <Plus size={16} /> Add Another
+                  <Plus size={16} /> {t('staff.addAnother')}
                 </button>
                 <button
                   onClick={onClose}
                   className="flex-1 py-2.5 rounded-xl font-bold text-white bg-brand-600 hover:bg-brand-500 transition-colors"
                 >
-                  Done
+                  {t('common:buttons.done')}
                 </button>
               </div>
             </div>

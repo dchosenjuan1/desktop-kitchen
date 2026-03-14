@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import {
   ArrowLeft,
   BookOpen,
@@ -25,14 +26,6 @@ import {
 import { RecipeSummaryItem, RecipeIngredient, InventoryItem, WasteReport } from '../types';
 import BrandLogo from '../components/BrandLogo';
 
-const WASTE_REASONS = [
-  { value: 'spoilage', label: 'Spoilage', color: 'text-orange-400' },
-  { value: 'prep_error', label: 'Prep Error', color: 'text-red-400' },
-  { value: 'dropped', label: 'Dropped', color: 'text-yellow-400' },
-  { value: 'expired', label: 'Expired', color: 'text-purple-400' },
-  { value: 'other', label: 'Other', color: 'text-neutral-400' },
-] as const;
-
 interface EditingRecipe {
   menuItemId: number;
   menuItemName: string;
@@ -48,6 +41,16 @@ interface EditingRecipe {
 }
 
 export default function RecipeManagement() {
+  const { t } = useTranslation('inventory');
+
+  const WASTE_REASONS = [
+    { value: 'spoilage', label: t('recipe.wasteReasons.spoilage'), color: 'text-orange-400' },
+    { value: 'prep_error', label: t('recipe.wasteReasons.prep_error'), color: 'text-red-400' },
+    { value: 'dropped', label: t('recipe.wasteReasons.dropped'), color: 'text-yellow-400' },
+    { value: 'expired', label: t('recipe.wasteReasons.expired'), color: 'text-purple-400' },
+    { value: 'other', label: t('recipe.wasteReasons.other'), color: 'text-neutral-400' },
+  ] as const;
+
   const [items, setItems] = useState<RecipeSummaryItem[]>([]);
   const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -81,7 +84,7 @@ export default function RecipeManagement() {
       setInventoryItems(invData);
       if (wReport) setWasteReport(wReport);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load data');
+      setError(err instanceof Error ? err.message : t('recipe.failedLoad'));
     } finally {
       setLoading(false);
     }
@@ -198,11 +201,11 @@ export default function RecipeManagement() {
         }));
       await updateItemRecipe(editing.menuItemId, payload);
       setEditing({ ...editing, dirty: false });
-      setSuccess(`Recipe saved for ${editing.menuItemName}`);
+      setSuccess(t('recipe.recipeSavedFor', { name: editing.menuItemName }));
       setTimeout(() => setSuccess(null), 3000);
       await fetchData();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to save recipe');
+      setError(err instanceof Error ? err.message : t('recipe.failedSave'));
     } finally {
       setSaving(false);
     }
@@ -212,7 +215,7 @@ export default function RecipeManagement() {
     setWasteIngredientId(inventoryItemId);
     setWasteQty('');
     setWasteReason('prep_error');
-    setWasteNotes(editing ? `From recipe: ${editing.menuItemName}` : '');
+    setWasteNotes(editing ? t('recipe.fromRecipe', { name: editing.menuItemName }) : '');
   };
 
   const closeWasteForm = () => {
@@ -233,12 +236,12 @@ export default function RecipeManagement() {
         notes: wasteNotes || undefined,
       });
       const inv = inventoryItems.find(i => i.id === wasteIngredientId);
-      setSuccess(`Waste logged: ${wasteQty} ${inv?.unit || ''} of ${inv?.name || 'item'}`);
+      setSuccess(t('recipe.wasteLogged', { qty: wasteQty, unit: inv?.unit || '', name: inv?.name || 'item' }));
       setTimeout(() => setSuccess(null), 3000);
       closeWasteForm();
       await fetchData();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to log waste');
+      setError(err instanceof Error ? err.message : t('recipe.failedLogWaste'));
     } finally {
       setWasteSubmitting(false);
     }
@@ -266,7 +269,7 @@ export default function RecipeManagement() {
               <ArrowLeft size={24} />
             </Link>
             <BookOpen size={28} className="text-brand-500" />
-            <h1 className="text-3xl font-black tracking-tighter">Recipe Management</h1>
+            <h1 className="text-3xl font-black tracking-tighter">{t('recipe.title')}</h1>
           </div>
           <BrandLogo className="h-10" />
         </div>
@@ -276,28 +279,28 @@ export default function RecipeManagement() {
         {/* KPI Cards */}
         <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
           <div className="bg-neutral-900 rounded-lg border border-neutral-800 p-4">
-            <p className="text-neutral-400 text-sm">Total Items</p>
+            <p className="text-neutral-400 text-sm">{t('recipe.totalItems')}</p>
             <p className="text-2xl font-bold text-white">{totalItems}</p>
           </div>
           <div className="bg-neutral-900 rounded-lg border border-neutral-800 p-4">
-            <p className="text-neutral-400 text-sm">With Recipe</p>
+            <p className="text-neutral-400 text-sm">{t('recipe.withRecipe')}</p>
             <p className="text-2xl font-bold text-green-400">{withRecipe}</p>
           </div>
           <div className="bg-neutral-900 rounded-lg border border-neutral-800 p-4">
-            <p className="text-neutral-400 text-sm">Missing Recipe</p>
+            <p className="text-neutral-400 text-sm">{t('recipe.missingRecipe')}</p>
             <p className="text-2xl font-bold text-amber-400">{missingRecipe}</p>
           </div>
           <div className="bg-neutral-900 rounded-lg border border-neutral-800 p-4">
-            <p className="text-neutral-400 text-sm">Avg Food Margin</p>
+            <p className="text-neutral-400 text-sm">{t('recipe.avgFoodMargin')}</p>
             <p className="text-2xl font-bold text-brand-400">{avgMargin.toFixed(1)}%</p>
           </div>
           <div className="bg-neutral-900 rounded-lg border border-neutral-800 p-4">
-            <p className="text-neutral-400 text-sm">Waste (7 days)</p>
+            <p className="text-neutral-400 text-sm">{t('recipe.waste7Days')}</p>
             <p className="text-2xl font-bold text-red-400">
               ${wasteReport ? Number(wasteReport.summary.total_waste_cost || 0).toFixed(0) : '—'}
             </p>
             {wasteReport && (
-              <p className="text-xs text-neutral-500 mt-1">{wasteReport.summary.total_entries} events</p>
+              <p className="text-xs text-neutral-500 mt-1">{wasteReport.summary.total_entries} {t('recipe.events')}</p>
             )}
           </div>
         </div>
@@ -322,7 +325,7 @@ export default function RecipeManagement() {
             <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-500" />
             <input
               type="text"
-              placeholder="Search menu items..."
+              placeholder={t('recipe.searchMenuItems')}
               value={search}
               onChange={e => setSearch(e.target.value)}
               className="w-full pl-10 pr-4 py-2.5 bg-neutral-900 border border-neutral-700 rounded-lg text-white placeholder-neutral-500 focus:outline-none focus:border-brand-500"
@@ -333,7 +336,7 @@ export default function RecipeManagement() {
             onChange={e => setFilterCategory(e.target.value)}
             className="px-4 py-2.5 bg-neutral-900 border border-neutral-700 rounded-lg text-white focus:outline-none focus:border-brand-500"
           >
-            <option value="all">All Categories</option>
+            <option value="all">{t('recipe.allCategories')}</option>
             {categories.map(c => (
               <option key={c} value={c}>{c}</option>
             ))}
@@ -343,9 +346,9 @@ export default function RecipeManagement() {
             onChange={e => setFilterStatus(e.target.value as any)}
             className="px-4 py-2.5 bg-neutral-900 border border-neutral-700 rounded-lg text-white focus:outline-none focus:border-brand-500"
           >
-            <option value="all">All Items</option>
-            <option value="has-recipe">Has Recipe</option>
-            <option value="missing">Missing Recipe</option>
+            <option value="all">{t('recipe.allItems')}</option>
+            <option value="has-recipe">{t('recipe.hasRecipe')}</option>
+            <option value="missing">{t('recipe.missingRecipe')}</option>
           </select>
         </div>
 
@@ -360,12 +363,12 @@ export default function RecipeManagement() {
           <div className="space-y-2">
             {/* Header Row */}
             <div className="grid grid-cols-12 gap-4 px-4 py-2 text-xs font-medium text-neutral-500 uppercase tracking-wider">
-              <div className="col-span-4">Item</div>
-              <div className="col-span-2">Category</div>
-              <div className="col-span-1 text-right">Price</div>
-              <div className="col-span-1 text-right">COGS</div>
-              <div className="col-span-1 text-right">Margin</div>
-              <div className="col-span-2 text-center">Ingredients</div>
+              <div className="col-span-4">{t('recipe.item')}</div>
+              <div className="col-span-2">{t('recipe.category')}</div>
+              <div className="col-span-1 text-right">{t('recipe.price')}</div>
+              <div className="col-span-1 text-right">{t('recipe.cogs')}</div>
+              <div className="col-span-1 text-right">{t('recipe.margin')}</div>
+              <div className="col-span-2 text-center">{t('recipe.ingredients')}</div>
               <div className="col-span-1" />
             </div>
 
@@ -404,11 +407,11 @@ export default function RecipeManagement() {
                     <div className="col-span-2 text-center">
                       {item.ingredient_count > 0 ? (
                         <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-green-900/30 text-green-400 rounded text-xs">
-                          {item.ingredient_count} ingredient{item.ingredient_count !== 1 ? 's' : ''}
+                          {t('recipe.ingredientCount', { count: item.ingredient_count })}
                         </span>
                       ) : (
                         <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-amber-900/30 text-amber-400 rounded text-xs">
-                          Not set
+                          {t('recipe.notSet')}
                         </span>
                       )}
                     </div>
@@ -422,13 +425,13 @@ export default function RecipeManagement() {
                     <div className="border-t border-neutral-800 p-4 bg-neutral-950/50">
                       <div className="flex items-center justify-between mb-4">
                         <h3 className="text-lg font-bold text-white">
-                          Recipe: {editing.menuItemName}
+                          {t('recipe.recipeFor', { name: editing.menuItemName })}
                         </h3>
                         <div className="flex items-center gap-3">
                           <div className="text-sm text-neutral-400">
-                            Cost: <span className="text-white font-mono">${recipeCost(editing.ingredients).toFixed(2)}</span>
+                            {t('recipe.cost')} <span className="text-white font-mono">${recipeCost(editing.ingredients).toFixed(2)}</span>
                             {' / '}
-                            Margin: <span className={`font-mono ${
+                            {t('recipe.margin')} <span className={`font-mono ${
                               margin(editing.menuItemPrice, recipeCost(editing.ingredients)) >= 70 ? 'text-green-400' :
                               margin(editing.menuItemPrice, recipeCost(editing.ingredients)) >= 50 ? 'text-yellow-400' :
                               'text-red-400'
@@ -441,7 +444,7 @@ export default function RecipeManagement() {
                             className="flex items-center gap-1.5 px-3 py-1.5 bg-neutral-800 border border-neutral-700 rounded-lg text-sm text-white hover:bg-neutral-700 transition-colors"
                           >
                             <Plus size={16} />
-                            Add Ingredient
+                            {t('recipe.addIngredient')}
                           </button>
                           <button
                             onClick={handleSave}
@@ -449,7 +452,7 @@ export default function RecipeManagement() {
                             className="flex items-center gap-1.5 px-4 py-1.5 bg-brand-600 rounded-lg text-sm font-medium text-white hover:bg-brand-700 transition-colors disabled:opacity-50"
                           >
                             <Save size={16} />
-                            {saving ? 'Saving...' : 'Save Recipe'}
+                            {saving ? t('recipe.saving') : t('recipe.saveRecipe')}
                           </button>
                         </div>
                       </div>
@@ -457,18 +460,18 @@ export default function RecipeManagement() {
                       {editing.ingredients.length === 0 ? (
                         <div className="text-center py-8 text-neutral-500">
                           <BookOpen size={32} className="mx-auto mb-2 opacity-50" />
-                          <p>No ingredients yet. Click "Add Ingredient" to start building this recipe.</p>
+                          <p>{t('recipe.noIngredients')}</p>
                         </div>
                       ) : (
                         <div className="space-y-2">
                           {/* Ingredient Header */}
                           <div className="grid grid-cols-12 gap-3 px-2 text-xs font-medium text-neutral-500 uppercase tracking-wider">
-                            <div className="col-span-4">Ingredient</div>
-                            <div className="col-span-1">Qty Used</div>
-                            <div className="col-span-1">Unit</div>
-                            <div className="col-span-1 text-right">Cost/Unit</div>
-                            <div className="col-span-1 text-right">Line Cost</div>
-                            <div className="col-span-2 text-right">Waste (7d)</div>
+                            <div className="col-span-4">{t('recipe.ingredient')}</div>
+                            <div className="col-span-1">{t('recipe.qtyUsed')}</div>
+                            <div className="col-span-1">{t('recipe.unit')}</div>
+                            <div className="col-span-1 text-right">{t('recipe.costPerUnit')}</div>
+                            <div className="col-span-1 text-right">{t('recipe.lineCost')}</div>
+                            <div className="col-span-2 text-right">{t('recipe.waste7d')}</div>
                             <div className="col-span-2" />
                           </div>
 
@@ -485,7 +488,7 @@ export default function RecipeManagement() {
                                       onChange={e => handleIngredientChange(idx, 'inventory_item_id', Number(e.target.value))}
                                       className="w-full px-3 py-2 bg-neutral-800 border border-neutral-700 rounded text-white text-sm focus:outline-none focus:border-brand-500"
                                     >
-                                      <option value="">Select ingredient...</option>
+                                      <option value="">{t('recipe.selectIngredient')}</option>
                                       {inventoryItems.map(inv => (
                                         <option key={inv.id} value={inv.id}>
                                           {inv.name} ({inv.unit})
@@ -517,7 +520,7 @@ export default function RecipeManagement() {
                                         {Number(waste.total_quantity).toFixed(1)} {ing.unit} / ${Number(waste.total_cost).toFixed(0)}
                                       </span>
                                     ) : (
-                                      <span className="text-xs text-neutral-600">none</span>
+                                      <span className="text-xs text-neutral-600">{t('recipe.none')}</span>
                                     )}
                                   </div>
                                   <div className="col-span-2 flex justify-end gap-1">
@@ -525,7 +528,7 @@ export default function RecipeManagement() {
                                       <button
                                         onClick={() => isWasteFormOpen ? closeWasteForm() : openWasteForm(ing.inventory_item_id)}
                                         className={`p-1.5 rounded transition-colors ${isWasteFormOpen ? 'bg-red-900/30 text-red-400' : 'text-neutral-500 hover:text-orange-400'}`}
-                                        title="Log waste"
+                                        title={t('recipe.logWaste')}
                                       >
                                         <Flame size={16} />
                                       </button>
@@ -533,7 +536,7 @@ export default function RecipeManagement() {
                                     <button
                                       onClick={() => handleRemoveIngredient(idx)}
                                       className="p-1.5 text-neutral-500 hover:text-red-400 transition-colors"
-                                      title="Remove ingredient"
+                                      title={t('buttons.remove', { ns: 'common' })}
                                     >
                                       <Trash2 size={16} />
                                     </button>
@@ -545,10 +548,10 @@ export default function RecipeManagement() {
                                   <div className="ml-4 bg-red-950/20 border border-red-900/40 rounded-lg p-3 flex flex-wrap items-end gap-3">
                                     <div className="text-xs font-medium text-red-400 w-full mb-1 flex items-center gap-1.5">
                                       <Flame size={14} />
-                                      Log Waste — {ing.ingredient_name}
+                                      {t('recipe.logWasteFor', { name: ing.ingredient_name })}
                                     </div>
                                     <div className="flex-1 min-w-[100px] max-w-[140px]">
-                                      <label className="block text-xs text-neutral-500 mb-1">Quantity ({ing.unit})</label>
+                                      <label className="block text-xs text-neutral-500 mb-1">{t('recipe.quantityUnit', { unit: ing.unit })}</label>
                                       <input
                                         type="number"
                                         step="0.01"
@@ -561,7 +564,7 @@ export default function RecipeManagement() {
                                       />
                                     </div>
                                     <div className="min-w-[130px]">
-                                      <label className="block text-xs text-neutral-500 mb-1">Reason</label>
+                                      <label className="block text-xs text-neutral-500 mb-1">{t('recipe.reason')}</label>
                                       <select
                                         value={wasteReason}
                                         onChange={e => setWasteReason(e.target.value)}
@@ -573,12 +576,12 @@ export default function RecipeManagement() {
                                       </select>
                                     </div>
                                     <div className="flex-1 min-w-[150px]">
-                                      <label className="block text-xs text-neutral-500 mb-1">Notes</label>
+                                      <label className="block text-xs text-neutral-500 mb-1">{t('recipe.notes')}</label>
                                       <input
                                         type="text"
                                         value={wasteNotes}
                                         onChange={e => setWasteNotes(e.target.value)}
-                                        placeholder="Optional notes..."
+                                        placeholder={t('recipe.optionalNotes')}
                                         className="w-full px-2 py-1.5 bg-neutral-800 border border-neutral-700 rounded text-white text-sm focus:outline-none focus:border-red-500"
                                       />
                                     </div>
@@ -587,7 +590,7 @@ export default function RecipeManagement() {
                                       disabled={wasteSubmitting || !wasteQty || parseFloat(wasteQty) <= 0}
                                       className="px-3 py-1.5 bg-red-600 rounded text-sm font-medium text-white hover:bg-red-700 transition-colors disabled:opacity-50 whitespace-nowrap"
                                     >
-                                      {wasteSubmitting ? 'Logging...' : 'Log Waste'}
+                                      {wasteSubmitting ? t('recipe.logging') : t('recipe.logWaste')}
                                     </button>
                                     <button
                                       onClick={closeWasteForm}
@@ -603,7 +606,7 @@ export default function RecipeManagement() {
 
                           {/* Totals */}
                           <div className="grid grid-cols-12 gap-3 px-2 pt-2 border-t border-neutral-700">
-                            <div className="col-span-5 text-sm font-medium text-neutral-300">Total Recipe Cost</div>
+                            <div className="col-span-5 text-sm font-medium text-neutral-300">{t('recipe.totalRecipeCost')}</div>
                             <div className="col-span-5" />
                             <div className="col-span-1 text-right text-white font-mono font-bold text-sm">
                               ${recipeCost(editing.ingredients).toFixed(2)}
@@ -621,7 +624,7 @@ export default function RecipeManagement() {
             {filtered.length === 0 && (
               <div className="text-center py-12 text-neutral-500">
                 <BookOpen size={48} className="mx-auto mb-3 opacity-30" />
-                <p className="text-lg">No menu items match your filters</p>
+                <p className="text-lg">{t('recipe.noMatchFilters')}</p>
               </div>
             )}
           </div>

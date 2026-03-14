@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { X, Loader2, Check, ChevronRight, ArrowLeft, AlertTriangle } from 'lucide-react';
 import { getMenuTemplates, applyMenuTemplate, applyMenuTemplateAsOwner } from '../../api';
 import { MenuTemplateOption, MenuImportStats } from '../../types';
@@ -24,6 +25,7 @@ interface Props {
 }
 
 export default function TemplatePickerModal({ isOpen, onClose, onTemplateApplied, isFirstSetup, ownerToken }: Props) {
+  const { t } = useTranslation('admin');
   const { plan, limits } = usePlan();
   const [step, setStep] = useState<Step>('pick');
   const [templates, setTemplates] = useState<MenuTemplateOption[]>([]);
@@ -43,14 +45,14 @@ export default function TemplatePickerModal({ isOpen, onClose, onTemplateApplied
     setLoading(true);
     getMenuTemplates()
       .then(setTemplates)
-      .catch(() => setError('Failed to load templates'))
+      .catch(() => setError(t('menuTemplate.failedLoad')))
       .finally(() => setLoading(false));
   }, [isOpen]);
 
   if (!isOpen) return null;
 
-  const handleSelect = (t: MenuTemplateOption) => {
-    setSelected(t);
+  const handleSelect = (tmpl: MenuTemplateOption) => {
+    setSelected(tmpl);
     setStep('confirm');
   };
 
@@ -69,7 +71,7 @@ export default function TemplatePickerModal({ isOpen, onClose, onTemplateApplied
       setStats(result);
       setStep('success');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to apply template');
+      setError(err instanceof Error ? err.message : t('menuTemplate.failedApply'));
       setStep('confirm');
     }
   };
@@ -81,7 +83,7 @@ export default function TemplatePickerModal({ isOpen, onClose, onTemplateApplied
 
   const limitWarning = typeof limits.menuItems === 'number' && limits.menuItems !== Infinity && selected
     ? selected.item_count > limits.menuItems
-      ? `Your plan allows ${limits.menuItems} items. Only the first ${limits.menuItems} will be imported.`
+      ? t('menuTemplate.planLimitWarning', { limit: limits.menuItems })
       : null
     : null;
 
@@ -101,10 +103,10 @@ export default function TemplatePickerModal({ isOpen, onClose, onTemplateApplied
               </button>
             )}
             <h2 className="text-lg font-bold text-white">
-              {step === 'pick' && 'Choose a Restaurant Template'}
-              {step === 'confirm' && 'Confirm Template'}
-              {step === 'loading' && 'Setting up your menu...'}
-              {step === 'success' && 'Menu Created!'}
+              {step === 'pick' && t('menuTemplate.chooseTemplate')}
+              {step === 'confirm' && t('menuTemplate.confirmTemplate')}
+              {step === 'loading' && t('menuTemplate.settingUp')}
+              {step === 'success' && t('menuTemplate.menuCreated')}
             </h2>
           </div>
           <button onClick={onClose} className="p-2 hover:bg-neutral-800 rounded-lg transition-colors">
@@ -117,7 +119,7 @@ export default function TemplatePickerModal({ isOpen, onClose, onTemplateApplied
           {step === 'pick' && (
             <>
               <p className="text-neutral-400 text-sm mb-6">
-                Start with a pre-built menu for your restaurant type. You can customize everything after.
+                {t('menuTemplate.pickDescription')}
               </p>
               {loading ? (
                 <div className="flex items-center justify-center py-12">
@@ -127,22 +129,22 @@ export default function TemplatePickerModal({ isOpen, onClose, onTemplateApplied
                 <div className="text-red-400 text-sm text-center py-8">{error}</div>
               ) : (
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                  {templates.map(t => (
+                  {templates.map(tmpl => (
                     <button
-                      key={t.id}
-                      onClick={() => handleSelect(t)}
+                      key={tmpl.id}
+                      onClick={() => handleSelect(tmpl)}
                       className="group text-left bg-neutral-800/60 hover:bg-neutral-800 border border-neutral-700/60 hover:border-brand-600/60 rounded-xl p-4 transition-all"
                     >
-                      <div className="text-3xl mb-3">{TEMPLATE_ICONS[t.icon] || '\uD83C\uDF7D\uFE0F'}</div>
-                      <h3 className="text-white font-semibold text-sm mb-1">{t.name}</h3>
-                      <p className="text-neutral-400 text-xs mb-3 line-clamp-2">{t.description}</p>
+                      <div className="text-3xl mb-3">{TEMPLATE_ICONS[tmpl.icon] || '\uD83C\uDF7D\uFE0F'}</div>
+                      <h3 className="text-white font-semibold text-sm mb-1">{tmpl.name}</h3>
+                      <p className="text-neutral-400 text-xs mb-3 line-clamp-2">{tmpl.description}</p>
                       <div className="flex items-center gap-2 text-xs text-neutral-500">
-                        <span>{t.item_count} items</span>
+                        <span>{tmpl.item_count} {t('menuTemplate.items')}</span>
                         <span>&middot;</span>
-                        <span>{t.category_count} categories</span>
+                        <span>{tmpl.category_count} {t('menuTemplate.categoriesLabel')}</span>
                       </div>
                       <div className="flex items-center gap-1 mt-3 text-brand-400 text-xs font-medium opacity-0 group-hover:opacity-100 transition-opacity">
-                        Use this <ChevronRight size={12} />
+                        {t('menuTemplate.useThis')} <ChevronRight size={12} />
                       </div>
                     </button>
                   ))}
@@ -160,8 +162,8 @@ export default function TemplatePickerModal({ isOpen, onClose, onTemplateApplied
                   <h3 className="text-white font-bold text-lg">{selected.name}</h3>
                   <p className="text-neutral-400 text-sm mt-1">{selected.description}</p>
                   <div className="flex gap-4 mt-3 text-sm text-neutral-300">
-                    <span>{selected.item_count} menu items</span>
-                    <span>{selected.category_count} categories</span>
+                    <span>{selected.item_count} {t('menuTemplate.menuItems')}</span>
+                    <span>{selected.category_count} {t('menuTemplate.categoriesLabel')}</span>
                   </div>
                 </div>
               </div>
@@ -175,8 +177,8 @@ export default function TemplatePickerModal({ isOpen, onClose, onTemplateApplied
                   <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-transform ${replaceMode ? 'left-5' : 'left-1'}`} />
                 </div>
                 <div>
-                  <span className="text-white text-sm font-medium">Replace example items</span>
-                  <p className="text-neutral-500 text-xs">Remove placeholder items and start fresh with this template</p>
+                  <span className="text-white text-sm font-medium">{t('menuTemplate.replaceItems')}</span>
+                  <p className="text-neutral-500 text-xs">{t('menuTemplate.replaceItemsHint')}</p>
                 </div>
               </label>
 
@@ -196,7 +198,7 @@ export default function TemplatePickerModal({ isOpen, onClose, onTemplateApplied
                 onClick={handleApply}
                 className="w-full py-3 bg-brand-600 hover:bg-brand-500 text-white font-semibold rounded-xl transition-colors text-sm"
               >
-                Apply Template
+                {t('menuTemplate.applyTemplate')}
               </button>
             </div>
           )}
@@ -205,7 +207,7 @@ export default function TemplatePickerModal({ isOpen, onClose, onTemplateApplied
           {step === 'loading' && (
             <div className="flex flex-col items-center justify-center py-16">
               <Loader2 size={36} className="text-brand-500 animate-spin mb-4" />
-              <p className="text-neutral-300 text-sm">Creating categories, items, inventory, and recipes...</p>
+              <p className="text-neutral-300 text-sm">{t('menuTemplate.creatingItems')}</p>
             </div>
           )}
 
@@ -217,43 +219,43 @@ export default function TemplatePickerModal({ isOpen, onClose, onTemplateApplied
                   <Check size={32} className="text-brand-400" />
                 </div>
               </div>
-              <h3 className="text-white text-xl font-bold text-center">Your menu is ready!</h3>
+              <h3 className="text-white text-xl font-bold text-center">{t('menuTemplate.menuReady')}</h3>
 
               <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                 {stats.categoriesCreated > 0 && (
                   <div className="bg-neutral-800/60 rounded-lg p-3 text-center">
                     <p className="text-2xl font-bold text-brand-400">{stats.categoriesCreated}</p>
-                    <p className="text-neutral-400 text-xs mt-1">Categories</p>
+                    <p className="text-neutral-400 text-xs mt-1">{t('menuTemplate.categoriesLabel')}</p>
                   </div>
                 )}
                 {stats.itemsCreated > 0 && (
                   <div className="bg-neutral-800/60 rounded-lg p-3 text-center">
                     <p className="text-2xl font-bold text-brand-400">{stats.itemsCreated}</p>
-                    <p className="text-neutral-400 text-xs mt-1">Menu Items</p>
+                    <p className="text-neutral-400 text-xs mt-1">{t('menuTemplate.menuItems')}</p>
                   </div>
                 )}
                 {stats.inventoryCreated > 0 && (
                   <div className="bg-neutral-800/60 rounded-lg p-3 text-center">
                     <p className="text-2xl font-bold text-brand-400">{stats.inventoryCreated}</p>
-                    <p className="text-neutral-400 text-xs mt-1">Ingredients</p>
+                    <p className="text-neutral-400 text-xs mt-1">{t('menuTemplate.ingredients')}</p>
                   </div>
                 )}
                 {stats.recipesCreated > 0 && (
                   <div className="bg-neutral-800/60 rounded-lg p-3 text-center">
                     <p className="text-2xl font-bold text-brand-400">{stats.recipesCreated}</p>
-                    <p className="text-neutral-400 text-xs mt-1">Recipes</p>
+                    <p className="text-neutral-400 text-xs mt-1">{t('menuTemplate.recipes')}</p>
                   </div>
                 )}
                 {stats.modifierGroupsCreated > 0 && (
                   <div className="bg-neutral-800/60 rounded-lg p-3 text-center">
                     <p className="text-2xl font-bold text-brand-400">{stats.modifierGroupsCreated}</p>
-                    <p className="text-neutral-400 text-xs mt-1">Modifier Groups</p>
+                    <p className="text-neutral-400 text-xs mt-1">{t('menuTemplate.modifierGroups')}</p>
                   </div>
                 )}
                 {stats.combosCreated > 0 && (
                   <div className="bg-neutral-800/60 rounded-lg p-3 text-center">
                     <p className="text-2xl font-bold text-brand-400">{stats.combosCreated}</p>
-                    <p className="text-neutral-400 text-xs mt-1">Combos</p>
+                    <p className="text-neutral-400 text-xs mt-1">{t('menuTemplate.combos')}</p>
                   </div>
                 )}
               </div>
@@ -272,7 +274,7 @@ export default function TemplatePickerModal({ isOpen, onClose, onTemplateApplied
                 onClick={handleDone}
                 className="w-full py-3 bg-brand-600 hover:bg-brand-500 text-white font-semibold rounded-xl transition-colors text-sm"
               >
-                {isFirstSetup ? 'Continue to POS' : 'View Menu'}
+                {isFirstSetup ? t('menuTemplate.continueToPOS') : t('menuTemplate.viewMenu')}
               </button>
             </div>
           )}

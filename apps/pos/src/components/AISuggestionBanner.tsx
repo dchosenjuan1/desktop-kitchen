@@ -50,13 +50,13 @@ const AISuggestionBanner: React.FC<AISuggestionBannerProps> = ({
             </svg>
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-neutral-400 text-sm">{t('ai.lite.limit_reached', "You've used your 5 free AI insights today")}</p>
+            <p className="text-neutral-400 text-sm">{t('ai.lite.limit_reached')}</p>
           </div>
           <button
             onClick={() => navigate('/admin/account')}
             className="flex-shrink-0 px-3 py-1.5 bg-brand-600 text-white text-xs font-bold rounded-lg hover:bg-brand-700 transition-all"
           >
-            {t('ai.lite.unlock', 'Unlock unlimited')}
+            {t('ai.lite.unlock')}
           </button>
         </div>
       </div>
@@ -82,7 +82,7 @@ const AISuggestionBanner: React.FC<AISuggestionBannerProps> = ({
           {/* Message */}
           <div className="flex-1 min-w-0">
             <p className="text-white text-sm font-medium truncate">
-              {aiLite && <span className="text-brand-400 text-xs font-bold mr-1.5">{t('ai.lite.badge', 'AI Insight')}</span>}
+              {aiLite && <span className="text-brand-400 text-xs font-bold mr-1.5">{t('ai.lite.badge')}</span>}
               {suggestion.data.message}
             </p>
             {suggestion.data.savings && (

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import {
   ArrowLeft,
@@ -56,6 +57,7 @@ import ExperimentModal from '../components/pricing/ExperimentModal';
 type Tab = 'dashboard' | 'suggestions' | 'rules' | 'history' | 'guardrails' | 'experiments';
 
 export default function DynamicPricingScreen() {
+  const { t } = useTranslation('admin');
   const { limits } = usePlan();
   const dp = limits.dynamicPricing;
   const [activeTab, setActiveTab] = useState<Tab>('dashboard');
@@ -129,7 +131,7 @@ export default function DynamicPricingScreen() {
       if (err?.message?.includes('upgrade')) {
         setError(null);
       } else {
-        setError(err instanceof Error ? err.message : 'Failed to load data');
+        setError(err instanceof Error ? err.message : t('pricing.failedLoadData'));
       }
     } finally {
       setLoading(false);
@@ -145,7 +147,7 @@ export default function DynamicPricingScreen() {
       const result = await triggerPricingAnalysis();
       setGrokSuggestions(result.suggestions || []);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Analysis failed');
+      setError(err instanceof Error ? err.message : t('pricing.analysisFailed'));
     } finally {
       setAnalyzing(false);
     }
@@ -157,7 +159,7 @@ export default function DynamicPricingScreen() {
       setHeuristicSuggestions(prev => prev.filter(x => x.id !== s.id));
       setGrokSuggestions(prev => prev.filter(x => x.id !== s.id));
     } catch (err: any) {
-      setError(err?.violations?.join(', ') || err.message || 'Failed to apply');
+      setError(err?.violations?.join(', ') || err.message || t('pricing.failedApply'));
     }
   };
 
@@ -179,7 +181,7 @@ export default function DynamicPricingScreen() {
       setEditingRule(null);
       loadData();
     } catch (err) {
-      setError('Failed to save rule');
+      setError(t('pricing.failedSaveRule'));
     }
   };
 
@@ -200,7 +202,7 @@ export default function DynamicPricingScreen() {
       await revertPriceChange(id);
       loadData();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to revert');
+      setError(err instanceof Error ? err.message : t('pricing.failedRevert'));
     }
   };
 
@@ -209,7 +211,7 @@ export default function DynamicPricingScreen() {
     try {
       await updatePricingGuardrails(guardrails);
       setGuardrailDirty(false);
-    } catch { setError('Failed to save guardrails'); }
+    } catch { setError(t('pricing.failedSaveGuardrails')); }
   };
 
   const handleSaveExperiment = async (data: any) => {
@@ -217,16 +219,16 @@ export default function DynamicPricingScreen() {
       await createPricingExperiment(data);
       setShowExpModal(false);
       loadData();
-    } catch { setError('Failed to create experiment'); }
+    } catch { setError(t('pricing.failedCreateExperiment')); }
   };
 
   const tabs: { id: Tab; label: string; icon: React.ReactNode; feature?: keyof typeof dp }[] = [
-    { id: 'dashboard', label: 'Dashboard', icon: <TrendingUp size={18} /> },
-    { id: 'suggestions', label: 'AI Suggestions', icon: <Sparkles size={18} /> },
-    { id: 'rules', label: 'Pricing Rules', icon: <Clock size={18} />, feature: 'scheduledRules' },
-    { id: 'history', label: 'Price History', icon: <History size={18} />, feature: 'priceHistory' },
-    { id: 'guardrails', label: 'Guardrails', icon: <Shield size={18} />, feature: 'guardrails' },
-    { id: 'experiments', label: 'A/B Tests', icon: <FlaskConical size={18} />, feature: 'abTesting' },
+    { id: 'dashboard', label: t('pricing.tabs.dashboard'), icon: <TrendingUp size={18} /> },
+    { id: 'suggestions', label: t('pricing.tabs.suggestions'), icon: <Sparkles size={18} /> },
+    { id: 'rules', label: t('pricing.tabs.rules'), icon: <Clock size={18} />, feature: 'scheduledRules' },
+    { id: 'history', label: t('pricing.tabs.history'), icon: <History size={18} />, feature: 'priceHistory' },
+    { id: 'guardrails', label: t('pricing.tabs.guardrails'), icon: <Shield size={18} />, feature: 'guardrails' },
+    { id: 'experiments', label: t('pricing.tabs.experiments'), icon: <FlaskConical size={18} />, feature: 'abTesting' },
   ];
 
   // Gate: if no dynamic pricing access at all
@@ -235,7 +237,7 @@ export default function DynamicPricingScreen() {
       <div className="min-h-screen bg-neutral-950">
         <Header />
         <div className="max-w-7xl mx-auto p-6">
-          <UpgradePrompt variant="overlay" message="Dynamic Pricing is available on the Pro plan. Optimize your menu prices with AI." />
+          <UpgradePrompt variant="overlay" message={t('pricing.upgradeOverlay')} />
         </div>
       </div>
     );
@@ -261,7 +263,7 @@ export default function DynamicPricingScreen() {
               {tab.icon}
               {tab.label}
               {tab.feature && !dp[tab.feature] && (
-                <span className="text-[10px] bg-neutral-700 text-neutral-400 px-1.5 py-0.5 rounded-full ml-1">PRO+</span>
+                <span className="text-[10px] bg-neutral-700 text-neutral-400 px-1.5 py-0.5 rounded-full ml-1">{t('pricing.proPlus')}</span>
               )}
             </button>
           ))}
@@ -308,7 +310,7 @@ export default function DynamicPricingScreen() {
                   onToggle={async (id, active) => { await updatePricingRule(id, { active }); loadData(); }}
                 />
               ) : (
-                <UpgradePrompt message="Scheduled Pricing Rules are available on the Pro plan." />
+                <UpgradePrompt message={t('pricing.upgradeRules')} />
               )
             )}
 
@@ -324,7 +326,7 @@ export default function DynamicPricingScreen() {
                   onRevert={handleRevert}
                 />
               ) : (
-                <UpgradePrompt message="Price History is available on the Pro plan." />
+                <UpgradePrompt message={t('pricing.upgradeHistory')} />
               )
             )}
 
@@ -338,7 +340,7 @@ export default function DynamicPricingScreen() {
                   onSave={handleSaveGuardrails}
                 />
               ) : (
-                <UpgradePrompt message="Pricing Guardrails are available on the Pro plan." />
+                <UpgradePrompt message={t('pricing.upgradeGuardrails')} />
               )
             )}
 
@@ -352,7 +354,7 @@ export default function DynamicPricingScreen() {
                   onCreate={() => setShowExpModal(true)}
                 />
               ) : (
-                <UpgradePrompt message="A/B Price Testing is available on the Ghost Kitchen plan." />
+                <UpgradePrompt message={t('pricing.upgradeExperiments')} />
               )
             )}
           </>
@@ -384,6 +386,7 @@ export default function DynamicPricingScreen() {
 }
 
 function Header() {
+  const { t } = useTranslation('admin');
   return (
     <div className="bg-neutral-900 text-white p-6 border-b border-neutral-800">
       <div className="flex items-center gap-4">
@@ -392,8 +395,8 @@ function Header() {
         </Link>
         <TrendingUp className="text-brand-500" size={28} />
         <div>
-          <h1 className="text-3xl font-black tracking-tighter">Dynamic Pricing</h1>
-          <p className="text-neutral-400 text-sm">AI-powered price optimization</p>
+          <h1 className="text-3xl font-black tracking-tighter">{t('pricing.screenTitle')}</h1>
+          <p className="text-neutral-400 text-sm">{t('pricing.screenSubtitle')}</p>
         </div>
       </div>
     </div>

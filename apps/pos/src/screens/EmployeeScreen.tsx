@@ -205,7 +205,7 @@ export default function EmployeeScreen() {
           <div className="flex items-center gap-4">
             {limits.employees !== Infinity && (
               <span className="text-sm text-neutral-400">
-                {employees.filter(e => e.active).length} / {limits.employees} employees
+                {employees.filter(e => e.active).length} / {limits.employees} {t('employees.employeesCount')}
               </span>
             )}
             <button
@@ -224,7 +224,7 @@ export default function EmployeeScreen() {
       <div className="max-w-7xl mx-auto p-6">
         {isAtLimit('employees', employees.filter(e => e.active).length) && (
           <div className="mb-6">
-            <UpgradePrompt message={`Employee limit reached (${limits.employees}). Upgrade for unlimited employees.`} />
+            <UpgradePrompt message={t('employees.limitReached', { limit: limits.employees })} />
           </div>
         )}
         {error && (

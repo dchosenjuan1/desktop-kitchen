@@ -194,6 +194,19 @@
     "cancel": "Cancel",
     "termsTitle": "Data Processing Terms"
   },
+  "errors": {
+    "failedLoad": "Failed to load financing data",
+    "failedSubmitConsent": "Failed to submit consent",
+    "failedAcceptOffer": "Failed to accept offer",
+    "failedDeclineOffer": "Failed to decline offer",
+    "failedRevokeConsent": "Failed to revoke consent"
+  },
+  "eligibility": {
+    "eligible": "Eligible",
+    "preEligible": "Pre-Eligible",
+    "ineligible": "Ineligible",
+    "new": "New"
+  },
   "registration": {
     "consentHeadline": "Want access to working capital?",
     "consentDescription": "Let us analyze your sales data to determine eligibility for funding.",

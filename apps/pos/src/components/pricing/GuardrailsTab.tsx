@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { Shield, X } from 'lucide-react';
 import { PricingGuardrails, MenuItem } from '../../types';
 
@@ -9,6 +10,8 @@ export default function GuardrailsTab({ guardrails, menuItems, dirty, onChange, 
   onChange: (g: PricingGuardrails) => void;
   onSave: () => void;
 }) {
+  const { t } = useTranslation('admin');
+
   if (!guardrails) return null;
 
   const update = (field: string, value: any) => {
@@ -20,16 +23,16 @@ export default function GuardrailsTab({ guardrails, menuItems, dirty, onChange, 
       <div className="flex items-center justify-between">
         <h3 className="text-lg font-bold text-white flex items-center gap-2">
           <Shield size={20} className="text-brand-500" />
-          Pricing Guardrails
+          {t('pricing.guardrails')}
         </h3>
         <div className="flex items-center gap-3">
-          <span className="text-neutral-500 text-sm">Changes today: {guardrails.today_changes || 0}/{guardrails.max_daily_changes}</span>
+          <span className="text-neutral-500 text-sm">{t('pricing.changesToday')} {guardrails.today_changes || 0}/{guardrails.max_daily_changes}</span>
           <button
             onClick={onSave}
             disabled={!dirty}
             className="px-4 py-2 bg-brand-600 text-white rounded-lg font-medium hover:bg-brand-700 transition-colors disabled:opacity-50"
           >
-            {dirty ? 'Save Changes' : 'Saved'}
+            {dirty ? t('pricing.saveChanges') : t('pricing.saved')}
           </button>
         </div>
       </div>
@@ -37,7 +40,7 @@ export default function GuardrailsTab({ guardrails, menuItems, dirty, onChange, 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Max Discount */}
         <div className="bg-neutral-900 p-6 rounded-lg border border-neutral-800">
-          <label className="block text-sm font-medium text-neutral-300 mb-2">Max Discount</label>
+          <label className="block text-sm font-medium text-neutral-300 mb-2">{t('pricing.maxDiscount')}</label>
           <div className="flex items-center gap-4">
             <input
               type="range"
@@ -53,7 +56,7 @@ export default function GuardrailsTab({ guardrails, menuItems, dirty, onChange, 
 
         {/* Max Markup */}
         <div className="bg-neutral-900 p-6 rounded-lg border border-neutral-800">
-          <label className="block text-sm font-medium text-neutral-300 mb-2">Max Markup</label>
+          <label className="block text-sm font-medium text-neutral-300 mb-2">{t('pricing.maxMarkup')}</label>
           <div className="flex items-center gap-4">
             <input
               type="range"
@@ -69,7 +72,7 @@ export default function GuardrailsTab({ guardrails, menuItems, dirty, onChange, 
 
         {/* Max Daily Changes */}
         <div className="bg-neutral-900 p-6 rounded-lg border border-neutral-800">
-          <label className="block text-sm font-medium text-neutral-300 mb-2">Max Daily Changes</label>
+          <label className="block text-sm font-medium text-neutral-300 mb-2">{t('pricing.maxDailyChanges')}</label>
           <input
             type="number"
             value={guardrails.max_daily_changes}
@@ -80,7 +83,7 @@ export default function GuardrailsTab({ guardrails, menuItems, dirty, onChange, 
 
         {/* Approval Threshold */}
         <div className="bg-neutral-900 p-6 rounded-lg border border-neutral-800">
-          <label className="block text-sm font-medium text-neutral-300 mb-2">Require Approval Above</label>
+          <label className="block text-sm font-medium text-neutral-300 mb-2">{t('pricing.requireApprovalAbove')}</label>
           <div className="flex items-center gap-4">
             <input
               type="range"
@@ -96,7 +99,7 @@ export default function GuardrailsTab({ guardrails, menuItems, dirty, onChange, 
 
         {/* Cooldown Hours */}
         <div className="bg-neutral-900 p-6 rounded-lg border border-neutral-800">
-          <label className="block text-sm font-medium text-neutral-300 mb-2">Cooldown Between Changes (hours)</label>
+          <label className="block text-sm font-medium text-neutral-300 mb-2">{t('pricing.cooldownHours')}</label>
           <input
             type="number"
             value={guardrails.cooldown_hours}
@@ -107,12 +110,12 @@ export default function GuardrailsTab({ guardrails, menuItems, dirty, onChange, 
 
         {/* Notification Email */}
         <div className="bg-neutral-900 p-6 rounded-lg border border-neutral-800">
-          <label className="block text-sm font-medium text-neutral-300 mb-2">Notification Email</label>
+          <label className="block text-sm font-medium text-neutral-300 mb-2">{t('pricing.notificationEmail')}</label>
           <input
             type="email"
             value={guardrails.notification_email || ''}
             onChange={e => update('notification_email', e.target.value)}
-            placeholder="alert@example.com"
+            placeholder={t('pricing.emailPlaceholder')}
             className="w-full px-3 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white placeholder-neutral-600"
           />
         </div>
@@ -120,7 +123,7 @@ export default function GuardrailsTab({ guardrails, menuItems, dirty, onChange, 
 
       {/* Protected Items */}
       <div className="bg-neutral-900 p-6 rounded-lg border border-neutral-800">
-        <label className="block text-sm font-medium text-neutral-300 mb-3">Protected Items (cannot be auto-changed)</label>
+        <label className="block text-sm font-medium text-neutral-300 mb-3">{t('pricing.protectedItems')}</label>
         <div className="flex flex-wrap gap-2 mb-3">
           {(guardrails.protected_item_ids || []).map(id => {
             const item = menuItems.find(m => m.id === id);
@@ -144,7 +147,7 @@ export default function GuardrailsTab({ guardrails, menuItems, dirty, onChange, 
           }}
           className="px-3 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white text-sm"
         >
-          <option value="">Add item...</option>
+          <option value="">{t('pricing.addItem')}</option>
           {menuItems.filter(m => m.active && !(guardrails.protected_item_ids || []).includes(m.id)).map(m => (
             <option key={m.id} value={m.id}>{m.name}</option>
           ))}

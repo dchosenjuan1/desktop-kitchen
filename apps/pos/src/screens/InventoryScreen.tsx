@@ -512,7 +512,7 @@ export default function InventoryScreen() {
             <h1 className="text-3xl font-black tracking-tighter">{t('inventory.title')}</h1>
             {limits.inventoryItems !== Infinity && (
               <span className="text-sm text-neutral-400 ml-3">
-                {items.length} / {limits.inventoryItems} items
+                {items.length} / {limits.inventoryItems} {t('itemsCount')}
               </span>
             )}
           </div>

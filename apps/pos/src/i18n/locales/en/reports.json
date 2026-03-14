@@ -16,7 +16,17 @@
       "delivery": "Delivery",
       "fees": "Fees",
       "refunds": "Refunds",
-      "financials": "Financials"
+      "financials": "Financials",
+      "menuEngineering": "Menu Engineering"
+    },
+    "csvHeaders": {
+      "metric": "Metric",
+      "value": "Value",
+      "period": "Period",
+      "totalRevenue": "Total Revenue",
+      "orderCount": "Order Count",
+      "avgTicket": "Avg Ticket",
+      "totalTips": "Total Tips"
     },
     "kpi": {
       "totalRevenue": "Total Revenue",
@@ -318,6 +328,57 @@
       "referralBonusStamps": "Referral Bonus Stamps",
       "smsNotifications": "SMS Notifications"
     }
+  },
+  "menuEngineering": {
+    "classifications": {
+      "star": "Star",
+      "workhorse": "Workhorse",
+      "puzzle": "Puzzle",
+      "dog": "Dog"
+    },
+    "tooltip": {
+      "price": "Price:",
+      "cost": "Cost:",
+      "margin": "Margin:",
+      "sold": "Sold:",
+      "popularity": "Popularity:",
+      "classification": "Classification:"
+    },
+    "summary": {
+      "totalRevenue": "Total Revenue:",
+      "totalContribution": "Total Contribution:",
+      "avgMargin": "Avg Margin:",
+      "itemsAnalyzed": "Items Analyzed:"
+    },
+    "matrixTitle": "Menu Engineering Matrix",
+    "matrixDesc": "Each dot represents a product. X axis = popularity, Y axis = contribution margin.",
+    "popularityLabel": "Popularity (%)",
+    "marginLabel": "Margin (MXN)",
+    "popularityThreshold": "Popularity threshold",
+    "marginThreshold": "Margin threshold",
+    "recommendations": "Recommendations",
+    "detailTitle": "Detail by Product",
+    "filtering": "filtering:",
+    "sortBy": "Sort:",
+    "sortOptions": {
+      "totalContribution": "Total Contribution",
+      "unitMargin": "Unit Margin",
+      "popularity": "Popularity",
+      "unitsSold": "Units Sold"
+    },
+    "columns": {
+      "product": "Product",
+      "category": "Category",
+      "classification": "Classification",
+      "price": "Price",
+      "cost": "Cost",
+      "margin": "Margin",
+      "marginPercent": "Margin %",
+      "sold": "Sold",
+      "popularity": "Popularity",
+      "contribution": "Contribution"
+    },
+    "ofMenu": "of menu"
   },
   "errors": {
     "fetchReports": "Failed to fetch reports",

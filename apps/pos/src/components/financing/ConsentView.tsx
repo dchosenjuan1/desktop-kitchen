@@ -24,7 +24,7 @@ const ConsentView: React.FC<ConsentViewProps> = ({ onConsent }) => {
       await postFinancingConsent(['financial_data_analysis', 'financing_offers']);
       onConsent();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to submit consent');
+      setError(err instanceof Error ? err.message : t('errors.failedSubmitConsent'));
     } finally {
       setSubmitting(false);
     }

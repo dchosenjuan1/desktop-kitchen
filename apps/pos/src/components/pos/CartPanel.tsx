@@ -102,7 +102,7 @@ export default function CartPanel({
               <span className="bg-amber-600 text-white text-xs font-bold px-2 py-0.5 rounded-full">
                 {unpaidOrders.length}
               </span>
-              <span className="text-amber-200 font-bold text-sm">Pedidos por cobrar</span>
+              <span className="text-amber-200 font-bold text-sm">{t('cart.unpaidOrders')}</span>
             </div>
             <span className="text-amber-400 text-xs">{showUnpaidOrders ? '\u25B2' : '\u25BC'}</span>
           </button>
@@ -121,7 +121,7 @@ export default function CartPanel({
                     onClick={() => onCobrar(order)}
                     className="px-3 py-1.5 bg-brand-600 text-white text-xs font-bold rounded-lg hover:bg-brand-700 transition-all"
                   >
-                    Cobrar
+                    {t('cart.charge')}
                   </button>
                 </div>
               ))}

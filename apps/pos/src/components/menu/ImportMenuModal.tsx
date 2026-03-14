@@ -1,4 +1,5 @@
 import React, { useState, useRef, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { X, Loader2, Check, Upload, FileText, AlertTriangle, Download } from 'lucide-react';
 import { previewMenuCSV, commitMenuCSV } from '../../api';
 import { CSVImportPreview, MenuImportStats } from '../../types';
@@ -22,6 +23,7 @@ function generateExampleCSV(): string {
 }
 
 export default function ImportMenuModal({ isOpen, onClose, onImportComplete }: Props) {
+  const { t } = useTranslation('admin');
   const [step, setStep] = useState<Step>('upload');
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<CSVImportPreview | null>(null);
@@ -52,7 +54,7 @@ export default function ImportMenuModal({ isOpen, onClose, onImportComplete }: P
       setPreview(result);
       setStep('preview');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to parse CSV');
+      setError(err instanceof Error ? err.message : t('menuImport.failedParse'));
     }
   }, []);
 
@@ -72,7 +74,7 @@ export default function ImportMenuModal({ isOpen, onClose, onImportComplete }: P
       setStats(result);
       setStep('done');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to import CSV');
+      setError(err instanceof Error ? err.message : t('menuImport.failedImport'));
       setStep('preview');
     }
   };
@@ -105,10 +107,10 @@ export default function ImportMenuModal({ isOpen, onClose, onImportComplete }: P
         {/* Header */}
         <div className="sticky top-0 bg-neutral-900 border-b border-neutral-800 px-6 py-4 flex items-center justify-between z-10">
           <h2 className="text-lg font-bold text-white">
-            {step === 'upload' && 'Import Menu from CSV'}
-            {step === 'preview' && 'Preview Import'}
-            {step === 'importing' && 'Importing...'}
-            {step === 'done' && 'Import Complete!'}
+            {step === 'upload' && t('menuImport.title')}
+            {step === 'preview' && t('menuImport.previewTitle')}
+            {step === 'importing' && t('menuImport.importing')}
+            {step === 'done' && t('menuImport.importComplete')}
           </h2>
           <button onClick={handleClose} className="p-2 hover:bg-neutral-800 rounded-lg transition-colors">
             <X size={18} className="text-neutral-400" />
@@ -132,10 +134,10 @@ export default function ImportMenuModal({ isOpen, onClose, onImportComplete }: P
               >
                 <Upload size={36} className="mx-auto text-neutral-500 mb-4" />
                 <p className="text-white font-medium mb-1">
-                  Drop your CSV file here
+                  {t('menuImport.dropFile')}
                 </p>
                 <p className="text-neutral-400 text-sm">
-                  or click to browse (max 5MB)
+                  {t('menuImport.orClickBrowse')}
                 </p>
                 <input
                   ref={fileInputRef}
@@ -158,10 +160,10 @@ export default function ImportMenuModal({ isOpen, onClose, onImportComplete }: P
                   onClick={handleDownloadExample}
                   className="flex items-center gap-2 text-brand-400 hover:text-brand-300 text-sm font-medium transition-colors"
                 >
-                  <Download size={14} /> Download example CSV
+                  <Download size={14} /> {t('menuImport.downloadExample')}
                 </button>
                 <p className="text-neutral-500 text-xs">
-                  Supports Square, Toast, and Clover exports
+                  {t('menuImport.supportsExports')}
                 </p>
               </div>
             </div>
@@ -174,17 +176,17 @@ export default function ImportMenuModal({ isOpen, onClose, onImportComplete }: P
               <div className="flex gap-4">
                 <div className="flex-1 bg-neutral-800/60 rounded-lg p-3 text-center">
                   <p className="text-2xl font-bold text-brand-400">{preview.valid_count}</p>
-                  <p className="text-neutral-400 text-xs mt-1">Valid items</p>
+                  <p className="text-neutral-400 text-xs mt-1">{t('menuImport.validItems')}</p>
                 </div>
                 {preview.invalid_count > 0 && (
                   <div className="flex-1 bg-neutral-800/60 rounded-lg p-3 text-center">
                     <p className="text-2xl font-bold text-amber-400">{preview.invalid_count}</p>
-                    <p className="text-neutral-400 text-xs mt-1">Skipped rows</p>
+                    <p className="text-neutral-400 text-xs mt-1">{t('menuImport.skippedRows')}</p>
                   </div>
                 )}
                 <div className="flex-1 bg-neutral-800/60 rounded-lg p-3 text-center">
                   <p className="text-2xl font-bold text-neutral-300">{preview.detected_categories.length}</p>
-                  <p className="text-neutral-400 text-xs mt-1">Categories</p>
+                  <p className="text-neutral-400 text-xs mt-1">{t('menuImport.categories')}</p>
                 </div>
               </div>
 
@@ -198,7 +200,7 @@ export default function ImportMenuModal({ isOpen, onClose, onImportComplete }: P
 
               {/* Column mapping */}
               <div>
-                <h4 className="text-neutral-300 text-sm font-medium mb-2">Detected columns:</h4>
+                <h4 className="text-neutral-300 text-sm font-medium mb-2">{t('menuImport.detectedColumns')}</h4>
                 <div className="flex flex-wrap gap-2">
                   {Object.entries(preview.column_mapping).map(([key, col]) => (
                     <span key={key} className="px-2.5 py-1 bg-brand-900/30 text-brand-400 text-xs rounded-md font-medium">
@@ -210,7 +212,7 @@ export default function ImportMenuModal({ isOpen, onClose, onImportComplete }: P
 
               {/* Categories */}
               <div>
-                <h4 className="text-neutral-300 text-sm font-medium mb-2">Categories to create:</h4>
+                <h4 className="text-neutral-300 text-sm font-medium mb-2">{t('menuImport.categoriesToCreate')}</h4>
                 <div className="flex flex-wrap gap-2">
                   {preview.detected_categories.map(c => (
                     <span key={c} className="px-2.5 py-1 bg-neutral-800 text-neutral-300 text-xs rounded-md">
@@ -222,14 +224,14 @@ export default function ImportMenuModal({ isOpen, onClose, onImportComplete }: P
 
               {/* Preview table */}
               <div>
-                <h4 className="text-neutral-300 text-sm font-medium mb-2">Preview (first 10 rows):</h4>
+                <h4 className="text-neutral-300 text-sm font-medium mb-2">{t('menuImport.previewRows')}</h4>
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="border-b border-neutral-700">
-                        <th className="text-left py-2 pr-3 text-neutral-400 font-medium">Name</th>
-                        <th className="text-right py-2 px-3 text-neutral-400 font-medium">Price</th>
-                        <th className="text-left py-2 px-3 text-neutral-400 font-medium">Category</th>
+                        <th className="text-left py-2 pr-3 text-neutral-400 font-medium">{t('menuImport.colName')}</th>
+                        <th className="text-right py-2 px-3 text-neutral-400 font-medium">{t('menuImport.colPrice')}</th>
+                        <th className="text-left py-2 px-3 text-neutral-400 font-medium">{t('menuImport.colCategory')}</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -251,7 +253,7 @@ export default function ImportMenuModal({ isOpen, onClose, onImportComplete }: P
                   <div className="flex items-start gap-2">
                     <AlertTriangle size={14} className="text-amber-400 flex-shrink-0 mt-0.5" />
                     <div className="text-sm text-amber-300">
-                      <p className="font-medium mb-1">{preview.invalid_count} rows will be skipped:</p>
+                      <p className="font-medium mb-1">{t('menuImport.rowsSkipped', { count: preview.invalid_count })}</p>
                       {preview.invalid_rows.slice(0, 3).map((r, i) => (
                         <p key={i} className="text-xs text-amber-400/80">
                           Row {r.row}: {r.reason}
@@ -271,13 +273,13 @@ export default function ImportMenuModal({ isOpen, onClose, onImportComplete }: P
                   onClick={reset}
                   className="flex-1 py-3 border border-neutral-700 text-neutral-300 font-medium rounded-xl hover:bg-neutral-800 transition-colors text-sm"
                 >
-                  Choose Different File
+                  {t('menuImport.chooseDifferentFile')}
                 </button>
                 <button
                   onClick={handleCommit}
                   className="flex-1 py-3 bg-brand-600 hover:bg-brand-500 text-white font-semibold rounded-xl transition-colors text-sm"
                 >
-                  Import {preview.valid_count} Items
+                  {t('menuImport.importItems', { count: preview.valid_count })}
                 </button>
               </div>
             </div>
@@ -287,7 +289,7 @@ export default function ImportMenuModal({ isOpen, onClose, onImportComplete }: P
           {step === 'importing' && (
             <div className="flex flex-col items-center justify-center py-16">
               <Loader2 size={36} className="text-brand-500 animate-spin mb-4" />
-              <p className="text-neutral-300 text-sm">Importing your menu items...</p>
+              <p className="text-neutral-300 text-sm">{t('menuImport.importingItems')}</p>
             </div>
           )}
 
@@ -299,23 +301,23 @@ export default function ImportMenuModal({ isOpen, onClose, onImportComplete }: P
                   <Check size={32} className="text-brand-400" />
                 </div>
               </div>
-              <h3 className="text-white text-xl font-bold text-center">Import complete!</h3>
+              <h3 className="text-white text-xl font-bold text-center">{t('menuImport.importComplete')}</h3>
 
               <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                 {stats.categoriesCreated > 0 && (
                   <div className="bg-neutral-800/60 rounded-lg p-3 text-center">
                     <p className="text-2xl font-bold text-brand-400">{stats.categoriesCreated}</p>
-                    <p className="text-neutral-400 text-xs mt-1">Categories</p>
+                    <p className="text-neutral-400 text-xs mt-1">{t('menuImport.categories')}</p>
                   </div>
                 )}
                 <div className="bg-neutral-800/60 rounded-lg p-3 text-center">
                   <p className="text-2xl font-bold text-brand-400">{stats.itemsCreated}</p>
-                  <p className="text-neutral-400 text-xs mt-1">Items Created</p>
+                  <p className="text-neutral-400 text-xs mt-1">{t('menuImport.itemsCreated')}</p>
                 </div>
                 {stats.inventoryCreated > 0 && (
                   <div className="bg-neutral-800/60 rounded-lg p-3 text-center">
                     <p className="text-2xl font-bold text-brand-400">{stats.inventoryCreated}</p>
-                    <p className="text-neutral-400 text-xs mt-1">Ingredients</p>
+                    <p className="text-neutral-400 text-xs mt-1">{t('menuImport.ingredients')}</p>
                   </div>
                 )}
               </div>
@@ -334,7 +336,7 @@ export default function ImportMenuModal({ isOpen, onClose, onImportComplete }: P
                 onClick={handleDone}
                 className="w-full py-3 bg-brand-600 hover:bg-brand-500 text-white font-semibold rounded-xl transition-colors text-sm"
               >
-                Go to Menu
+                {t('menuImport.goToMenu')}
               </button>
             </div>
           )}

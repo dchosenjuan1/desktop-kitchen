@@ -16,7 +16,17 @@
       "delivery": "Delivery",
       "fees": "Comisiones",
       "refunds": "Reembolsos",
-      "financials": "Finanzas"
+      "financials": "Finanzas",
+      "menuEngineering": "Ingeniería de Menú"
+    },
+    "csvHeaders": {
+      "metric": "Métrica",
+      "value": "Valor",
+      "period": "Período",
+      "totalRevenue": "Ventas Totales",
+      "orderCount": "Cantidad de Órdenes",
+      "avgTicket": "Ticket Promedio",
+      "totalTips": "Propinas Totales"
     },
     "kpi": {
       "totalRevenue": "Ventas Totales",
@@ -318,6 +328,57 @@
       "referralBonusStamps": "Sellos de Bono por Referido",
       "smsNotifications": "Notificaciones SMS"
     }
+  },
+  "menuEngineering": {
+    "classifications": {
+      "star": "Estrella",
+      "workhorse": "Caballo",
+      "puzzle": "Rompecabezas",
+      "dog": "Perro"
+    },
+    "tooltip": {
+      "price": "Precio:",
+      "cost": "Costo:",
+      "margin": "Margen:",
+      "sold": "Vendidos:",
+      "popularity": "Popularidad:",
+      "classification": "Clasificación:"
+    },
+    "summary": {
+      "totalRevenue": "Ingreso total:",
+      "totalContribution": "Contribución total:",
+      "avgMargin": "Margen promedio:",
+      "itemsAnalyzed": "Productos analizados:"
+    },
+    "matrixTitle": "Matriz de Ingeniería de Menú",
+    "matrixDesc": "Cada punto representa un producto. Eje X = popularidad, Eje Y = margen de contribución.",
+    "popularityLabel": "Popularidad (%)",
+    "marginLabel": "Margen (MXN)",
+    "popularityThreshold": "Umbral popularidad",
+    "marginThreshold": "Umbral margen",
+    "recommendations": "Recomendaciones",
+    "detailTitle": "Detalle por Producto",
+    "filtering": "filtrando:",
+    "sortBy": "Ordenar:",
+    "sortOptions": {
+      "totalContribution": "Contribución total",
+      "unitMargin": "Margen unitario",
+      "popularity": "Popularidad",
+      "unitsSold": "Unidades vendidas"
+    },
+    "columns": {
+      "product": "Producto",
+      "category": "Categoría",
+      "classification": "Clasificación",
+      "price": "Precio",
+      "cost": "Costo",
+      "margin": "Margen",
+      "marginPercent": "Margen %",
+      "sold": "Vendidos",
+      "popularity": "Popularidad",
+      "contribution": "Contribución"
+    },
+    "ofMenu": "del menú"
   },
   "errors": {
     "fetchReports": "Error al cargar reportes",

@@ -14,6 +14,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { Check, ArrowRight, Loader2, Tag, X, Sparkles, ChefHat, ChevronRight, LogIn, KeyRound } from 'lucide-react';
 import { useBranding } from '../context/BrandingContext';
 import { redirectToTenant, tenantUrl } from '../lib/tenantResolver';
@@ -42,6 +43,7 @@ const validateEmail = (v: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
 
 /* ─── Component ──────────────────────────────────────────────────────────── */
 const OnboardingScreen: React.FC = () => {
+  const { t } = useTranslation('common');
   const navigate = useNavigate();
   const location = useLocation();
   const { refresh: refreshBranding } = useBranding();
@@ -97,7 +99,7 @@ const OnboardingScreen: React.FC = () => {
       setPromoInput(code);
       setPromoCode(code);
       setPromoState('valid');
-      setPromoDescription('Discount applied from campaign link');
+      setPromoDescription(t('onboarding.discountFromCampaign'));
     }
 
     // Auto-focus first empty field
@@ -106,9 +108,9 @@ const OnboardingScreen: React.FC = () => {
 
   /* Real-time validation */
   const validateField = (name: keyof FormData, value: string): string => {
-    if (name === 'restaurant_name') return value.trim() ? '' : 'Required';
-    if (name === 'email') return validateEmail(value) ? '' : 'Enter a valid email';
-    if (name === 'password') return value.length >= 8 ? '' : 'At least 8 characters';
+    if (name === 'restaurant_name') return value.trim() ? '' : t('onboarding.required');
+    if (name === 'email') return validateEmail(value) ? '' : t('onboarding.validEmail');
+    if (name === 'password') return value.length >= 8 ? '' : t('onboarding.atLeast8Chars');
     return '';
   };
 
@@ -137,14 +139,14 @@ const OnboardingScreen: React.FC = () => {
       if (result.valid) {
         setPromoState('valid');
         setPromoCode(result.code || code);
-        setPromoDescription(result.discount_description || 'Discount applied');
+        setPromoDescription(result.discount_description || t('onboarding.discountApplied'));
       } else {
         setPromoState('invalid');
-        setPromoError(result.message || 'Invalid or expired code');
+        setPromoError(result.message || t('onboarding.invalidCode'));
       }
     } catch {
       setPromoState('invalid');
-      setPromoError('Error validating code');
+      setPromoError(t('onboarding.errorValidatingCode'));
     }
   };
 
@@ -205,7 +207,7 @@ const OnboardingScreen: React.FC = () => {
           setIsSubmitting(false);
           return;
         }
-        throw new Error(result.error || 'Registration failed');
+        throw new Error(result.error || t('onboarding.registrationFailed'));
       }
 
       if (result.pin) setGeneratedPin(result.pin);
@@ -219,7 +221,7 @@ const OnboardingScreen: React.FC = () => {
       setIsDone(true);
       setPostStep('success');
     } catch (err) {
-      setSubmitError(err instanceof Error ? err.message : 'Something went wrong');
+      setSubmitError(err instanceof Error ? err.message : t('onboarding.somethingWentWrong'));
     } finally {
       setIsSubmitting(false);
     }
@@ -258,11 +260,11 @@ const OnboardingScreen: React.FC = () => {
     }
   };
 
-  const handlePickTemplate = async (t: MenuTemplateOption) => {
+  const handlePickTemplate = async (tmpl: MenuTemplateOption) => {
     setPostStep('applying');
     try {
       const token = ownerToken || localStorage.getItem('owner_token') || '';
-      const result = await applyMenuTemplateAsOwner(t.id, token, 'replace');
+      const result = await applyMenuTemplateAsOwner(tmpl.id, token, 'replace');
       setTemplateStats(result);
       setPostStep('done');
       setTimeout(handleGoToPOS, 2500);
@@ -289,7 +291,7 @@ const OnboardingScreen: React.FC = () => {
       setPostStep('ai-done');
       setTimeout(handleGoToPOS, 2500);
     } catch (err) {
-      setAiError(err instanceof Error ? err.message : 'Failed to build menu');
+      setAiError(err instanceof Error ? err.message : t('onboarding.somethingWentWrong'));
       setPostStep('ai-input');
     }
   };
@@ -305,41 +307,41 @@ const OnboardingScreen: React.FC = () => {
               <div style={styles.successIcon}>
                 <Check size={32} color="#fff" strokeWidth={3} />
               </div>
-              <h1 style={styles.successTitle}>You're live!</h1>
+              <h1 style={styles.successTitle}>{t('onboarding.youreLive')}</h1>
               <p style={styles.successSub}>
-                <strong style={{ color: '#f0fdf4' }}>{form.restaurant_name}</strong> is ready to take orders.
+                <strong style={{ color: '#f0fdf4' }}>{form.restaurant_name}</strong> {t('onboarding.readyToTakeOrders')}
               </p>
 
               <div style={styles.pinBlock}>
-                <p style={styles.pinLabel}>Your staff login PIN</p>
+                <p style={styles.pinLabel}>{t('onboarding.staffLoginPin')}</p>
                 <div style={styles.pinRow}>
                   {(generatedPin || '----').split('').map((d, i) => (
                     <div key={i} style={styles.pinDigit}>{d}</div>
                   ))}
                 </div>
                 <button style={styles.copyBtn} onClick={handleCopyPin}>
-                  {pinCopied ? <><Check size={13} /> Copied!</> : 'Copy PIN'}
+                  {pinCopied ? <><Check size={13} /> {t('onboarding.copied')}</> : t('onboarding.copyPin')}
                 </button>
                 <p style={styles.pinHint}>
-                  Also sent to <span style={{ color: '#86efac' }}>{form.email}</span>
+                  {t('onboarding.alsoSentTo')} <span style={{ color: '#86efac' }}>{form.email}</span>
                 </p>
               </div>
 
               {tenantSubdomain && (
                 <div style={styles.urlBlock}>
-                  <p style={styles.urlLabel}>Your POS URL</p>
+                  <p style={styles.urlLabel}>{t('onboarding.posUrl')}</p>
                   <p style={styles.urlValue}>{tenantUrl(tenantSubdomain).replace('https://', '')}</p>
                 </div>
               )}
 
               <button style={styles.primaryBtn} onClick={handleSetupMenu}>
-                <Sparkles size={16} /> Set Up My Menu
+                <Sparkles size={16} /> {t('onboarding.setUpMenu')}
               </button>
               <button
                 style={{ ...styles.primaryBtn, background: 'transparent', border: '1px solid #333', color: '#9ca3af', marginTop: 8 }}
                 onClick={handleGoToPOS}
               >
-                Skip for now <ArrowRight size={16} />
+                {t('onboarding.skipForNow')} <ArrowRight size={16} />
               </button>
             </>
           )}
@@ -347,9 +349,9 @@ const OnboardingScreen: React.FC = () => {
           {/* Step: Template picker */}
           {postStep === 'template' && (
             <>
-              <h1 style={{ ...styles.successTitle, fontSize: 22, marginBottom: 4 }}>What type of restaurant?</h1>
+              <h1 style={{ ...styles.successTitle, fontSize: 22, marginBottom: 4 }}>{t('onboarding.whatType')}</h1>
               <p style={{ ...styles.successSub, marginBottom: 20 }}>
-                Pick a template to auto-fill your menu, inventory & recipes.
+                {t('onboarding.pickTemplate')}
               </p>
 
               {templateLoading ? (
@@ -358,10 +360,10 @@ const OnboardingScreen: React.FC = () => {
                 </div>
               ) : (
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-                  {templates.map(t => (
+                  {templates.map(tmpl => (
                     <button
-                      key={t.id}
-                      onClick={() => handlePickTemplate(t)}
+                      key={tmpl.id}
+                      onClick={() => handlePickTemplate(tmpl)}
                       style={{
                         background: '#1a1a1a',
                         border: '1px solid #2a2a2a',
@@ -374,9 +376,9 @@ const OnboardingScreen: React.FC = () => {
                       onMouseEnter={e => (e.currentTarget.style.borderColor = '#0d9488')}
                       onMouseLeave={e => (e.currentTarget.style.borderColor = '#2a2a2a')}
                     >
-                      <div style={{ fontSize: 28, marginBottom: 6 }}>{TEMPLATE_ICONS[t.icon] || '\uD83C\uDF7D\uFE0F'}</div>
-                      <div style={{ color: '#fff', fontSize: 14, fontWeight: 600, marginBottom: 2 }}>{t.name}</div>
-                      <div style={{ color: '#6b7280', fontSize: 11 }}>{t.item_count} items &middot; {t.category_count} categories</div>
+                      <div style={{ fontSize: 28, marginBottom: 6 }}>{TEMPLATE_ICONS[tmpl.icon] || '\uD83C\uDF7D\uFE0F'}</div>
+                      <div style={{ color: '#fff', fontSize: 14, fontWeight: 600, marginBottom: 2 }}>{tmpl.name}</div>
+                      <div style={{ color: '#6b7280', fontSize: 11 }}>{tmpl.item_count} {t('onboarding.items')} &middot; {tmpl.category_count} {t('onboarding.categories')}</div>
                     </button>
                   ))}
                 </div>
@@ -386,14 +388,14 @@ const OnboardingScreen: React.FC = () => {
                 onClick={() => { setPostStep('ai-input'); setAiText(''); setAiError(''); }}
                 style={{ width: '100%', background: 'none', border: 'none', color: '#0d9488', cursor: 'pointer', fontSize: 13, padding: '10px 0 2px', fontWeight: 500, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}
               >
-                <Sparkles size={13} /> Or describe your menu and let AI build it
+                <Sparkles size={13} /> {t('onboarding.orDescribeMenu')}
               </button>
 
               <button
                 style={{ ...styles.primaryBtn, background: 'transparent', border: '1px solid #333', color: '#9ca3af', marginTop: 12 }}
                 onClick={handleGoToPOS}
               >
-                Skip <ArrowRight size={14} />
+                {t('onboarding.skip')} <ArrowRight size={14} />
               </button>
             </>
           )}
@@ -401,9 +403,9 @@ const OnboardingScreen: React.FC = () => {
           {/* Step: AI input */}
           {postStep === 'ai-input' && (
             <>
-              <h1 style={{ ...styles.successTitle, fontSize: 22, marginBottom: 4 }}>Describe your menu</h1>
+              <h1 style={{ ...styles.successTitle, fontSize: 22, marginBottom: 4 }}>{t('onboarding.describeMenu')}</h1>
               <p style={{ ...styles.successSub, marginBottom: 16 }}>
-                Paste a menu, describe your restaurant, or list your dishes.
+                {t('onboarding.pasteMenu')}
               </p>
 
               <textarea
@@ -432,13 +434,13 @@ const OnboardingScreen: React.FC = () => {
                 onClick={handleAIBuild}
                 disabled={!aiText.trim()}
               >
-                <Sparkles size={16} /> Build My Menu
+                <Sparkles size={16} /> {t('onboarding.buildMyMenu')}
               </button>
               <button
                 style={{ ...styles.primaryBtn, background: 'transparent', border: '1px solid #333', color: '#9ca3af', marginTop: 8 }}
                 onClick={() => setPostStep('template')}
               >
-                Back to templates
+                {t('onboarding.backToTemplates')}
               </button>
             </>
           )}
@@ -447,7 +449,7 @@ const OnboardingScreen: React.FC = () => {
           {postStep === 'ai-parsing' && (
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '48px 0' }}>
               <Loader2 size={36} color="#0d9488" style={styles.spin} />
-              <p style={{ color: '#9ca3af', fontSize: 14, marginTop: 16 }}>Building your menu with AI...</p>
+              <p style={{ color: '#9ca3af', fontSize: 14, marginTop: 16 }}>{t('onboarding.buildingMenu')}</p>
             </div>
           )}
 
@@ -457,13 +459,13 @@ const OnboardingScreen: React.FC = () => {
               <div style={styles.successIcon}>
                 <Check size={32} color="#fff" strokeWidth={3} />
               </div>
-              <h1 style={{ ...styles.successTitle, fontSize: 22 }}>Menu created!</h1>
+              <h1 style={{ ...styles.successTitle, fontSize: 22 }}>{t('onboarding.menuCreated')}</h1>
               <p style={{ color: '#9ca3af', fontSize: 14, marginBottom: 16 }}>
-                {templateStats.itemsCreated} items, {templateStats.categoriesCreated} categories
-                {templateStats.inventoryCreated > 0 && `, ${templateStats.inventoryCreated} ingredients`}
+                {templateStats.itemsCreated} {t('onboarding.items')}, {templateStats.categoriesCreated} {t('onboarding.categories')}
+                {templateStats.inventoryCreated > 0 && `, ${templateStats.inventoryCreated} ${t('onboarding.ingredients')}`}
               </p>
               <button style={styles.primaryBtn} onClick={handleGoToPOS}>
-                Open My POS <ArrowRight size={16} />
+                {t('onboarding.openMyPos')} <ArrowRight size={16} />
               </button>
             </div>
           )}
@@ -472,7 +474,7 @@ const OnboardingScreen: React.FC = () => {
           {postStep === 'applying' && (
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '48px 0' }}>
               <Loader2 size={36} color="#0d9488" style={styles.spin} />
-              <p style={{ color: '#9ca3af', fontSize: 14, marginTop: 16 }}>Creating your menu...</p>
+              <p style={{ color: '#9ca3af', fontSize: 14, marginTop: 16 }}>{t('onboarding.creatingMenu')}</p>
             </div>
           )}
 
@@ -482,13 +484,13 @@ const OnboardingScreen: React.FC = () => {
               <div style={styles.successIcon}>
                 <Check size={32} color="#fff" strokeWidth={3} />
               </div>
-              <h1 style={{ ...styles.successTitle, fontSize: 22 }}>Menu created!</h1>
+              <h1 style={{ ...styles.successTitle, fontSize: 22 }}>{t('onboarding.menuCreated')}</h1>
               <p style={{ color: '#9ca3af', fontSize: 14, marginBottom: 16 }}>
-                {templateStats.itemsCreated} items, {templateStats.categoriesCreated} categories
-                {templateStats.inventoryCreated > 0 && `, ${templateStats.inventoryCreated} ingredients`}
+                {templateStats.itemsCreated} {t('onboarding.items')}, {templateStats.categoriesCreated} {t('onboarding.categories')}
+                {templateStats.inventoryCreated > 0 && `, ${templateStats.inventoryCreated} ${t('onboarding.ingredients')}`}
               </p>
               <button style={styles.primaryBtn} onClick={handleGoToPOS}>
-                Open My POS <ArrowRight size={16} />
+                {t('onboarding.openMyPos')} <ArrowRight size={16} />
               </button>
             </div>
           )}
@@ -512,15 +514,15 @@ const OnboardingScreen: React.FC = () => {
           <span style={styles.logoText}>Desktop Kitchen</span>
         </div>
 
-        <h1 style={styles.title}>Get started in 60 seconds</h1>
+        <h1 style={styles.title}>{t('onboarding.getStarted')}</h1>
         <p style={styles.subtitle}>
-          Free for 14 days · No credit card needed
+          {t('onboarding.freeForDays')}
         </p>
 
         <form onSubmit={handleSubmit} style={styles.form} noValidate>
           {/* Restaurant name */}
           <Field
-            label="Restaurant name"
+            label={t('onboarding.restaurantName')}
             placeholder="e.g. Tacos El Rey"
             value={form.restaurant_name}
             inputRef={nameRef}
@@ -533,7 +535,7 @@ const OnboardingScreen: React.FC = () => {
 
           {/* Email */}
           <Field
-            label="Owner email"
+            label={t('onboarding.ownerEmail')}
             type="email"
             placeholder="you@restaurant.com"
             value={form.email}
@@ -546,9 +548,9 @@ const OnboardingScreen: React.FC = () => {
 
           {/* Password */}
           <Field
-            label="Password"
+            label={t('onboarding.password')}
             type="password"
-            placeholder="Min. 8 characters"
+            placeholder={t('onboarding.minChars')}
             value={form.password}
             inputRef={passwordRef}
             error={fieldErrors.password}
@@ -559,8 +561,8 @@ const OnboardingScreen: React.FC = () => {
 
           {/* Financing consent — optional */}
           <div style={{ marginBottom: 16, background: 'rgba(13,148,136,0.06)', border: '1px solid rgba(13,148,136,0.15)', borderRadius: 10, padding: '14px 14px 12px' }}>
-            <p style={{ color: '#d1d5db', fontSize: 13, fontWeight: 600, margin: '0 0 4px' }}>Want access to working capital?</p>
-            <p style={{ color: '#6b7280', fontSize: 12, margin: '0 0 10px' }}>Let us analyze your sales data to determine eligibility for funding.</p>
+            <p style={{ color: '#d1d5db', fontSize: 13, fontWeight: 600, margin: '0 0 4px' }}>{t('onboarding.workingCapital')}</p>
+            <p style={{ color: '#6b7280', fontSize: 12, margin: '0 0 10px' }}>{t('onboarding.workingCapitalDesc')}</p>
             <label style={{ display: 'flex', alignItems: 'flex-start', gap: 8, cursor: 'pointer' }}>
               <input
                 type="checkbox"
@@ -568,7 +570,7 @@ const OnboardingScreen: React.FC = () => {
                 onChange={e => setFinancingConsent(e.target.checked)}
                 style={{ marginTop: 2, accentColor: '#0d9488' }}
               />
-              <span style={{ color: '#9ca3af', fontSize: 12 }}>I agree to data analysis for financial services</span>
+              <span style={{ color: '#9ca3af', fontSize: 12 }}>{t('onboarding.agreeDataAnalysis')}</span>
             </label>
           </div>
 
@@ -591,21 +593,21 @@ const OnboardingScreen: React.FC = () => {
           {/* Submit error */}
           {emailConflict ? (
             <div style={styles.conflictBox}>
-              <p style={styles.conflictText}>An account with this email already exists.</p>
+              <p style={styles.conflictText}>{t('onboarding.emailExists')}</p>
               <div style={styles.conflictActions}>
                 <button
                   type="button"
                   style={styles.conflictPrimaryBtn}
                   onClick={() => navigate(`/?email=${encodeURIComponent(form.email)}`)}
                 >
-                  <LogIn size={14} /> Log in to your account
+                  <LogIn size={14} /> {t('onboarding.logInToAccount')}
                 </button>
                 <button
                   type="button"
                   style={styles.conflictSecondaryBtn}
                   onClick={() => navigate(`/?email=${encodeURIComponent(form.email)}&view=forgot`)}
                 >
-                  <KeyRound size={14} /> Reset your password
+                  <KeyRound size={14} /> {t('onboarding.resetYourPassword')}
                 </button>
               </div>
             </div>
@@ -625,26 +627,26 @@ const OnboardingScreen: React.FC = () => {
             disabled={isSubmitting}
           >
             {isSubmitting
-              ? <><Loader2 size={16} style={styles.spin} /> Creating your account…</>
-              : <><Sparkles size={16} /> Create Free Account</>
+              ? <><Loader2 size={16} style={styles.spin} /> {t('onboarding.creatingAccount')}</>
+              : <><Sparkles size={16} /> {t('onboarding.createFreeAccount')}</>
             }
           </button>
         </form>
 
         {/* Trust signals */}
         <div style={styles.trustRow}>
-          {['Free forever', 'No credit card', 'Upgrade anytime'].map(t => (
-            <span key={t} style={styles.trustChip}>
+          {[t('onboarding.freeForever'), t('onboarding.noCreditCard'), t('onboarding.upgradeAnytime')].map(chip => (
+            <span key={chip} style={styles.trustChip}>
               <Check size={10} color="#0d9488" strokeWidth={3} style={{ flexShrink: 0 }} />
-              {t}
+              {chip}
             </span>
           ))}
         </div>
 
         {/* Login link */}
         <p style={styles.loginLink}>
-          Already have an account?{' '}
-          <button style={styles.link} onClick={() => navigate('/')}>Log in</button>
+          {t('onboarding.alreadyHaveAccount')}{' '}
+          <button style={styles.link} onClick={() => navigate('/')}>{t('onboarding.logIn')}</button>
         </p>
       </div>
     </div>
@@ -711,6 +713,8 @@ interface PromoSectionProps {
 const PromoSection: React.FC<PromoSectionProps> = ({
   state, input, code, description, error, onExpand, onInputChange, onValidate, onRemove,
 }) => {
+  const { t } = useTranslation('common');
+
   if (state === 'valid') {
     return (
       <div style={styles.promoValid}>
@@ -725,7 +729,7 @@ const PromoSection: React.FC<PromoSectionProps> = ({
   if (state === 'idle') {
     return (
       <button type="button" style={styles.promoToggle} onClick={onExpand}>
-        <Tag size={12} /> Have a promo code?
+        <Tag size={12} /> {t('onboarding.havePromo')}
       </button>
     );
   }
@@ -737,7 +741,7 @@ const PromoSection: React.FC<PromoSectionProps> = ({
           autoFocus
           type="text"
           value={input}
-          placeholder="ENTER CODE"
+          placeholder={t('onboarding.enterCode')}
           onChange={e => onInputChange(e.target.value)}
           onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); onValidate(); } }}
           style={{ ...styles.input, flex: 1, marginBottom: 0, letterSpacing: '0.1em', fontSize: 13 }}
@@ -749,7 +753,7 @@ const PromoSection: React.FC<PromoSectionProps> = ({
           disabled={state === 'loading' || !input.trim()}
           style={styles.promoApplyBtn}
         >
-          {state === 'loading' ? <Loader2 size={13} style={styles.spin} /> : 'Apply'}
+          {state === 'loading' ? <Loader2 size={13} style={styles.spin} /> : t('buttons.apply')}
         </button>
         <button type="button" style={styles.iconBtn} onClick={onRemove}><X size={14} /></button>
       </div>

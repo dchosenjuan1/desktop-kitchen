@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { getKitchenOrders } from '../../api';
 import { Order } from '../../types';
 import { formatPrice } from '../../utils/currency';
@@ -17,6 +18,7 @@ const statusColors: Record<string, string> = {
 };
 
 const MobileOrdersScreen: React.FC = () => {
+  const { t } = useTranslation('pos');
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -52,7 +54,7 @@ const MobileOrdersScreen: React.FC = () => {
   return (
     <>
       <MobileHeader
-        title="Orders"
+        title={t('mobileOrders.title')}
         rightAction={
           <div className="flex items-center gap-2">
             {!isOnline && <WifiOff className="w-4 h-4 text-brand-500 animate-pulse" />}
@@ -70,11 +72,11 @@ const MobileOrdersScreen: React.FC = () => {
       <div className="p-4 space-y-3">
         {loading ? (
           <div className="flex items-center justify-center py-20">
-            <p className="text-neutral-500 animate-pulse">Loading orders...</p>
+            <p className="text-neutral-500 animate-pulse">{t('mobileOrders.loadingOrders')}</p>
           </div>
         ) : orders.length === 0 ? (
           <div className="flex items-center justify-center py-20">
-            <p className="text-neutral-500">No orders today</p>
+            <p className="text-neutral-500">{t('mobileOrders.noOrdersToday')}</p>
           </div>
         ) : (
           orders.map((order) => {
@@ -91,7 +93,7 @@ const MobileOrdersScreen: React.FC = () => {
                   <div className="flex items-center gap-3">
                     <span className="text-xl font-black text-white">#{order.order_number}</span>
                     <span className={`px-2.5 py-1 rounded-full text-xs font-bold text-white ${statusColors[order.status] || 'bg-neutral-600'}`}>
-                      {order.status}
+                      {t(`common:orderStatus.${order.status}`, order.status)}
                     </span>
                   </div>
                   <div className="flex items-center gap-3">
@@ -124,7 +126,7 @@ const MobileOrdersScreen: React.FC = () => {
                       </div>
                     ))}
                     <div className="pt-2 border-t border-neutral-800 flex justify-between">
-                      <span className="text-sm text-neutral-400">Total</span>
+                      <span className="text-sm text-neutral-400">{t('mobileOrders.total')}</span>
                       <span className="text-sm font-bold text-brand-500">{formatPrice(order.total)}</span>
                     </div>
                   </div>

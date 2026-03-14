@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Sparkles, Lock, ArrowUpCircle, X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import AIAssistantModal from './AIAssistantModal';
@@ -10,6 +11,7 @@ interface Props {
 }
 
 export default function AIAssistantFAB({ screenContext }: Props) {
+  const { t } = useTranslation('admin');
   const [open, setOpen] = useState(false);
   const [overrideContext, setOverrideContext] = useState<string | undefined>();
   const { plan } = usePlan();
@@ -36,7 +38,7 @@ export default function AIAssistantFAB({ screenContext }: Props) {
       <button
         onClick={() => setOpen(true)}
         className="fixed bottom-6 right-6 z-40 w-14 h-14 bg-violet-600 hover:bg-violet-500 text-white rounded-full shadow-lg shadow-violet-900/40 flex items-center justify-center transition-all hover:scale-105 active:scale-95"
-        title="AI Assistant"
+        title={t('ai.assistant')}
       >
         <Sparkles size={24} />
       </button>
@@ -54,6 +56,7 @@ export default function AIAssistantFAB({ screenContext }: Props) {
 }
 
 function AIUpgradeModal({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
+  const { t } = useTranslation('admin');
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
 
@@ -85,10 +88,9 @@ function AIUpgradeModal({ isOpen, onClose }: { isOpen: boolean; onClose: () => v
           <Lock className="w-8 h-8 text-violet-400" />
         </div>
 
-        <h3 className="text-xl font-bold text-white">AI Assistant is a Pro Feature</h3>
+        <h3 className="text-xl font-bold text-white">{t('ai.proFeatureTitle')}</h3>
         <p className="text-neutral-400 text-sm leading-relaxed">
-          Get AI-powered insights about your menu, operations, sales, and finances.
-          Upgrade to Pro to unlock the full AI assistant.
+          {t('ai.proFeatureDescription')}
         </p>
 
         <button
@@ -97,7 +99,7 @@ function AIUpgradeModal({ isOpen, onClose }: { isOpen: boolean; onClose: () => v
           className="w-full inline-flex items-center justify-center gap-2 py-3 bg-violet-600 text-white font-semibold rounded-xl hover:bg-violet-500 transition-colors disabled:opacity-50"
         >
           <ArrowUpCircle className="w-5 h-5" />
-          {loading ? 'Redirecting...' : 'Upgrade to Pro — $60/mo'}
+          {loading ? t('ai.redirecting') : t('ai.upgradeToPro')}
         </button>
       </div>
     </div>

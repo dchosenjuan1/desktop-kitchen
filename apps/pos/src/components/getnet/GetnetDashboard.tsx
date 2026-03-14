@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { getGetnetFees, getGetnetTransactions } from '../../api';
 import { formatPrice } from '../../utils/currency';
 
@@ -7,6 +8,7 @@ interface GetnetDashboardProps {
 }
 
 const GetnetDashboard: React.FC<GetnetDashboardProps> = () => {
+  const { t } = useTranslation('admin');
   const [fees, setFees] = useState<Array<{
     processor: string;
     transactions: number;
@@ -51,7 +53,7 @@ const GetnetDashboard: React.FC<GetnetDashboardProps> = () => {
   }), { transactions: 0, gross: 0, processorFees: 0, platformFees: 0, net: 0 });
 
   if (loading) {
-    return <div className="text-neutral-400 text-center py-8">Cargando dashboard...</div>;
+    return <div className="text-neutral-400 text-center py-8">{t('getnet.loadingDashboard')}</div>;
   }
 
   return (
@@ -76,19 +78,19 @@ const GetnetDashboard: React.FC<GetnetDashboardProps> = () => {
       {/* Summary Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-4">
-          <p className="text-neutral-400 text-xs mb-1">Transacciones</p>
+          <p className="text-neutral-400 text-xs mb-1">{t('getnet.transactions')}</p>
           <p className="text-2xl font-bold text-white">{totals.transactions}</p>
         </div>
         <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-4">
-          <p className="text-neutral-400 text-xs mb-1">Volumen Bruto</p>
+          <p className="text-neutral-400 text-xs mb-1">{t('getnet.grossVolume')}</p>
           <p className="text-2xl font-bold text-white">{formatPrice(totals.gross)}</p>
         </div>
         <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-4">
-          <p className="text-neutral-400 text-xs mb-1">Comisiones Procesador</p>
+          <p className="text-neutral-400 text-xs mb-1">{t('getnet.processorFees')}</p>
           <p className="text-2xl font-bold text-red-400">{formatPrice(totals.processorFees)}</p>
         </div>
         <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-4">
-          <p className="text-neutral-400 text-xs mb-1">Neto Comercio</p>
+          <p className="text-neutral-400 text-xs mb-1">{t('getnet.netMerchant')}</p>
           <p className="text-2xl font-bold text-green-400">{formatPrice(totals.net)}</p>
         </div>
       </div>
@@ -96,17 +98,17 @@ const GetnetDashboard: React.FC<GetnetDashboardProps> = () => {
       {/* Fees by Processor */}
       {fees.length > 0 && (
         <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-4">
-          <h4 className="text-white font-bold mb-3">Desglose por Procesador</h4>
+          <h4 className="text-white font-bold mb-3">{t('getnet.breakdownByProcessor')}</h4>
           <div className="space-y-2">
             {fees.map((f) => (
               <div key={f.processor} className="flex items-center justify-between py-2 border-b border-neutral-800 last:border-0">
                 <div>
                   <p className="text-white font-medium capitalize">{f.processor}</p>
-                  <p className="text-neutral-500 text-xs">{f.transactions} transacciones</p>
+                  <p className="text-neutral-500 text-xs">{f.transactions} {t('getnet.transactionsLabel')}</p>
                 </div>
                 <div className="text-right">
                   <p className="text-white">{formatPrice(f.gross)}</p>
-                  <p className="text-red-400 text-xs">-{formatPrice(f.processorFees + f.platformFees)} comisiones</p>
+                  <p className="text-red-400 text-xs">-{formatPrice(f.processorFees + f.platformFees)} {t('getnet.feesLabel')}</p>
                 </div>
               </div>
             ))}
@@ -117,13 +119,13 @@ const GetnetDashboard: React.FC<GetnetDashboardProps> = () => {
       {/* Recent Transactions */}
       {transactions.length > 0 && (
         <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-4">
-          <h4 className="text-white font-bold mb-3">Transacciones Recientes</h4>
+          <h4 className="text-white font-bold mb-3">{t('getnet.recentTransactions')}</h4>
           <div className="space-y-2 max-h-64 overflow-y-auto">
             {transactions.map((txn: any) => (
               <div key={txn.id} className="flex items-center justify-between py-2 border-b border-neutral-800 last:border-0">
                 <div>
                   <p className="text-white text-sm">
-                    Orden #{txn.order_number || txn.order_id}
+                    {t('getnet.orderNumber', { number: txn.order_number || txn.order_id })}
                     {txn.is_tap_on_phone && <span className="ml-2 text-xs text-brand-400">NFC</span>}
                   </p>
                   <p className="text-neutral-500 text-xs">
@@ -144,7 +146,7 @@ const GetnetDashboard: React.FC<GetnetDashboardProps> = () => {
 
       {fees.length === 0 && transactions.length === 0 && (
         <div className="text-center py-8">
-          <p className="text-neutral-500">No hay transacciones Getnet en este periodo.</p>
+          <p className="text-neutral-500">{t('getnet.noTransactions')}</p>
         </div>
       )}
     </div>

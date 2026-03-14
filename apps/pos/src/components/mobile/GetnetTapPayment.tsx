@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { getGetnetTapPlugin, GetnetTapResult } from '../../plugins/GetnetTapPlugin';
 import { formatPrice } from '../../utils/currency';
 
@@ -17,6 +18,7 @@ const GetnetTapPayment: React.FC<GetnetTapPaymentProps> = ({
   onCancel,
   onError,
 }) => {
+  const { t } = useTranslation('pos');
   const [status, setStatus] = useState<'ready' | 'waiting' | 'success' | 'error'>('ready');
   const [isAvailable, setIsAvailable] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
@@ -31,7 +33,7 @@ const GetnetTapPayment: React.FC<GetnetTapPaymentProps> = ({
   const handleStartPayment = async () => {
     const plugin = getGetnetTapPlugin();
     if (!plugin) {
-      onError('Tap on Phone no disponible en este dispositivo');
+      onError(t('getnetTap.notAvailable'));
       return;
     }
 
@@ -42,7 +44,7 @@ const GetnetTapPayment: React.FC<GetnetTapPaymentProps> = ({
       const result = await plugin.startPayment({
         amount: Math.round(amount * 100), // centavos
         orderId: String(orderId),
-        description: `Orden #${orderId}`,
+        description: t('getnetTap.orderNumber', { id: orderId }),
       });
 
       if (result.success) {
@@ -50,12 +52,12 @@ const GetnetTapPayment: React.FC<GetnetTapPaymentProps> = ({
         onSuccess(result);
       } else {
         setStatus('error');
-        setErrorMessage(result.error || 'Pago rechazado');
-        onError(result.error || 'Pago rechazado');
+        setErrorMessage(result.error || t('getnetTap.paymentDeclined'));
+        onError(result.error || t('getnetTap.paymentDeclined'));
       }
     } catch (err) {
       setStatus('error');
-      const msg = err instanceof Error ? err.message : 'Error al procesar pago';
+      const msg = err instanceof Error ? err.message : t('getnetTap.processingError');
       setErrorMessage(msg);
       onError(msg);
     }
@@ -74,7 +76,7 @@ const GetnetTapPayment: React.FC<GetnetTapPaymentProps> = ({
     return (
       <div className="text-center p-4">
         <p className="text-neutral-400 text-sm">
-          Tap on Phone no disponible. Se requiere un dispositivo Android con NFC.
+          {t('getnetTap.nfcRequired')}
         </p>
       </div>
     );
@@ -87,7 +89,7 @@ const GetnetTapPayment: React.FC<GetnetTapPaymentProps> = ({
           onClick={handleStartPayment}
           className="w-full py-4 bg-red-600 text-white text-xl font-bold rounded-lg hover:bg-red-700 transition-all touch-manipulation"
         >
-          Tap to Pay — {formatPrice(amount)}
+          {t('getnetTap.tapToPay')} — {formatPrice(amount)}
         </button>
       )}
 
@@ -95,16 +97,16 @@ const GetnetTapPayment: React.FC<GetnetTapPaymentProps> = ({
         <div className="bg-red-600/10 border border-red-600/30 rounded-lg p-5 text-center space-y-3">
           <div className="flex items-center justify-center gap-2">
             <div className="w-3 h-3 bg-red-600 rounded-full animate-pulse" />
-            <p className="text-red-500 font-bold text-lg">Esperando tarjeta...</p>
+            <p className="text-red-500 font-bold text-lg">{t('getnetTap.waitingForCard')}</p>
           </div>
           <p className="text-neutral-400 text-sm">
-            Acerque la tarjeta al dispositivo para completar el pago.
+            {t('getnetTap.bringCardCloser')}
           </p>
           <button
             onClick={handleCancel}
             className="text-red-400 text-sm font-semibold hover:text-red-300 transition-colors"
           >
-            Cancelar
+            {t('common:buttons.cancel')}
           </button>
         </div>
       )}
@@ -116,7 +118,7 @@ const GetnetTapPayment: React.FC<GetnetTapPaymentProps> = ({
               <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
             </svg>
           </div>
-          <p className="text-green-400 font-bold text-lg">Pago confirmado</p>
+          <p className="text-green-400 font-bold text-lg">{t('getnetTap.paymentConfirmed')}</p>
         </div>
       )}
 
@@ -127,7 +129,7 @@ const GetnetTapPayment: React.FC<GetnetTapPaymentProps> = ({
             onClick={() => setStatus('ready')}
             className="text-brand-400 text-sm font-semibold hover:text-brand-300"
           >
-            Intentar de nuevo
+            {t('getnetTap.tryAgain')}
           </button>
         </div>
       )}

@@ -86,7 +86,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
           if (pollRef.current) clearInterval(pollRef.current);
           pollRef.current = null;
           setTerminalPending(false);
-          setTerminalError('Payment declined at terminal');
+          setTerminalError(t('payment.terminalDeclined'));
         }
       } catch {
         // Keep polling on network errors
@@ -111,7 +111,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
       startPolling(orderId);
     } catch (err) {
       setTerminalPending(false);
-      setTerminalError(err instanceof Error ? err.message : 'Error sending to terminal');
+      setTerminalError(err instanceof Error ? err.message : t('payment.terminalSendError'));
     }
   };
 
@@ -141,7 +141,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
                 <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
               </svg>
             </div>
-            <p className="text-white text-xl font-bold">Payment confirmed</p>
+            <p className="text-white text-xl font-bold">{t('payment.confirmed')}</p>
           </div>
         )}
 
@@ -264,16 +264,16 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
             <div className="bg-[#009ee3]/10 border border-[#009ee3]/30 rounded-lg p-5 text-center space-y-3">
               <div className="flex items-center justify-center gap-2">
                 <div className="w-3 h-3 bg-[#009ee3] rounded-full animate-pulse" />
-                <p className="text-[#009ee3] font-bold text-lg">Waiting for terminal payment...</p>
+                <p className="text-[#009ee3] font-bold text-lg">{t('payment.terminalWaiting')}</p>
               </div>
               <p className="text-neutral-400 text-sm">
-                Charge was sent to the reader. Ask the customer to tap or insert their card.
+                {t('payment.terminalReaderPrompt')}
               </p>
               <button
                 onClick={handleCancelTerminal}
                 className="text-red-400 text-sm font-semibold hover:text-red-300 transition-colors"
               >
-                Cancel charge
+                {t('payment.cancelCharge')}
               </button>
             </div>
           )}
@@ -293,7 +293,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
                   className="w-full py-4 bg-[#009ee3] text-white text-xl font-bold rounded-lg hover:bg-[#0082c0] disabled:bg-neutral-700 disabled:text-neutral-400 transition-all touch-manipulation"
                   title={!isOnline ? t('offline.cardUnavailable') : undefined}
                 >
-                  {!isOnline ? t('offline.cardUnavailable') : 'Send to MP Terminal'}
+                  {!isOnline ? t('offline.cardUnavailable') : t('payment.sendToMPTerminal')}
                 </button>
               )}
               <button
@@ -328,7 +328,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
                   disabled={isProcessing || !isOnline}
                   className="w-full py-4 bg-red-600 text-white text-xl font-bold rounded-lg hover:bg-red-700 disabled:bg-neutral-700 disabled:text-neutral-400 transition-all touch-manipulation"
                 >
-                  {isProcessing ? t('payment.processing') : 'Pagar con Getnet (~1.8%)'}
+                  {isProcessing ? t('payment.processing') : t('payment.payWithGetnet')}
                 </button>
               )}
               {/* Conekta OXXO + SPEI — only when Conekta is configured */}
@@ -338,7 +338,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
                   disabled={isProcessing || !isOnline}
                   className="w-full py-4 bg-orange-600 text-white text-xl font-bold rounded-lg hover:bg-orange-700 disabled:bg-neutral-700 disabled:text-neutral-400 transition-all touch-manipulation"
                 >
-                  {isProcessing ? t('payment.processing') : 'Pagar en OXXO'}
+                  {isProcessing ? t('payment.processing') : t('payment.payAtOxxo')}
                 </button>
               )}
               {conektaConfigured && onSpeiPayment && (
@@ -347,7 +347,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
                   disabled={isProcessing || !isOnline}
                   className="w-full py-4 bg-blue-600 text-white text-xl font-bold rounded-lg hover:bg-blue-700 disabled:bg-neutral-700 disabled:text-neutral-400 transition-all touch-manipulation"
                 >
-                  {isProcessing ? t('payment.processing') : 'Transferencia SPEI'}
+                  {isProcessing ? t('payment.processing') : t('payment.speiTransfer')}
                 </button>
               )}
               <button

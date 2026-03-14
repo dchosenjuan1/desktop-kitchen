@@ -1,22 +1,10 @@
 import React, { useState, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import { X, Camera, Image, Loader2, Trash2 } from 'lucide-react';
 import { uploadReceipt, type Expense } from '../../api';
 
-const CATEGORIES = [
-  { value: 'food_cost', label: 'Food & Ingredients' },
-  { value: 'supplies', label: 'Cleaning Supplies' },
-  { value: 'utilities', label: 'Utilities' },
-  { value: 'rent', label: 'Rent' },
-  { value: 'marketing', label: 'Marketing' },
-  { value: 'other', label: 'Other' },
-];
-
-const PAYMENT_METHODS = [
-  { value: '', label: 'Not specified' },
-  { value: 'cash', label: 'Cash' },
-  { value: 'card', label: 'Card' },
-  { value: 'transfer', label: 'Transfer' },
-];
+const CATEGORY_KEYS = ['food_cost', 'supplies', 'utilities', 'rent', 'marketing', 'other'] as const;
+const PAYMENT_METHOD_KEYS = ['', 'cash', 'card', 'transfer'] as const;
 
 interface Props {
   expense?: Expense | null;
@@ -27,6 +15,7 @@ interface Props {
 }
 
 const ExpenseFormModal: React.FC<Props> = ({ expense, initialData, onSave, onClose, saving }) => {
+  const { t } = useTranslation('admin');
   const [category, setCategory] = useState(expense?.category || initialData?.category || 'food_cost');
   const [vendor, setVendor] = useState(expense?.vendor || initialData?.vendor || '');
   const [description, setDescription] = useState(expense?.description || initialData?.description || '');
@@ -94,7 +83,7 @@ const ExpenseFormModal: React.FC<Props> = ({ expense, initialData, onSave, onClo
         onClick={e => e.stopPropagation()}
       >
         <div className="flex items-center justify-between p-4 border-b border-neutral-800">
-          <h2 className="text-lg font-bold text-white">{expense ? 'Edit Expense' : 'Add Expense'}</h2>
+          <h2 className="text-lg font-bold text-white">{expense ? t('expenses.editExpense') : t('expenses.addExpense')}</h2>
           <button onClick={onClose} className="p-1 text-neutral-400 hover:text-white transition-colors">
             <X size={20} />
           </button>
@@ -103,7 +92,7 @@ const ExpenseFormModal: React.FC<Props> = ({ expense, initialData, onSave, onClo
         <form onSubmit={handleSubmit} className="p-4 space-y-4">
           {/* Receipt Photo */}
           <div>
-            <label className="block text-sm font-medium text-neutral-400 mb-2">Receipt Photo</label>
+            <label className="block text-sm font-medium text-neutral-400 mb-2">{t('expenses.receiptPhoto')}</label>
             {receiptPreview ? (
               <div className="relative inline-block">
                 <img
@@ -132,7 +121,7 @@ const ExpenseFormModal: React.FC<Props> = ({ expense, initialData, onSave, onClo
                   className="flex items-center gap-2 px-3 py-2 bg-neutral-800 text-white text-sm rounded-lg border border-neutral-700 hover:bg-neutral-700 transition-colors"
                 >
                   <Camera size={16} />
-                  Take Photo
+                  {t('expenses.takePhoto')}
                 </button>
                 <button
                   type="button"
@@ -140,7 +129,7 @@ const ExpenseFormModal: React.FC<Props> = ({ expense, initialData, onSave, onClo
                   className="flex items-center gap-2 px-3 py-2 bg-neutral-800 text-white text-sm rounded-lg border border-neutral-700 hover:bg-neutral-700 transition-colors"
                 >
                   <Image size={16} />
-                  Choose File
+                  {t('expenses.chooseFile')}
                 </button>
               </div>
             )}
@@ -162,43 +151,43 @@ const ExpenseFormModal: React.FC<Props> = ({ expense, initialData, onSave, onClo
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-neutral-400 mb-1">Category *</label>
+            <label className="block text-sm font-medium text-neutral-400 mb-1">{t('expenses.category')} *</label>
             <select
               value={category}
               onChange={e => setCategory(e.target.value)}
               className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-white focus:border-brand-500 focus:outline-none"
             >
-              {CATEGORIES.map(c => (
-                <option key={c.value} value={c.value}>{c.label}</option>
+              {CATEGORY_KEYS.map(key => (
+                <option key={key} value={key}>{t(`expenses.categories.${key}`)}</option>
               ))}
             </select>
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-neutral-400 mb-1">Vendor</label>
+            <label className="block text-sm font-medium text-neutral-400 mb-1">{t('expenses.vendor')}</label>
             <input
               type="text"
               value={vendor}
               onChange={e => setVendor(e.target.value)}
-              placeholder="e.g. Costco, Walmart"
+              placeholder={t('expenses.vendorPlaceholder')}
               className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-white placeholder-neutral-500 focus:border-brand-500 focus:outline-none"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-neutral-400 mb-1">Description</label>
+            <label className="block text-sm font-medium text-neutral-400 mb-1">{t('expenses.description')}</label>
             <input
               type="text"
               value={description}
               onChange={e => setDescription(e.target.value)}
-              placeholder="What was purchased?"
+              placeholder={t('expenses.descriptionPlaceholder')}
               className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-white placeholder-neutral-500 focus:border-brand-500 focus:outline-none"
             />
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-sm font-medium text-neutral-400 mb-1">Amount *</label>
+              <label className="block text-sm font-medium text-neutral-400 mb-1">{t('expenses.amount')} *</label>
               <input
                 type="number"
                 step="0.01"
@@ -211,7 +200,7 @@ const ExpenseFormModal: React.FC<Props> = ({ expense, initialData, onSave, onClo
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-neutral-400 mb-1">Tax</label>
+              <label className="block text-sm font-medium text-neutral-400 mb-1">{t('expenses.tax')}</label>
               <input
                 type="number"
                 step="0.01"
@@ -226,7 +215,7 @@ const ExpenseFormModal: React.FC<Props> = ({ expense, initialData, onSave, onClo
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-sm font-medium text-neutral-400 mb-1">Date *</label>
+              <label className="block text-sm font-medium text-neutral-400 mb-1">{t('expenses.date')} *</label>
               <input
                 type="date"
                 required
@@ -236,26 +225,26 @@ const ExpenseFormModal: React.FC<Props> = ({ expense, initialData, onSave, onClo
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-neutral-400 mb-1">Payment Method</label>
+              <label className="block text-sm font-medium text-neutral-400 mb-1">{t('expenses.paymentMethod')}</label>
               <select
                 value={paymentMethod}
                 onChange={e => setPaymentMethod(e.target.value)}
                 className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-white focus:border-brand-500 focus:outline-none"
               >
-                {PAYMENT_METHODS.map(m => (
-                  <option key={m.value} value={m.value}>{m.label}</option>
+                {PAYMENT_METHOD_KEYS.map(key => (
+                  <option key={key} value={key}>{t(`expenses.paymentMethods.${key || 'none'}`)}</option>
                 ))}
               </select>
             </div>
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-neutral-400 mb-1">Notes</label>
+            <label className="block text-sm font-medium text-neutral-400 mb-1">{t('expenses.notes')}</label>
             <textarea
               value={notes}
               onChange={e => setNotes(e.target.value)}
               rows={2}
-              placeholder="Additional notes..."
+              placeholder={t('expenses.notesPlaceholder')}
               className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-white placeholder-neutral-500 focus:border-brand-500 focus:outline-none resize-none"
             />
           </div>
@@ -266,14 +255,14 @@ const ExpenseFormModal: React.FC<Props> = ({ expense, initialData, onSave, onClo
               onClick={onClose}
               className="flex-1 py-2.5 bg-neutral-800 text-white font-semibold rounded-lg hover:bg-neutral-700 transition-colors"
             >
-              Cancel
+              {t('common:buttons.cancel')}
             </button>
             <button
               type="submit"
               disabled={saving || uploading || !amount || Number(amount) <= 0}
               className="flex-1 py-2.5 bg-brand-600 text-white font-semibold rounded-lg hover:bg-brand-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {saving ? 'Saving...' : expense ? 'Update' : 'Save'}
+              {saving ? t('common:states.loading') : expense ? t('common:buttons.update') : t('common:buttons.save')}
             </button>
           </div>
         </form>

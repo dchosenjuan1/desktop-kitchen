@@ -52,7 +52,7 @@ const ReceiptModal: React.FC<ReceiptModalProps> = ({ order, onClose, onPrint }) 
               <p className="font-bold text-lg">{t('receipt.orderNumber', { number: order.order_number })}</p>
               {String(order.order_number).startsWith('OFF-') && (
                 <span className="inline-block mt-1 px-2 py-0.5 bg-amber-100 text-amber-800 text-xs font-bold rounded">
-                  OFFLINE
+                  {t('receipt.offlineBadge')}
                 </span>
               )}
               <p className="text-neutral-600">
@@ -128,13 +128,13 @@ const ReceiptModal: React.FC<ReceiptModalProps> = ({ order, onClose, onPrint }) 
             {invoiceUrl && !invoiceIssued && (
               <div className="text-center py-3 border-t pt-3">
                 <QRCodeSVG value={invoiceUrl} size={120} className="mx-auto" />
-                <p className="text-xs text-neutral-500 mt-2">Scan to request your invoice</p>
+                <p className="text-xs text-neutral-500 mt-2">{t('receipt.scanForInvoice')}</p>
               </div>
             )}
 
             {invoiceIssued && (
               <div className="text-center py-2 bg-green-50 rounded-lg">
-                <p className="text-green-700 text-sm font-semibold">Invoice issued</p>
+                <p className="text-green-700 text-sm font-semibold">{t('receipt.invoiceIssued')}</p>
               </div>
             )}
 
@@ -156,7 +156,7 @@ const ReceiptModal: React.FC<ReceiptModalProps> = ({ order, onClose, onPrint }) 
                 onClick={() => setShowInvoiceModal(true)}
                 className="w-full py-3 bg-blue-600 text-white font-bold rounded-lg hover:bg-blue-700 transition-all"
               >
-                Invoice
+                {t('receipt.invoiceButton')}
               </button>
             )}
             <button

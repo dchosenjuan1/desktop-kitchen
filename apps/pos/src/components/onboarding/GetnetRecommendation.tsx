@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 
 interface GetnetRecommendationProps {
   onSetup: () => void;
@@ -6,6 +7,7 @@ interface GetnetRecommendationProps {
 }
 
 const GetnetRecommendation: React.FC<GetnetRecommendationProps> = ({ onSetup, onDismiss }) => {
+  const { t } = useTranslation('admin');
   return (
     <div className="bg-gradient-to-r from-red-600/10 to-red-800/10 border border-red-600/30 rounded-xl p-5 space-y-3">
       <div className="flex items-start justify-between">
@@ -16,8 +18,8 @@ const GetnetRecommendation: React.FC<GetnetRecommendationProps> = ({ onSetup, on
             </svg>
           </div>
           <div>
-            <h4 className="text-white font-bold">Ahorra con Getnet</h4>
-            <p className="text-neutral-400 text-sm">Comisiones desde 1.8% vs 3.4%+ en otros procesadores</p>
+            <h4 className="text-white font-bold">{t('getnet.saveWithGetnet')}</h4>
+            <p className="text-neutral-400 text-sm">{t('getnet.commissionsComparison')}</p>
           </div>
         </div>
         <button onClick={onDismiss} className="text-neutral-500 hover:text-neutral-300">
@@ -46,7 +48,7 @@ const GetnetRecommendation: React.FC<GetnetRecommendationProps> = ({ onSetup, on
         onClick={onSetup}
         className="w-full py-3 bg-red-600 text-white font-bold rounded-lg hover:bg-red-700 transition-all"
       >
-        Configurar Getnet
+        {t('getnet.setupGetnet')}
       </button>
     </div>
   );

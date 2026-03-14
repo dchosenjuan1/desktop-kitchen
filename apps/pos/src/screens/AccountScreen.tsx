@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import {
   ArrowLeft, User, BarChart3, CreditCard, Settings, Lock,
   Check, AlertCircle, Crown, Smartphone, Wifi, WifiOff, X, Loader2,
@@ -38,7 +39,7 @@ function PlanBadge({ plan }: { plan: string }) {
   );
 }
 
-function UsageBar({ label, current, limit }: { label: string; current: number; limit: number }) {
+function UsageBar({ label, current, limit, unlimitedText }: { label: string; current: number; limit: number; unlimitedText: string }) {
   const isUnlimited = !isFinite(limit);
   const pct = isUnlimited ? 0 : Math.min((current / limit) * 100, 100);
   const color = pct > 90 ? '#ef4444' : pct > 70 ? '#f59e0b' : '#0d9488';
@@ -48,7 +49,7 @@ function UsageBar({ label, current, limit }: { label: string; current: number; l
       <div className="flex justify-between text-sm mb-1.5">
         <span className="text-neutral-400">{label}</span>
         <span className="text-white font-medium">
-          {current} / {isUnlimited ? 'Unlimited' : limit}
+          {current} / {isUnlimited ? unlimitedText : limit}
         </span>
       </div>
       {isUnlimited ? (
@@ -68,6 +69,7 @@ function UsageBar({ label, current, limit }: { label: string; current: number; l
 }
 
 export default function AccountScreen() {
+  const { t } = useTranslation('common');
   const [account, setAccount] = useState<AccountData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -159,11 +161,11 @@ export default function AccountScreen() {
         }
         // Load consent status
         getFinancingConsent()
-          .then(cs => setConsentStatus({ consented: cs.consented ?? cs.has_consent, consent_at: cs.consented_at ?? (cs as any).consent_at, consent_version: (cs as any).consent_version }))
+          .then(cs => setConsentStatus({ consented: cs.has_consent, consent_at: cs.consented_at, consent_version: cs.consent_version }))
           .catch(() => {});
       })
       .catch((err: any) => {
-        setError(err.message || 'Failed to load account');
+        setError(err.message || t('account.failedLoadAccount'));
       })
       .finally(() => setLoading(false));
   }, []);
@@ -177,10 +179,10 @@ export default function AccountScreen() {
         email: editEmail !== account?.email ? editEmail : undefined,
       });
       setAccount(prev => prev ? { ...prev, name: result.name, email: result.email } : prev);
-      setSaveMsg('Saved successfully');
+      setSaveMsg(t('account.savedSuccessfully'));
       setTimeout(() => setSaveMsg(''), 3000);
     } catch (err: any) {
-      setSaveMsg(err.message || 'Failed to save');
+      setSaveMsg(err.message || t('account.failedSave'));
     }
     setSaving(false);
   };
@@ -189,22 +191,22 @@ export default function AccountScreen() {
     e.preventDefault();
     setPwMsg(null);
     if (newPw !== confirmPw) {
-      setPwMsg({ type: 'error', text: 'Passwords do not match' });
+      setPwMsg({ type: 'error', text: t('account.passwordsNoMatch') });
       return;
     }
     if (newPw.length < 8) {
-      setPwMsg({ type: 'error', text: 'Password must be at least 8 characters' });
+      setPwMsg({ type: 'error', text: t('account.passwordMinLength') });
       return;
     }
     setPwSaving(true);
     try {
       await changePassword(currentPw, newPw);
-      setPwMsg({ type: 'success', text: 'Password updated successfully' });
+      setPwMsg({ type: 'success', text: t('account.passwordUpdated') });
       setCurrentPw('');
       setNewPw('');
       setConfirmPw('');
     } catch (err: any) {
-      setPwMsg({ type: 'error', text: err.message || 'Failed to change password' });
+      setPwMsg({ type: 'error', text: err.message || t('account.failedChangePassword') });
     }
     setPwSaving(false);
   };
@@ -266,7 +268,7 @@ export default function AccountScreen() {
           <Link to="/admin" className="p-2 hover:bg-neutral-800 rounded-lg transition-colors">
             <ArrowLeft size={24} />
           </Link>
-          <h1 className="text-3xl font-black tracking-tighter">Account</h1>
+          <h1 className="text-3xl font-black tracking-tighter">{t('account.title')}</h1>
         </div>
       </div>
 
@@ -289,23 +291,23 @@ export default function AccountScreen() {
             <div className="bg-neutral-900 border border-neutral-800 rounded-lg p-6">
               <div className="flex items-center gap-3 mb-4">
                 <User className="text-brand-500" size={22} />
-                <h2 className="text-lg font-bold text-white">Account Overview</h2>
+                <h2 className="text-lg font-bold text-white">{t('account.overview')}</h2>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <p className="text-neutral-500 text-xs uppercase tracking-wider">Restaurant</p>
+                  <p className="text-neutral-500 text-xs uppercase tracking-wider">{t('account.restaurant')}</p>
                   <p className="text-white font-medium mt-0.5">{account.name}</p>
                 </div>
                 <div>
-                  <p className="text-neutral-500 text-xs uppercase tracking-wider">Email</p>
+                  <p className="text-neutral-500 text-xs uppercase tracking-wider">{t('account.email')}</p>
                   <p className="text-white font-medium mt-0.5">{account.email}</p>
                 </div>
                 <div>
-                  <p className="text-neutral-500 text-xs uppercase tracking-wider">Plan</p>
+                  <p className="text-neutral-500 text-xs uppercase tracking-wider">{t('account.planLabel')}</p>
                   <div className="mt-1"><PlanBadge plan={account.plan} /></div>
                 </div>
                 <div>
-                  <p className="text-neutral-500 text-xs uppercase tracking-wider">Member Since</p>
+                  <p className="text-neutral-500 text-xs uppercase tracking-wider">{t('account.memberSince')}</p>
                   <p className="text-white font-medium mt-0.5">
                     {new Date(account.created_at).toLocaleDateString()}
                   </p>
@@ -317,18 +319,20 @@ export default function AccountScreen() {
             <div className="bg-neutral-900 border border-neutral-800 rounded-lg p-6">
               <div className="flex items-center gap-3 mb-4">
                 <BarChart3 className="text-brand-500" size={22} />
-                <h2 className="text-lg font-bold text-white">Usage Summary</h2>
+                <h2 className="text-lg font-bold text-white">{t('account.usageSummary')}</h2>
               </div>
               <div className="space-y-4">
                 <UsageBar
-                  label="Employees"
+                  label={t('account.employees')}
                   current={account.usage.employees.current}
                   limit={account.usage.employees.limit}
+                  unlimitedText={t('account.unlimited')}
                 />
                 <UsageBar
-                  label="Menu Items"
+                  label={t('account.menuItems')}
                   current={account.usage.menu_items.current}
                   limit={account.usage.menu_items.limit}
+                  unlimitedText={t('account.unlimited')}
                 />
               </div>
             </div>
@@ -337,11 +341,11 @@ export default function AccountScreen() {
             <div className="bg-neutral-900 border border-neutral-800 rounded-lg p-6">
               <div className="flex items-center gap-3 mb-4">
                 <CreditCard className="text-brand-500" size={22} />
-                <h2 className="text-lg font-bold text-white">Billing</h2>
+                <h2 className="text-lg font-bold text-white">{t('account.billing')}</h2>
               </div>
               {account.plan === 'free' ? (
                 <div className="space-y-3">
-                  <p className="text-neutral-400 text-sm">You're on the Free-for-life plan. Upgrade to Pro to unlock unlimited access.</p>
+                  <p className="text-neutral-400 text-sm">{t('account.freePlanMessage')}</p>
 
                   {/* Monthly/Annual toggle */}
                   <div className="inline-flex items-center bg-neutral-800 border border-neutral-700 rounded-lg p-0.5">
@@ -353,7 +357,7 @@ export default function AccountScreen() {
                           : 'text-neutral-400 hover:text-white'
                       }`}
                     >
-                      Monthly
+                      {t('account.monthly')}
                     </button>
                     <button
                       onClick={() => setBillingInterval('annual')}
@@ -363,8 +367,8 @@ export default function AccountScreen() {
                           : 'text-neutral-400 hover:text-white'
                       }`}
                     >
-                      Annual
-                      <span className="ml-1.5 text-[10px] bg-green-500/20 text-green-400 px-1.5 py-0.5 rounded-full">Save 2 mo</span>
+                      {t('account.annual')}
+                      <span className="ml-1.5 text-[10px] bg-green-500/20 text-green-400 px-1.5 py-0.5 rounded-full">{t('account.saveTwoMo')}</span>
                     </button>
                   </div>
 
@@ -374,9 +378,9 @@ export default function AccountScreen() {
                       disabled={billingLoading !== null}
                       className="px-4 py-2 bg-teal-600 text-white text-sm font-semibold rounded-lg hover:bg-teal-700 transition-colors disabled:opacity-50"
                     >
-                      {billingLoading === 'pro' ? 'Redirecting...' : billingInterval === 'annual'
-                        ? 'Pro — $45/mo ($540/yr)'
-                        : 'Pro — $60/mo'}
+                      {billingLoading === 'pro' ? t('upgrade.redirecting') : billingInterval === 'annual'
+                        ? t('account.proAnnual')
+                        : t('account.proMonthly')}
                     </button>
                   </div>
 
@@ -388,7 +392,7 @@ export default function AccountScreen() {
                         onClick={() => setPromoState('expanded')}
                         className="text-sm text-teal-500 hover:text-teal-400 transition-colors"
                       >
-                        Have a promo code?
+                        {t('account.havePromo')}
                       </button>
                     )}
 
@@ -405,7 +409,7 @@ export default function AccountScreen() {
                                 setPromoError('');
                               }
                             }}
-                            placeholder="Enter code"
+                            placeholder={t('account.enterCode')}
                             className="flex-1 px-3 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white text-sm placeholder-neutral-500 focus:outline-none focus:border-teal-600"
                             disabled={promoState === 'loading'}
                             onKeyDown={e => { if (e.key === 'Enter') handleValidatePromo(); }}
@@ -416,7 +420,7 @@ export default function AccountScreen() {
                             disabled={promoState === 'loading' || !promoInput.trim()}
                             className="px-4 py-2 bg-teal-600 text-white text-sm font-semibold rounded-lg hover:bg-teal-700 transition-colors disabled:opacity-50"
                           >
-                            {promoState === 'loading' ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Apply'}
+                            {promoState === 'loading' ? <Loader2 className="w-4 h-4 animate-spin" /> : t('buttons.apply')}
                           </button>
                           <button
                             type="button"
@@ -452,10 +456,10 @@ export default function AccountScreen() {
               ) : (
                 <div className="flex flex-wrap items-center gap-4">
                   <div>
-                    <p className="text-neutral-400 text-sm">Current plan</p>
+                    <p className="text-neutral-400 text-sm">{t('account.currentPlan')}</p>
                     <p className="text-white font-bold capitalize flex items-center gap-2">
                       <Crown size={16} className="text-teal-500" />
-                      Pro — $60/mo
+                      {t('account.proMonthly')}
                     </p>
                   </div>
                   <div className="flex gap-3 ml-auto">
@@ -464,7 +468,7 @@ export default function AccountScreen() {
                       disabled={billingLoading !== null}
                       className="px-4 py-2 border border-neutral-600 text-neutral-200 text-sm font-medium rounded-lg hover:bg-neutral-800 transition-colors disabled:opacity-50"
                     >
-                      {billingLoading === 'portal' ? 'Redirecting...' : 'Manage Subscription'}
+                      {billingLoading === 'portal' ? t('upgrade.redirecting') : t('account.manageSubscription')}
                     </button>
                   </div>
                 </div>
@@ -475,11 +479,11 @@ export default function AccountScreen() {
             <div className="bg-neutral-900 border border-neutral-800 rounded-lg p-6">
               <div className="flex items-center gap-3 mb-4">
                 <Settings className="text-brand-500" size={22} />
-                <h2 className="text-lg font-bold text-white">Settings</h2>
+                <h2 className="text-lg font-bold text-white">{t('account.settings')}</h2>
               </div>
               <div className="space-y-4">
                 <div>
-                  <label className="block text-neutral-400 text-sm mb-1">Restaurant Name</label>
+                  <label className="block text-neutral-400 text-sm mb-1">{t('account.restaurantName')}</label>
                   <input
                     type="text"
                     value={editName}
@@ -488,7 +492,7 @@ export default function AccountScreen() {
                   />
                 </div>
                 <div>
-                  <label className="block text-neutral-400 text-sm mb-1">Email</label>
+                  <label className="block text-neutral-400 text-sm mb-1">{t('account.email')}</label>
                   <input
                     type="email"
                     value={editEmail}
@@ -502,7 +506,7 @@ export default function AccountScreen() {
                     disabled={saving || (editName === account.name && editEmail === account.email)}
                     className="px-5 py-2 bg-brand-600 text-white text-sm font-semibold rounded-lg hover:bg-brand-700 transition-colors disabled:opacity-50"
                   >
-                    {saving ? 'Saving...' : 'Save Changes'}
+                    {saving ? t('account.saving') : t('account.saveChanges')}
                   </button>
                   {saveMsg && (
                     <span className="text-sm text-teal-400 flex items-center gap-1">
@@ -517,11 +521,11 @@ export default function AccountScreen() {
             <div className="bg-neutral-900 border border-neutral-800 rounded-lg p-6">
               <div className="flex items-center gap-3 mb-4">
                 <Lock className="text-brand-500" size={22} />
-                <h2 className="text-lg font-bold text-white">Change Password</h2>
+                <h2 className="text-lg font-bold text-white">{t('account.changePassword')}</h2>
               </div>
               <form onSubmit={handlePasswordChange} className="space-y-4">
                 <div>
-                  <label className="block text-neutral-400 text-sm mb-1">Current Password</label>
+                  <label className="block text-neutral-400 text-sm mb-1">{t('account.currentPassword')}</label>
                   <input
                     type="password"
                     value={currentPw}
@@ -531,7 +535,7 @@ export default function AccountScreen() {
                   />
                 </div>
                 <div>
-                  <label className="block text-neutral-400 text-sm mb-1">New Password</label>
+                  <label className="block text-neutral-400 text-sm mb-1">{t('account.newPassword')}</label>
                   <input
                     type="password"
                     value={newPw}
@@ -542,7 +546,7 @@ export default function AccountScreen() {
                   />
                 </div>
                 <div>
-                  <label className="block text-neutral-400 text-sm mb-1">Confirm New Password</label>
+                  <label className="block text-neutral-400 text-sm mb-1">{t('account.confirmNewPassword')}</label>
                   <input
                     type="password"
                     value={confirmPw}
@@ -563,7 +567,7 @@ export default function AccountScreen() {
                   disabled={pwSaving || !currentPw || !newPw || !confirmPw}
                   className="px-5 py-2 bg-brand-600 text-white text-sm font-semibold rounded-lg hover:bg-brand-700 transition-colors disabled:opacity-50"
                 >
-                  {pwSaving ? 'Updating...' : 'Update Password'}
+                  {pwSaving ? t('account.updating') : t('account.updatePassword')}
                 </button>
               </form>
             </div>
@@ -573,7 +577,7 @@ export default function AccountScreen() {
               <div className="bg-neutral-900 border border-neutral-800 rounded-lg p-6">
                 <div className="flex items-center gap-3 mb-4">
                   <Smartphone className="text-brand-500" size={22} />
-                  <h2 className="text-lg font-bold text-white">Payments — Mercado Pago Point</h2>
+                  <h2 className="text-lg font-bold text-white">{t('account.mercadoPago')}</h2>
                 </div>
 
                 {(() => {
@@ -587,17 +591,17 @@ export default function AccountScreen() {
                       <div className="space-y-3">
                         <div className="flex items-center gap-2 text-neutral-400">
                           <WifiOff size={16} />
-                          <span className="text-sm">Not connected</span>
+                          <span className="text-sm">{t('account.notConnected')}</span>
                         </div>
                         <p className="text-neutral-400 text-sm">
-                          Connect your Mercado Pago Point terminal to charge directly from the POS without manual entry.
+                          {t('account.mpConnectDesc')}
                         </p>
                         <a
                           href="/api/payments/mp/connect"
                           className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#009ee3] text-white text-sm font-bold rounded-lg hover:bg-[#0082c0] transition-colors"
                         >
                           <Smartphone size={16} />
-                          Connect Mercado Pago
+                          {t('account.connectMercadoPago')}
                         </a>
                       </div>
                     );
@@ -607,12 +611,12 @@ export default function AccountScreen() {
                     <div className="space-y-4">
                       <div className="flex items-center gap-2">
                         <Wifi size={16} className="text-green-400" />
-                        <span className="text-sm font-semibold text-green-400">Connected</span>
+                        <span className="text-sm font-semibold text-green-400">{t('account.connected')}</span>
                         <span className="text-xs text-neutral-500 ml-2">ID: {mpUserId}</span>
                       </div>
 
                       <div>
-                        <label className="block text-neutral-400 text-sm mb-1.5">Default terminal</label>
+                        <label className="block text-neutral-400 text-sm mb-1.5">{t('account.defaultTerminal')}</label>
                         <div className="flex items-center gap-2">
                           <select
                             value={mpDefaultTerminal || (account as any).mp_default_terminal_id || ''}
@@ -629,7 +633,7 @@ export default function AccountScreen() {
                             }}
                             className="flex-1 bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-brand-500"
                           >
-                            <option value="">Select terminal...</option>
+                            <option value="">{t('account.selectTerminal')}</option>
                             {mpTerminals.map(t => (
                               <option key={t.id} value={t.id}>
                                 {t.external_pos_id || t.id}
@@ -650,12 +654,12 @@ export default function AccountScreen() {
                             disabled={mpTerminalsLoading}
                             className="px-3 py-2 bg-neutral-800 border border-neutral-700 text-neutral-300 text-sm rounded-lg hover:bg-neutral-700 transition-colors disabled:opacity-50"
                           >
-                            {mpTerminalsLoading ? '...' : 'Actualizar'}
+                            {mpTerminalsLoading ? '...' : t('account.refresh')}
                           </button>
                         </div>
                         {mpSaved && (
                           <p className="text-teal-400 text-xs mt-1 flex items-center gap-1">
-                            <Check size={12} /> Guardado
+                            <Check size={12} /> {t('account.saved')}
                           </p>
                         )}
                       </div>
@@ -671,21 +675,21 @@ export default function AccountScreen() {
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center gap-3">
                     <Landmark className="text-green-500" size={22} />
-                    <h2 className="text-lg font-bold text-white">Bank Connections</h2>
+                    <h2 className="text-lg font-bold text-white">{t('account.bankConnections')}</h2>
                   </div>
                   <button
                     onClick={() => setShowSecurityModal(true)}
                     className="inline-flex items-center gap-1.5 text-sm text-brand-400 hover:text-brand-300 transition-colors"
                   >
                     <Shield size={14} />
-                    Learn about bank security
+                    {t('account.learnBankSecurity')}
                   </button>
                 </div>
 
                 {/* Connection Slots */}
                 <div className="flex items-center gap-2 mb-4">
                   <span className="text-sm text-neutral-400">
-                    {bankConnections.filter(c => c.status !== 'disconnected').length} of {maxBankConns} connections used
+                    {t('account.connectionsUsed', { used: bankConnections.filter(c => c.status !== 'disconnected').length, max: maxBankConns })}
                   </span>
                   <div className="flex-1 bg-neutral-800 rounded-full h-1.5">
                     <div
@@ -720,7 +724,7 @@ export default function AccountScreen() {
                     ))}
                   </div>
                 ) : (
-                  <p className="text-neutral-500 text-sm mb-4">No bank accounts connected yet.</p>
+                  <p className="text-neutral-500 text-sm mb-4">{t('account.noBankAccounts')}</p>
                 )}
 
                 {/* Connect Button */}
@@ -732,10 +736,10 @@ export default function AccountScreen() {
                       disabled
                       className="inline-flex items-center gap-2 px-4 py-2.5 bg-neutral-800 text-neutral-500 font-semibold rounded-lg cursor-not-allowed"
                     >
-                      Connect Bank
+                      {t('account.connectBank')}
                     </button>
                     <div className="absolute bottom-full left-0 mb-2 px-3 py-1.5 bg-neutral-800 border border-neutral-700 rounded-lg text-xs text-neutral-300 whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
-                      Connection limit reached ({maxBankConns} max on {plan} plan)
+                      {t('account.connectionLimitReached', { max: maxBankConns, plan })}
                     </div>
                   </div>
                 )}
@@ -748,18 +752,18 @@ export default function AccountScreen() {
             <div className="bg-neutral-900 border border-neutral-800 rounded-lg p-6">
               <div className="flex items-center gap-3 mb-4">
                 <Shield className="text-brand-500" size={22} />
-                <h2 className="text-lg font-bold text-white">Data & Privacy</h2>
+                <h2 className="text-lg font-bold text-white">{t('account.dataPrivacy')}</h2>
               </div>
 
               {/* Consent Status */}
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-neutral-400 text-sm">Financial Data Analysis</p>
+                    <p className="text-neutral-400 text-sm">{t('account.financialDataAnalysis')}</p>
                     <p className="text-white text-sm font-medium mt-0.5">
                       {consentStatus?.consented ? (
                         <span className="text-green-400 flex items-center gap-1">
-                          <Check size={14} /> Consented
+                          <Check size={14} /> {t('account.consented')}
                           {consentStatus.consent_at && (
                             <span className="text-neutral-500 font-normal ml-1">
                               ({new Date(consentStatus.consent_at).toLocaleDateString()})
@@ -767,11 +771,11 @@ export default function AccountScreen() {
                           )}
                         </span>
                       ) : (
-                        <span className="text-neutral-500">Not consented</span>
+                        <span className="text-neutral-500">{t('account.notConsented')}</span>
                       )}
                     </p>
                     {consentStatus?.consent_version && (
-                      <p className="text-neutral-600 text-xs mt-0.5">Version {consentStatus.consent_version}</p>
+                      <p className="text-neutral-600 text-xs mt-0.5">{t('account.versionLabel', { version: consentStatus.consent_version })}</p>
                     )}
                   </div>
                 </div>
@@ -790,7 +794,7 @@ export default function AccountScreen() {
                     }}
                     className="inline-flex items-center gap-1.5 px-3 py-2 bg-neutral-800 border border-neutral-700 text-neutral-300 text-sm rounded-lg hover:bg-neutral-700 transition-colors"
                   >
-                    <FileText size={14} /> View Full Terms
+                    <FileText size={14} /> {t('account.viewFullTerms')}
                   </button>
 
                   {/* Download Data */}
@@ -813,7 +817,7 @@ export default function AccountScreen() {
                       disabled={exportLoading}
                       className="inline-flex items-center gap-1.5 px-3 py-2 bg-neutral-800 border border-neutral-700 text-neutral-300 text-sm rounded-lg hover:bg-neutral-700 transition-colors disabled:opacity-50"
                     >
-                      <Download size={14} /> {exportLoading ? 'Exporting...' : 'Download My Data'}
+                      <Download size={14} /> {exportLoading ? t('account.exporting') : t('account.downloadMyData')}
                     </button>
                   )}
 
@@ -823,7 +827,7 @@ export default function AccountScreen() {
                       onClick={() => setShowRevokeModal(true)}
                       className="inline-flex items-center gap-1.5 px-3 py-2 border border-red-800/50 text-red-400 text-sm rounded-lg hover:bg-red-900/20 transition-colors"
                     >
-                      <ShieldOff size={14} /> Revoke Consent
+                      <ShieldOff size={14} /> {t('account.revokeConsent')}
                     </button>
                   )}
                 </div>
@@ -835,7 +839,7 @@ export default function AccountScreen() {
               <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70" onClick={() => setShowConsentTerms(false)}>
                 <div className="bg-neutral-900 border border-neutral-700 rounded-xl max-w-lg w-full mx-4 max-h-[80vh] overflow-y-auto p-6" onClick={e => e.stopPropagation()}>
                   <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-white font-bold text-lg">Data Processing Terms</h3>
+                    <h3 className="text-white font-bold text-lg">{t('account.dataProcessingTerms')}</h3>
                     <button onClick={() => setShowConsentTerms(false)} className="text-neutral-400 hover:text-white">
                       <X size={20} />
                     </button>
@@ -873,10 +877,10 @@ export default function AccountScreen() {
                         <p className="text-white font-medium">{consentTerms.transfer?.heading}:</p>
                         <p className="text-neutral-400">{consentTerms.transfer?.body}</p>
                       </div>
-                      <p className="text-neutral-500 text-xs">Consent version: {consentTerms.version}</p>
+                      <p className="text-neutral-500 text-xs">{t('account.consentVersion', { version: consentTerms.version })}</p>
                     </div>
                   ) : (
-                    <p className="text-neutral-400">Loading terms...</p>
+                    <p className="text-neutral-400">{t('account.loadingTerms')}</p>
                   )}
                 </div>
               </div>
@@ -886,15 +890,15 @@ export default function AccountScreen() {
             {showRevokeModal && (
               <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70" onClick={() => setShowRevokeModal(false)}>
                 <div className="bg-neutral-900 border border-neutral-700 rounded-xl max-w-md w-full mx-4 p-6 space-y-4" onClick={e => e.stopPropagation()}>
-                  <h3 className="text-white font-bold text-lg">Revoke Data Consent</h3>
+                  <h3 className="text-white font-bold text-lg">{t('account.revokeDataConsent')}</h3>
                   <div className="text-neutral-300 text-sm space-y-2">
-                    <p>Are you sure? This will:</p>
+                    <p>{t('account.revokeConfirm')}</p>
                     <ul className="list-disc pl-5 space-y-1 text-neutral-400">
-                      <li>Stop analyzing your transaction data</li>
-                      <li>Remove any active financing offers</li>
-                      <li>You can re-enable this at any time</li>
+                      <li>{t('account.revokeItem1')}</li>
+                      <li>{t('account.revokeItem2')}</li>
+                      <li>{t('account.revokeItem3')}</li>
                     </ul>
-                    <p className="text-neutral-500 text-xs">Historical data is retained for regulatory compliance.</p>
+                    <p className="text-neutral-500 text-xs">{t('account.revokeRetention')}</p>
                   </div>
                   <div className="flex gap-3">
                     <button
@@ -910,13 +914,13 @@ export default function AccountScreen() {
                       disabled={revokeLoading}
                       className="flex-1 py-2.5 bg-red-600 text-white font-semibold rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50"
                     >
-                      {revokeLoading ? 'Revoking...' : 'Revoke Consent'}
+                      {revokeLoading ? t('account.revoking') : t('account.revokeConsent')}
                     </button>
                     <button
                       onClick={() => setShowRevokeModal(false)}
                       className="px-6 py-2.5 border border-neutral-600 text-neutral-300 rounded-lg hover:bg-neutral-800 transition-colors"
                     >
-                      Cancel
+                      {t('buttons.cancel')}
                     </button>
                   </div>
                 </div>

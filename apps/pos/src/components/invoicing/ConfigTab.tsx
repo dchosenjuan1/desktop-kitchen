@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   Upload,
   CheckCircle,
@@ -14,12 +15,12 @@ import {
 } from '../../api';
 import type { CfdiConfig, CfdiCatalogs } from '../../types';
 
-function ConfigStatusBadge({ config }: { config: CfdiConfig | null }) {
+function ConfigStatusBadge({ config, t }: { config: CfdiConfig | null; t: (key: string) => string }) {
   if (!config) {
     return (
       <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-neutral-800 text-neutral-400 border border-neutral-700">
         <span className="w-2 h-2 rounded-full bg-neutral-500" />
-        Not Configured
+        {t('invoicing.statusNotConfigured')}
       </span>
     );
   }
@@ -27,14 +28,14 @@ function ConfigStatusBadge({ config }: { config: CfdiConfig | null }) {
     return (
       <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-green-900/30 text-green-400 border border-green-800">
         <span className="w-2 h-2 rounded-full bg-green-400" />
-        Active
+        {t('invoicing.statusActive')}
       </span>
     );
   }
   return (
     <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-amber-900/30 text-amber-400 border border-amber-800">
       <span className="w-2 h-2 rounded-full bg-amber-400" />
-      CSD Required
+      {t('invoicing.statusCsdRequired')}
     </span>
   );
 }
@@ -62,6 +63,7 @@ interface ConfigTabProps {
 }
 
 export default function ConfigTab({ config, catalogs, onConfigUpdate, onError, onSuccess }: ConfigTabProps) {
+  const { t } = useTranslation('admin');
   const [cfdiForm, setCfdiForm] = useState({
     rfc: '',
     legal_name: '',
@@ -106,12 +108,12 @@ export default function ConfigTab({ config, catalogs, onConfigUpdate, onError, o
       setSavingConfig(true);
 
       if (!cfdiForm.rfc || !cfdiForm.legal_name || !cfdiForm.tax_regime || !cfdiForm.postal_code) {
-        onError('All required fields must be completed');
+        onError(t('invoicing.errorRequiredFields'));
         return;
       }
 
       if (!/^\d{5}$/.test(cfdiForm.postal_code)) {
-        onError('Postal code must be 5 digits');
+        onError(t('invoicing.errorPostalCode'));
         return;
       }
 
@@ -125,9 +127,9 @@ export default function ConfigTab({ config, catalogs, onConfigUpdate, onError, o
         invoice_link_expiry_hours: cfdiForm.invoice_link_expiry_hours,
       });
       onConfigUpdate(res.config);
-      onSuccess('Configuration saved successfully');
+      onSuccess(t('invoicing.configSaved'));
     } catch (err) {
-      onError(err instanceof Error ? err.message : 'Error saving configuration');
+      onError(err instanceof Error ? err.message : t('invoicing.errorSavingConfig'));
     } finally {
       setSavingConfig(false);
     }
@@ -135,7 +137,7 @@ export default function ConfigTab({ config, catalogs, onConfigUpdate, onError, o
 
   const handleUploadCSD = async () => {
     if (!cerFile || !keyFile || !csdPassword) {
-      onError('You must select both files (.cer and .key) and enter the password');
+      onError(t('invoicing.errorCsdFiles'));
       return;
     }
 
@@ -154,9 +156,9 @@ export default function ConfigTab({ config, catalogs, onConfigUpdate, onError, o
       setCsdPassword('');
       if (cerInputRef.current) cerInputRef.current.value = '';
       if (keyInputRef.current) keyInputRef.current.value = '';
-      onSuccess(res.message || 'CSD uploaded successfully');
+      onSuccess(res.message || t('invoicing.csdUploaded'));
     } catch (err) {
-      onError(err instanceof Error ? err.message : 'Error uploading CSD');
+      onError(err instanceof Error ? err.message : t('invoicing.errorUploadingCsd'));
     } finally {
       setUploadingCSD(false);
     }
@@ -171,7 +173,7 @@ export default function ConfigTab({ config, catalogs, onConfigUpdate, onError, o
     } catch (err) {
       setTestResult({
         success: false,
-        error: err instanceof Error ? err.message : 'Connection error',
+        error: err instanceof Error ? err.message : t('invoicing.connectionError'),
       });
     } finally {
       setTesting(false);
@@ -184,22 +186,22 @@ export default function ConfigTab({ config, catalogs, onConfigUpdate, onError, o
       <div className="bg-neutral-900 rounded-lg border border-neutral-800 p-6">
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-lg font-bold text-white">Configuration Status</h2>
+            <h2 className="text-lg font-bold text-white">{t('invoicing.configStatus')}</h2>
             <p className="text-neutral-400 text-sm mt-1">
-              CFDI 4.0 — SAT Electronic Invoicing
+              {t('invoicing.cfdiSubtitle')}
             </p>
           </div>
-          <ConfigStatusBadge config={config} />
+          <ConfigStatusBadge config={config} t={t} />
         </div>
       </div>
 
       {/* CFDI Form */}
       <div className="bg-neutral-900 rounded-lg border border-neutral-800 p-6">
-        <h3 className="text-lg font-bold text-white mb-4">Issuer Information</h3>
+        <h3 className="text-lg font-bold text-white mb-4">{t('invoicing.issuerInfo')}</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-medium text-neutral-400 mb-1">
-              RFC <span className="text-red-400">*</span>
+              {t('invoicing.rfc')} <span className="text-red-400">*</span>
             </label>
             <input
               type="text"
@@ -213,27 +215,27 @@ export default function ConfigTab({ config, catalogs, onConfigUpdate, onError, o
 
           <div>
             <label className="block text-sm font-medium text-neutral-400 mb-1">
-              Legal Name <span className="text-red-400">*</span>
+              {t('invoicing.legalName')} <span className="text-red-400">*</span>
             </label>
             <input
               type="text"
               value={cfdiForm.legal_name}
               onChange={(e) => setCfdiForm({ ...cfdiForm, legal_name: e.target.value.toUpperCase() })}
-              placeholder="MY COMPANY SA DE CV"
+              placeholder={t('invoicing.legalNamePlaceholder')}
               className="w-full bg-neutral-800 text-white rounded-lg px-4 py-3 border border-neutral-700 focus:border-brand-500 focus:outline-none uppercase"
             />
           </div>
 
           <div>
             <label className="block text-sm font-medium text-neutral-400 mb-1">
-              Tax Regime <span className="text-red-400">*</span>
+              {t('invoicing.taxRegime')} <span className="text-red-400">*</span>
             </label>
             <select
               value={cfdiForm.tax_regime}
               onChange={(e) => setCfdiForm({ ...cfdiForm, tax_regime: e.target.value })}
               className="w-full bg-neutral-800 text-white rounded-lg px-4 py-3 border border-neutral-700 focus:border-brand-500 focus:outline-none"
             >
-              <option value="">Select...</option>
+              <option value="">{t('invoicing.select')}</option>
               {catalogs?.taxRegimes.map((r) => (
                 <option key={r.code} value={r.code}>
                   {r.code} - {r.name}
@@ -244,7 +246,7 @@ export default function ConfigTab({ config, catalogs, onConfigUpdate, onError, o
 
           <div>
             <label className="block text-sm font-medium text-neutral-400 mb-1">
-              Postal Code <span className="text-red-400">*</span>
+              {t('invoicing.postalCode')} <span className="text-red-400">*</span>
             </label>
             <input
               type="text"
@@ -261,7 +263,7 @@ export default function ConfigTab({ config, catalogs, onConfigUpdate, onError, o
 
           <div>
             <label className="block text-sm font-medium text-neutral-400 mb-1">
-              Default CFDI Usage
+              {t('invoicing.defaultCfdiUsage')}
             </label>
             <select
               value={cfdiForm.default_uso_cfdi}
@@ -278,7 +280,7 @@ export default function ConfigTab({ config, catalogs, onConfigUpdate, onError, o
 
           <div>
             <label className="block text-sm font-medium text-neutral-400 mb-1">
-              Invoice Series
+              {t('invoicing.invoiceSeries')}
             </label>
             <input
               type="text"
@@ -292,7 +294,7 @@ export default function ConfigTab({ config, catalogs, onConfigUpdate, onError, o
 
           <div>
             <label className="block text-sm font-medium text-neutral-400 mb-1">
-              Link Expiration (hours)
+              {t('invoicing.linkExpiration')}
             </label>
             <input
               type="number"
@@ -317,10 +319,10 @@ export default function ConfigTab({ config, catalogs, onConfigUpdate, onError, o
           {savingConfig ? (
             <>
               <Loader2 size={16} className="animate-spin" />
-              Saving...
+              {t('invoicing.saving')}
             </>
           ) : (
-            'Save Configuration'
+            t('invoicing.saveConfig')
           )}
         </button>
       </div>
@@ -332,11 +334,11 @@ export default function ConfigTab({ config, catalogs, onConfigUpdate, onError, o
             <Shield className="text-brand-500" size={22} />
             <div>
               <h3 className="text-lg font-bold text-white">
-                Digital Seal Certificate (CSD)
+                {t('invoicing.csdTitle')}
               </h3>
               {config.csd_uploaded && config.csd_valid_until && (
                 <p className="text-neutral-400 text-sm">
-                  Valid until:{' '}
+                  {t('invoicing.validUntil')}{' '}
                   <span className="text-green-400">
                     {formatDate(config.csd_valid_until)}
                   </span>
@@ -348,7 +350,7 @@ export default function ConfigTab({ config, catalogs, onConfigUpdate, onError, o
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-neutral-400 mb-1">
-                .cer File
+                {t('invoicing.cerFile')}
               </label>
               <input
                 ref={cerInputRef}
@@ -361,7 +363,7 @@ export default function ConfigTab({ config, catalogs, onConfigUpdate, onError, o
 
             <div>
               <label className="block text-sm font-medium text-neutral-400 mb-1">
-                .key File
+                {t('invoicing.keyFile')}
               </label>
               <input
                 ref={keyInputRef}
@@ -374,13 +376,13 @@ export default function ConfigTab({ config, catalogs, onConfigUpdate, onError, o
 
             <div className="md:col-span-2">
               <label className="block text-sm font-medium text-neutral-400 mb-1">
-                CSD Password
+                {t('invoicing.csdPassword')}
               </label>
               <input
                 type="password"
                 value={csdPassword}
                 onChange={(e) => setCsdPassword(e.target.value)}
-                placeholder="Private key password"
+                placeholder={t('invoicing.csdPasswordPlaceholder')}
                 className="w-full bg-neutral-800 text-white rounded-lg px-4 py-3 border border-neutral-700 focus:border-brand-500 focus:outline-none"
               />
             </div>
@@ -394,12 +396,12 @@ export default function ConfigTab({ config, catalogs, onConfigUpdate, onError, o
             {uploadingCSD ? (
               <>
                 <Loader2 size={16} className="animate-spin" />
-                Uploading...
+                {t('invoicing.uploading')}
               </>
             ) : (
               <>
                 <Upload size={16} />
-                Upload CSD
+                {t('invoicing.uploadCsd')}
               </>
             )}
           </button>
@@ -409,7 +411,7 @@ export default function ConfigTab({ config, catalogs, onConfigUpdate, onError, o
       {/* Test Connection */}
       {config && (
         <div className="bg-neutral-900 rounded-lg border border-neutral-800 p-6">
-          <h3 className="text-lg font-bold text-white mb-4">Test Connection</h3>
+          <h3 className="text-lg font-bold text-white mb-4">{t('invoicing.testConnection')}</h3>
           <button
             onClick={handleTestConnection}
             disabled={testing}
@@ -418,12 +420,12 @@ export default function ConfigTab({ config, catalogs, onConfigUpdate, onError, o
             {testing ? (
               <>
                 <Loader2 size={16} className="animate-spin" />
-                Testing...
+                {t('invoicing.testing')}
               </>
             ) : (
               <>
                 <RefreshCw size={16} />
-                Test Connection
+                {t('invoicing.testConnection')}
               </>
             )}
           </button>
@@ -440,7 +442,7 @@ export default function ConfigTab({ config, catalogs, onConfigUpdate, onError, o
                 <div className="flex items-center gap-2">
                   <CheckCircle className="text-green-400" size={18} />
                   <span className="text-green-300 text-sm">
-                    Connection successful
+                    {t('invoicing.connectionSuccess')}
                     {testResult.expires_at &&
                       ` — CSD valid until ${formatDate(testResult.expires_at)}`}
                   </span>
@@ -449,7 +451,7 @@ export default function ConfigTab({ config, catalogs, onConfigUpdate, onError, o
                 <div className="flex items-center gap-2">
                   <XCircle className="text-red-400" size={18} />
                   <span className="text-red-300 text-sm">
-                    Error: {testResult.error || 'Could not connect'}
+                    {t('invoicing.errorLabel')}: {testResult.error || t('invoicing.couldNotConnect')}
                   </span>
                 </div>
               )}

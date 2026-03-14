@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import {
   ArrowLeft, Search, ChevronLeft, ChevronRight,
   ArrowDownCircle, ArrowUpCircle, ArrowLeftRight,
@@ -45,6 +46,7 @@ const ACCT_TYPE_ICONS: Record<string, React.ReactNode> = {
 const PAGE_SIZE = 50;
 
 const BankingPage: React.FC = () => {
+  const { t } = useTranslation('admin');
   const { isFeatureLocked } = usePlan();
   const [connections, setConnections] = useState<BankConnection[]>([]);
   const [accounts, setAccounts] = useState<BankAccount[]>([]);
@@ -157,7 +159,7 @@ const BankingPage: React.FC = () => {
               >
                 <ArrowLeft size={24} />
               </Link>
-              <h1 className="text-3xl font-black tracking-tighter">Bank Accounts</h1>
+              <h1 className="text-3xl font-black tracking-tighter">{t('banking.title')}</h1>
             </div>
             <ConnectBankButton onSuccess={loadAll} />
           </div>
@@ -166,7 +168,7 @@ const BankingPage: React.FC = () => {
         <div className="max-w-6xl mx-auto p-6 space-y-8">
           {/* ── Connections ── */}
           <section>
-            <h2 className="text-lg font-bold text-white mb-3">Connections</h2>
+            <h2 className="text-lg font-bold text-white mb-3">{t('banking.connections')}</h2>
             {loadingConns ? (
               <div className="space-y-3">
                 {[...Array(2)].map((_, i) => (
@@ -193,17 +195,17 @@ const BankingPage: React.FC = () => {
           {/* ── Accounts Table ── */}
           {accounts.length > 0 && (
             <section>
-              <h2 className="text-lg font-bold text-white mb-3">All Accounts</h2>
+              <h2 className="text-lg font-bold text-white mb-3">{t('banking.allAccounts')}</h2>
               <div className="bg-neutral-900 rounded-lg border border-neutral-800 overflow-hidden">
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="text-neutral-400 border-b border-neutral-800">
-                        <th className="text-left p-3">Account</th>
-                        <th className="text-left p-3">Type</th>
-                        <th className="text-left p-3">Institution</th>
-                        <th className="text-right p-3">Balance</th>
-                        <th className="text-right p-3">Available</th>
+                        <th className="text-left p-3">{t('banking.account')}</th>
+                        <th className="text-left p-3">{t('banking.type')}</th>
+                        <th className="text-left p-3">{t('banking.institution')}</th>
+                        <th className="text-right p-3">{t('banking.balance')}</th>
+                        <th className="text-right p-3">{t('banking.available')}</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -216,7 +218,7 @@ const BankingPage: React.FC = () => {
                             )}
                             {acct.is_primary && (
                               <span className="ml-2 px-1.5 py-0.5 bg-brand-600/20 text-brand-400 rounded text-xs font-medium">
-                                Primary
+                                {t('banking.primary')}
                               </span>
                             )}
                           </td>
@@ -250,11 +252,11 @@ const BankingPage: React.FC = () => {
           {/* ── Payout Reconciliation ── */}
           {connections.length > 0 && (
             <section>
-              <h2 className="text-lg font-bold text-white mb-3">Payout Reconciliation</h2>
+              <h2 className="text-lg font-bold text-white mb-3">{t('banking.payoutReconciliation')}</h2>
               {isFeatureLocked('bankReconciliation') ? (
                 <div className="bg-neutral-900 rounded-lg border border-neutral-800 p-6 text-center">
-                  <p className="text-neutral-400">Delivery payout reconciliation is available on the Ghost Kitchen plan.</p>
-                  <p className="text-neutral-500 text-sm mt-1">Automatically match delivery platform payouts against your bank deposits.</p>
+                  <p className="text-neutral-400">{t('banking.payoutReconciliationPlanMsg')}</p>
+                  <p className="text-neutral-500 text-sm mt-1">{t('banking.payoutReconciliationDesc')}</p>
                 </div>
               ) : (
                 <DeliveryReconciliation />
@@ -264,20 +266,20 @@ const BankingPage: React.FC = () => {
 
           {/* ── Transactions ── */}
           <section>
-            <h2 className="text-lg font-bold text-white mb-3">Transactions</h2>
+            <h2 className="text-lg font-bold text-white mb-3">{t('banking.transactions')}</h2>
 
             {/* Filters */}
             <div className="bg-neutral-900 rounded-lg border border-neutral-800 p-4 mb-3">
               <div className="flex flex-wrap items-end gap-3">
                 {/* Account Filter */}
                 <div className="flex-1 min-w-[150px]">
-                  <label className="block text-xs text-neutral-500 mb-1">Account</label>
+                  <label className="block text-xs text-neutral-500 mb-1">{t('banking.account')}</label>
                   <select
                     value={filterAccountId}
                     onChange={e => { setFilterAccountId(e.target.value); }}
                     className="w-full bg-neutral-800 text-white rounded-lg px-3 py-2 border border-neutral-700 text-sm focus:border-brand-500 focus:outline-none"
                   >
-                    <option value="">All Accounts</option>
+                    <option value="">{t('banking.allAccounts')}</option>
                     {accounts.map(a => (
                       <option key={a.id} value={a.id}>
                         {a.name}{a.last_four ? ` ****${a.last_four}` : ''}
@@ -288,7 +290,7 @@ const BankingPage: React.FC = () => {
 
                 {/* Date Range */}
                 <div>
-                  <label className="block text-xs text-neutral-500 mb-1">From</label>
+                  <label className="block text-xs text-neutral-500 mb-1">{t('banking.from')}</label>
                   <input
                     type="date"
                     value={filterStartDate}
@@ -297,7 +299,7 @@ const BankingPage: React.FC = () => {
                   />
                 </div>
                 <div>
-                  <label className="block text-xs text-neutral-500 mb-1">To</label>
+                  <label className="block text-xs text-neutral-500 mb-1">{t('banking.to')}</label>
                   <input
                     type="date"
                     value={filterEndDate}
@@ -311,19 +313,19 @@ const BankingPage: React.FC = () => {
                   onClick={handleFilterChange}
                   className="px-4 py-2 bg-brand-600 text-white text-sm font-medium rounded-lg hover:bg-brand-700 transition-colors"
                 >
-                  Apply
+                  {t('common:buttons.apply')}
                 </button>
 
                 {/* Search */}
                 <div className="flex-1 min-w-[180px]">
-                  <label className="block text-xs text-neutral-500 mb-1">Search</label>
+                  <label className="block text-xs text-neutral-500 mb-1">{t('banking.search')}</label>
                   <div className="relative">
                     <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-500" />
                     <input
                       type="text"
                       value={searchTerm}
                       onChange={e => setSearchTerm(e.target.value)}
-                      placeholder="Description, merchant..."
+                      placeholder={t('banking.searchPlaceholder')}
                       className="w-full bg-neutral-800 text-white rounded-lg pl-8 pr-3 py-2 border border-neutral-700 text-sm focus:border-brand-500 focus:outline-none"
                     />
                   </div>
@@ -342,9 +344,9 @@ const BankingPage: React.FC = () => {
               ) : filteredTx.length === 0 ? (
                 <div className="p-12 text-center">
                   <Landmark size={40} className="mx-auto text-neutral-600 mb-3" />
-                  <p className="text-neutral-400">No transactions found</p>
+                  <p className="text-neutral-400">{t('banking.noTransactions')}</p>
                   <p className="text-neutral-500 text-sm mt-1">
-                    {connections.length === 0 ? 'Connect a bank to see transactions' : 'Try adjusting your filters'}
+                    {connections.length === 0 ? t('banking.connectToSee') : t('banking.adjustFilters')}
                   </p>
                 </div>
               ) : (
@@ -353,11 +355,11 @@ const BankingPage: React.FC = () => {
                     <table className="w-full text-sm">
                       <thead>
                         <tr className="text-neutral-400 border-b border-neutral-800">
-                          <th className="text-left p-3 w-28">Date</th>
-                          <th className="text-left p-3">Description</th>
-                          <th className="text-left p-3">Category</th>
-                          <th className="text-right p-3">Amount</th>
-                          <th className="text-left p-3">Account</th>
+                          <th className="text-left p-3 w-28">{t('banking.date')}</th>
+                          <th className="text-left p-3">{t('banking.description')}</th>
+                          <th className="text-left p-3">{t('banking.category')}</th>
+                          <th className="text-right p-3">{t('banking.amount')}</th>
+                          <th className="text-left p-3">{t('banking.account')}</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -373,7 +375,7 @@ const BankingPage: React.FC = () => {
                               )}
                               {tx.status === 'pending' && (
                                 <span className="ml-1.5 px-1.5 py-0.5 bg-amber-600/20 text-amber-400 rounded text-xs font-medium">
-                                  Pending
+                                  {t('banking.pending')}
                                 </span>
                               )}
                             </td>
@@ -415,7 +417,7 @@ const BankingPage: React.FC = () => {
                   {totalPages > 1 && (
                     <div className="flex items-center justify-between px-4 py-3 border-t border-neutral-800">
                       <span className="text-sm text-neutral-500">
-                        {txTotal} transaction{txTotal !== 1 ? 's' : ''}
+                        {txTotal} {txTotal !== 1 ? t('banking.transactions_plural') : t('banking.transaction')}
                       </span>
                       <div className="flex items-center gap-2">
                         <button
@@ -426,7 +428,7 @@ const BankingPage: React.FC = () => {
                           <ChevronLeft size={18} />
                         </button>
                         <span className="text-sm text-neutral-400">
-                          Page {txPage + 1} of {totalPages}
+                          {t('banking.page')} {txPage + 1} / {totalPages}
                         </span>
                         <button
                           onClick={() => loadTransactions(txPage + 1)}

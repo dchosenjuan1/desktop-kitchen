@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { formatPrice } from '../../utils/currency';
 
 interface SpeiReferenceModalProps {
@@ -16,6 +17,7 @@ const SpeiReferenceModal: React.FC<SpeiReferenceModalProps> = ({
   expiresAt,
   onClose,
 }) => {
+  const { t } = useTranslation('pos');
   const expiresDate = new Date(expiresAt);
   const formattedExpiry = expiresDate.toLocaleDateString('es-MX', {
     year: 'numeric',
@@ -41,7 +43,7 @@ const SpeiReferenceModal: React.FC<SpeiReferenceModalProps> = ({
             <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
             </svg>
-            <h2 className="text-2xl font-bold">Transferencia SPEI</h2>
+            <h2 className="text-2xl font-bold">{t('spei.title')}</h2>
           </div>
           <p className="text-xl font-bold">{formatPrice(amount)}</p>
         </div>
@@ -49,7 +51,7 @@ const SpeiReferenceModal: React.FC<SpeiReferenceModalProps> = ({
         <div className="p-6 space-y-5">
           {/* CLABE */}
           <div className="bg-neutral-800 p-4 rounded-lg text-center">
-            <p className="text-neutral-400 text-sm mb-2">CLABE interbancaria</p>
+            <p className="text-neutral-400 text-sm mb-2">{t('spei.clabe')}</p>
             <p className="text-2xl font-mono font-bold text-white tracking-wider select-all">
               {formattedClabe}
             </p>
@@ -58,29 +60,29 @@ const SpeiReferenceModal: React.FC<SpeiReferenceModalProps> = ({
           {/* Bank + Amount */}
           <div className="grid grid-cols-2 gap-3">
             <div className="bg-neutral-800 p-3 rounded-lg text-center">
-              <p className="text-neutral-400 text-sm">Banco</p>
+              <p className="text-neutral-400 text-sm">{t('spei.bank')}</p>
               <p className="text-white font-semibold">{bank}</p>
             </div>
             <div className="bg-neutral-800 p-3 rounded-lg text-center">
-              <p className="text-neutral-400 text-sm">Monto exacto</p>
+              <p className="text-neutral-400 text-sm">{t('spei.exactAmount')}</p>
               <p className="text-white font-semibold">{formatPrice(amount)}</p>
             </div>
           </div>
 
           {/* Expiration */}
           <div className="bg-neutral-800 p-3 rounded-lg text-center">
-            <p className="text-neutral-400 text-sm">Vence el</p>
+            <p className="text-neutral-400 text-sm">{t('spei.expiresOn')}</p>
             <p className="text-white font-semibold">{formattedExpiry}</p>
           </div>
 
           {/* Instructions */}
           <div className="bg-blue-900/30 border border-blue-700/50 p-4 rounded-lg">
-            <p className="text-blue-300 text-sm font-semibold mb-2">Instrucciones:</p>
+            <p className="text-blue-300 text-sm font-semibold mb-2">{t('spei.instructions')}</p>
             <ol className="text-blue-200/80 text-sm space-y-1 list-decimal list-inside">
-              <li>Abre tu app bancaria o banca en linea</li>
-              <li>Selecciona transferencia SPEI</li>
-              <li>Ingresa la CLABE y el monto exacto</li>
-              <li>Confirma la transferencia</li>
+              <li>{t('spei.step1')}</li>
+              <li>{t('spei.step2')}</li>
+              <li>{t('spei.step3')}</li>
+              <li>{t('spei.step4')}</li>
             </ol>
           </div>
 
@@ -90,13 +92,13 @@ const SpeiReferenceModal: React.FC<SpeiReferenceModalProps> = ({
               onClick={handleCopy}
               className="w-full py-3 bg-blue-600 text-white font-bold rounded-lg hover:bg-blue-700 transition-all"
             >
-              Copiar CLABE
+              {t('spei.copyClabe')}
             </button>
             <button
               onClick={onClose}
               className="w-full py-3 bg-neutral-800 text-neutral-400 font-bold rounded-lg hover:bg-neutral-700 transition-all"
             >
-              Cerrar
+              {t('common:buttons.close')}
             </button>
           </div>
         </div>

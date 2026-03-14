@@ -1,24 +1,26 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { Store, ShoppingBag, ChefHat, ScanBarcode, User } from 'lucide-react';
 
 interface Tab {
   path: string;
-  label: string;
+  labelKey: string;
   icon: React.ReactNode;
   roles?: string[];
 }
 
 const tabs: Tab[] = [
-  { path: '/m/pos', label: 'POS', icon: <Store className="w-5 h-5" /> },
-  { path: '/m/orders', label: 'Orders', icon: <ShoppingBag className="w-5 h-5" /> },
-  { path: '/m/kitchen', label: 'Kitchen', icon: <ChefHat className="w-5 h-5" /> },
-  { path: '/m/scan', label: 'Scan', icon: <ScanBarcode className="w-5 h-5" />, roles: ['manager', 'admin'] },
-  { path: '/m/profile', label: 'Profile', icon: <User className="w-5 h-5" /> },
+  { path: '/m/pos', labelKey: 'mobile.tabPOS', icon: <Store className="w-5 h-5" /> },
+  { path: '/m/orders', labelKey: 'mobile.tabOrders', icon: <ShoppingBag className="w-5 h-5" /> },
+  { path: '/m/kitchen', labelKey: 'mobile.tabKitchen', icon: <ChefHat className="w-5 h-5" /> },
+  { path: '/m/scan', labelKey: 'mobile.tabScan', icon: <ScanBarcode className="w-5 h-5" />, roles: ['manager', 'admin'] },
+  { path: '/m/profile', labelKey: 'mobile.tabProfile', icon: <User className="w-5 h-5" /> },
 ];
 
 const MobileShell: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { t } = useTranslation('pos');
   const navigate = useNavigate();
   const location = useLocation();
   const { currentEmployee } = useAuth();
@@ -51,7 +53,7 @@ const MobileShell: React.FC<{ children: React.ReactNode }> = ({ children }) => {
                 }`}
               >
                 {tab.icon}
-                <span className="text-xs font-semibold mt-1">{tab.label}</span>
+                <span className="text-xs font-semibold mt-1">{t(tab.labelKey)}</span>
               </button>
             );
           })}

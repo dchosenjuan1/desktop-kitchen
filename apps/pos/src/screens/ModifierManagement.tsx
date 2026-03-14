@@ -311,7 +311,7 @@ export default function ModifierManagement() {
         ) : tab === 'modifiers' ? (
           <div className="space-y-4">
             {isAtLimit('modifierGroups', groups.filter(g => g.active !== false).length) && (
-              <UpgradePrompt message={`Modifier group limit reached (${limits.modifierGroups}). Upgrade for more.`} />
+              <UpgradePrompt message={t('modifiers.limitReached', { limit: limits.modifierGroups })} />
             )}
             <div className="flex items-center gap-3">
               <button
@@ -323,7 +323,7 @@ export default function ModifierManagement() {
               </button>
               {limits.modifierGroups !== Infinity && (
                 <span className="text-sm text-neutral-400">
-                  {groups.filter(g => g.active !== false).length} / {limits.modifierGroups} groups
+                  {groups.filter(g => g.active !== false).length} / {limits.modifierGroups} {t('modifiers.groupsCount')}
                 </span>
               )}
             </div>
@@ -430,7 +430,7 @@ export default function ModifierManagement() {
           /* ==================== Combos Tab ==================== */
           <div className="space-y-4">
             {isAtLimit('combos', combos.filter(c => c.active !== false).length) && (
-              <UpgradePrompt message={`Combo limit reached (${limits.combos}). Upgrade for more.`} />
+              <UpgradePrompt message={t('modifiers.comboLimitReached', { limit: limits.combos })} />
             )}
             <div className="flex items-center gap-3">
               <button
@@ -442,7 +442,7 @@ export default function ModifierManagement() {
               </button>
               {limits.combos !== Infinity && (
                 <span className="text-sm text-neutral-400">
-                  {combos.filter(c => c.active !== false).length} / {limits.combos} combos
+                  {combos.filter(c => c.active !== false).length} / {limits.combos} {t('modifiers.combosCount')}
                 </span>
               )}
             </div>

@@ -16,7 +16,9 @@
     "addNotes": "Add Notes",
     "unlink": "Unlink",
     "noItemsFound": "No items found",
-    "lowStockWarning": "Warning: {{name}} uses a low-stock ingredient"
+    "lowStockWarning": "Warning: {{name}} uses a low-stock ingredient",
+    "unpaidOrders": "Unpaid orders",
+    "charge": "Charge"
   },
   "totals": {
     "total": "Total:",
@@ -49,7 +51,17 @@
     "payWithCard": "Pay with Card",
     "cashPayment": "Cash Payment",
     "confirmCash": "Confirm Cash — Change: {{change}}",
-    "processing": "Processing..."
+    "processing": "Processing...",
+    "terminalDeclined": "Payment declined at terminal",
+    "terminalSendError": "Error sending to terminal",
+    "confirmed": "Payment confirmed",
+    "terminalWaiting": "Waiting for terminal payment...",
+    "terminalReaderPrompt": "Charge was sent to the reader. Ask the customer to tap or insert their card.",
+    "cancelCharge": "Cancel charge",
+    "sendToMPTerminal": "Send to MP Terminal",
+    "payWithGetnet": "Pay with Getnet (~1.8%)",
+    "payAtOxxo": "Pay at OXXO",
+    "speiTransfer": "SPEI Transfer"
   },
   "receipt": {
     "orderNumber": "Order #{{number}}",
@@ -62,7 +74,11 @@
     "comeAgain": "Please come again",
     "printReceipt": "Print Receipt",
     "estimatedReady": "Estimated ready in {{low}}-{{high}} min",
-    "orderBeingPrepared": "Your order is being prepared"
+    "orderBeingPrepared": "Your order is being prepared",
+    "offlineBadge": "OFFLINE",
+    "scanForInvoice": "Scan to request your invoice",
+    "invoiceIssued": "Invoice issued",
+    "invoiceButton": "Invoice"
   },
   "notes": {
     "title": "Special Instructions",
@@ -80,7 +96,17 @@
     "orderCreateFailed": "Failed to create order",
     "comboAdded": "Combo added to order",
     "itemAdded": "Added {{name}}",
-    "refundDone": "Refund processed successfully"
+    "refundDone": "Refund processed successfully",
+    "failedSaveTemplate": "Failed to save template",
+    "oxxoGenerated": "OXXO payment reference generated",
+    "oxxoFailed": "Error creating OXXO payment",
+    "speiGenerated": "SPEI CLABE generated",
+    "speiFailed": "Error creating SPEI payment",
+    "getnetReady": "Getnet payment integration ready — card form coming soon",
+    "getnetFailed": "Error processing Getnet payment",
+    "errorLoadingOrder": "Error loading order",
+    "orderPaid": "Order #{{number}} — Paid",
+    "mpConfirmed": "Payment confirmed by MP terminal"
   },
   "splitPayment": {
     "title": "Split Payment",
@@ -249,6 +275,13 @@
     "save": "Save {{amount}}",
     "add": "+ Add"
   },
+  "ai": {
+    "lite": {
+      "limit_reached": "You've used your 5 free AI insights today",
+      "unlock": "Unlock unlimited",
+      "badge": "AI Insight"
+    }
+  },
   "soldOut": "Sold Out",
   "lowStock": "Low Stock",
   "searchResults": "{{count}} items found",
@@ -268,7 +301,8 @@
     "applied": "Applied {{name}}",
     "saved": "Saved template: {{name}}",
     "saveCurrentCart": "Save Current Cart as Template",
-    "enterName": "Enter template name..."
+    "enterName": "Enter template name...",
+    "itemCount": "{{count}} item(s)"
   },
   "offline": {
     "indicator": "OFFLINE MODE — Cash Only",
@@ -328,5 +362,126 @@
     "amountReceived": "Amount Received",
     "orderSentToKitchen": "Order sent to kitchen!",
     "offlineOrderSaved": "Order saved offline"
+  },
+  "invoice": {
+    "title": "Invoice Order #{{number}}",
+    "subtotal": "Subtotal",
+    "tax": "Tax / IVA (16%)",
+    "total": "Total",
+    "generalPublic": "General Public",
+    "rfc": "RFC",
+    "legalName": "Legal Name",
+    "legalNamePlaceholder": "Name or Legal Name",
+    "taxRegime": "Tax Regime",
+    "selectRegime": "Select regime...",
+    "postalCode": "Postal Code",
+    "cfdiUsage": "CFDI Usage",
+    "issueCfdi": "Issue CFDI",
+    "issuing": "Issuing invoice with SAT...",
+    "success": "Invoice issued successfully",
+    "folio": "Folio #",
+    "uuidFiscal": "UUID Fiscal",
+    "recipientRfc": "Recipient RFC",
+    "downloadPdf": "Download PDF",
+    "copyLink": "Copy Invoice Link",
+    "linkCopied": "Link copied",
+    "errorTitle": "Error issuing invoice",
+    "errorGeneric": "Error issuing invoice. Please try again.",
+    "retry": "Retry"
+  },
+  "oxxo": {
+    "title": "OXXO Payment",
+    "paymentReference": "Payment reference",
+    "expiresOn": "Expires on",
+    "instructions": "Instructions:",
+    "step1": "Go to any OXXO store",
+    "step2": "Tell the cashier you want to make a service payment",
+    "step3": "Provide the reference to the cashier",
+    "step4": "Make the cash payment",
+    "copyReference": "Copy reference"
+  },
+  "spei": {
+    "title": "SPEI Transfer",
+    "clabe": "Interbank CLABE",
+    "bank": "Bank",
+    "exactAmount": "Exact amount",
+    "expiresOn": "Expires on",
+    "instructions": "Instructions:",
+    "step1": "Open your banking app or online banking",
+    "step2": "Select SPEI transfer",
+    "step3": "Enter the CLABE and exact amount",
+    "step4": "Confirm the transfer",
+    "copyClabe": "Copy CLABE"
+  },
+  "mobile": {
+    "tabPOS": "POS",
+    "tabOrders": "Orders",
+    "tabKitchen": "Kitchen",
+    "tabScan": "Scan",
+    "tabProfile": "Profile"
+  },
+  "mobileKitchen": {
+    "title": "Kitchen",
+    "allClear": "All clear!",
+    "noPendingOrders": "No pending orders",
+    "starting": "Starting...",
+    "startPreparing": "Start Preparing",
+    "marking": "Marking...",
+    "readyForPickup": "Ready for Pickup"
+  },
+  "mobileOrders": {
+    "title": "Orders",
+    "loadingOrders": "Loading orders...",
+    "noOrdersToday": "No orders today",
+    "total": "Total"
+  },
+  "mobileProfile": {
+    "title": "Profile",
+    "networkStatus": "Network Status",
+    "online": "Online",
+    "offline": "Offline",
+    "language": "Language",
+    "logout": "Logout"
+  },
+  "mobileScanner": {
+    "title": "Scan & Restock",
+    "tapToScan": "Tap to scan barcode",
+    "analyzingReceipt": "Analyzing receipt...",
+    "expenseSaved": "Expense saved!",
+    "inventoryUpdated": "Inventory updated for {{count}} item(s)",
+    "scanAnother": "Scan Another",
+    "receiptScanned": "Receipt Scanned",
+    "vendor": "Vendor",
+    "date": "Date",
+    "items": "Items",
+    "total": "Total",
+    "matchAndSave": "Match & Save",
+    "saveExpense": "Save Expense",
+    "loadingInventory": "Loading inventory...",
+    "savingExpense": "Saving expense...",
+    "barcodePlaceholder": "Enter barcode or SKU...",
+    "currentStock": "Current stock:",
+    "barcode": "Barcode:",
+    "qty": "Qty:",
+    "restocking": "Restocking...",
+    "restock": "Restock",
+    "session": "Session ({{count}} items)",
+    "cameraAccessDenied": "Camera access denied. Use manual input below.",
+    "noItemFound": "No item found for barcode: {{barcode}}",
+    "failedCapture": "Failed to capture image",
+    "failedScan": "Failed to scan receipt",
+    "restockFailed": "Restock failed"
+  },
+  "getnetTap": {
+    "notAvailable": "Tap on Phone not available on this device",
+    "orderNumber": "Order #{{id}}",
+    "paymentDeclined": "Payment declined",
+    "processingError": "Error processing payment",
+    "nfcRequired": "Tap on Phone not available. An Android device with NFC is required.",
+    "tapToPay": "Tap to Pay",
+    "waitingForCard": "Waiting for card...",
+    "bringCardCloser": "Hold the card near the device to complete the payment.",
+    "paymentConfirmed": "Payment confirmed",
+    "tryAgain": "Try again"
   }
 }

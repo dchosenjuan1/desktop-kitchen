@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   RefreshCw, Unlink, Building2, Wallet, CreditCard,
   PiggyBank, TrendingUp, Landmark, HelpCircle, AlertTriangle,
@@ -14,28 +15,16 @@ const ACCOUNT_ICONS: Record<string, React.ReactNode> = {
   other: <HelpCircle size={16} className="text-neutral-400" />,
 };
 
-const STATUS_STYLES: Record<string, { bg: string; text: string; label: string }> = {
-  active: { bg: 'bg-green-600/20', text: 'text-green-400', label: 'Active' },
-  error: { bg: 'bg-red-600/20', text: 'text-red-400', label: 'Error' },
-  disconnected: { bg: 'bg-neutral-700/30', text: 'text-neutral-400', label: 'Disconnected' },
-  pending: { bg: 'bg-amber-600/20', text: 'text-amber-400', label: 'Pending' },
+const STATUS_STYLES: Record<string, { bg: string; text: string; labelKey: string }> = {
+  active: { bg: 'bg-green-600/20', text: 'text-green-400', labelKey: 'banking.statusActive' },
+  error: { bg: 'bg-red-600/20', text: 'text-red-400', labelKey: 'banking.statusError' },
+  disconnected: { bg: 'bg-neutral-700/30', text: 'text-neutral-400', labelKey: 'banking.statusDisconnected' },
+  pending: { bg: 'bg-amber-600/20', text: 'text-amber-400', labelKey: 'banking.statusPending' },
 };
 
 function formatCurrency(amount: number | null, currency = 'MXN'): string {
   if (amount == null) return '-';
   return new Intl.NumberFormat('es-MX', { style: 'currency', currency }).format(amount);
-}
-
-function timeAgo(dateStr: string | null): string {
-  if (!dateStr) return 'Never';
-  const diff = Date.now() - new Date(dateStr).getTime();
-  const mins = Math.floor(diff / 60000);
-  if (mins < 1) return 'Just now';
-  if (mins < 60) return `${mins}m ago`;
-  const hours = Math.floor(mins / 60);
-  if (hours < 24) return `${hours}h ago`;
-  const days = Math.floor(hours / 24);
-  return `${days}d ago`;
 }
 
 interface Props {
@@ -46,12 +35,25 @@ interface Props {
 }
 
 const BankConnectionCard: React.FC<Props> = ({ connection, accounts, onSync, onDisconnect }) => {
+  const { t } = useTranslation('admin');
   const [syncing, setSyncing] = useState(false);
   const [confirmDisconnect, setConfirmDisconnect] = useState(false);
   const [disconnecting, setDisconnecting] = useState(false);
 
   const status = STATUS_STYLES[connection.status] || STATUS_STYLES.pending;
   const connAccounts = accounts.filter(a => a.connection_id === connection.id);
+
+  const timeAgo = (dateStr: string | null): string => {
+    if (!dateStr) return t('banking.never');
+    const diff = Date.now() - new Date(dateStr).getTime();
+    const mins = Math.floor(diff / 60000);
+    if (mins < 1) return t('banking.justNow');
+    if (mins < 60) return t('banking.minutesAgo', { count: mins });
+    const hours = Math.floor(mins / 60);
+    if (hours < 24) return t('banking.hoursAgo', { count: hours });
+    const days = Math.floor(hours / 24);
+    return t('banking.daysAgo', { count: days });
+  };
 
   const handleSync = async () => {
     setSyncing(true);
@@ -89,14 +91,14 @@ const BankConnectionCard: React.FC<Props> = ({ connection, accounts, onSync, onD
         </div>
         <div className="flex-1 min-w-0">
           <p className="text-white font-semibold truncate">
-            {connection.institution_name || 'Unknown Institution'}
+            {connection.institution_name || t('banking.unknownInstitution')}
           </p>
           <div className="flex items-center gap-2 text-xs">
             <span className={`px-1.5 py-0.5 rounded ${status.bg} ${status.text} font-medium`}>
-              {status.label}
+              {t(status.labelKey)}
             </span>
             <span className="text-neutral-500">
-              Synced {timeAgo(connection.last_synced_at)}
+              {t('banking.synced')} {timeAgo(connection.last_synced_at)}
             </span>
           </div>
         </div>
@@ -145,7 +147,7 @@ const BankConnectionCard: React.FC<Props> = ({ connection, accounts, onSync, onD
                 </p>
                 {acct.balance_available != null && acct.balance_available !== acct.balance_current && (
                   <p className="text-xs text-neutral-500">
-                    Avail. {formatCurrency(acct.balance_available, acct.currency)}
+                    {t('banking.avail')} {formatCurrency(acct.balance_available, acct.currency)}
                   </p>
                 )}
               </div>
@@ -166,9 +168,9 @@ const BankConnectionCard: React.FC<Props> = ({ connection, accounts, onSync, onD
                 <AlertTriangle size={20} className="text-red-400" />
               </div>
               <div>
-                <h3 className="text-white font-bold">Disconnect Bank?</h3>
+                <h3 className="text-white font-bold">{t('banking.disconnectBank')}</h3>
                 <p className="text-sm text-neutral-400">
-                  {connection.institution_name || 'This connection'} will be removed and its data will no longer sync.
+                  {t('banking.disconnectConfirm', { institution: connection.institution_name || t('banking.unknownInstitution') })}
                 </p>
               </div>
             </div>
@@ -177,14 +179,14 @@ const BankConnectionCard: React.FC<Props> = ({ connection, accounts, onSync, onD
                 onClick={() => setConfirmDisconnect(false)}
                 className="flex-1 px-4 py-2.5 rounded-lg bg-neutral-800 text-neutral-300 font-medium hover:bg-neutral-700 transition-colors"
               >
-                Cancel
+                {t('common:buttons.cancel')}
               </button>
               <button
                 onClick={handleDisconnect}
                 disabled={disconnecting}
                 className="flex-1 px-4 py-2.5 rounded-lg bg-red-600 text-white font-medium hover:bg-red-700 transition-colors disabled:opacity-50"
               >
-                {disconnecting ? 'Disconnecting...' : 'Disconnect'}
+                {disconnecting ? t('banking.disconnecting') : t('banking.disconnect')}
               </button>
             </div>
           </div>

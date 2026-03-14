@@ -194,6 +194,19 @@
     "cancel": "Cancelar",
     "termsTitle": "Términos de Procesamiento de Datos"
   },
+  "errors": {
+    "failedLoad": "Error al cargar datos de financiamiento",
+    "failedSubmitConsent": "Error al enviar consentimiento",
+    "failedAcceptOffer": "Error al aceptar oferta",
+    "failedDeclineOffer": "Error al rechazar oferta",
+    "failedRevokeConsent": "Error al revocar consentimiento"
+  },
+  "eligibility": {
+    "eligible": "Elegible",
+    "preEligible": "Pre-Elegible",
+    "ineligible": "No Elegible",
+    "new": "Nuevo"
+  },
   "registration": {
     "consentHeadline": "¿Quieres acceso a capital de trabajo?",
     "consentDescription": "Permítenos analizar tus datos de ventas para determinar tu elegibilidad para financiamiento.",

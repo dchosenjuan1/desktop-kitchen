@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Search, Package, X, ChevronDown } from 'lucide-react';
 import {
   searchInventory,
@@ -28,6 +29,7 @@ interface ItemMatchState {
 }
 
 const InventoryMatchStep: React.FC<Props> = ({ items, onContinue, onSkipAll }) => {
+  const { t } = useTranslation('admin');
   const [matchStates, setMatchStates] = useState<ItemMatchState[]>([]);
   const [allInventory, setAllInventory] = useState<InventorySearchResult[]>([]);
   const searchTimeouts = useRef<(ReturnType<typeof setTimeout> | null)[]>([]);
@@ -139,9 +141,9 @@ const InventoryMatchStep: React.FC<Props> = ({ items, onContinue, onSkipAll }) =
   return (
     <div className="space-y-4">
       <div>
-        <h3 className="text-base font-bold text-white">Match to Inventory</h3>
+        <h3 className="text-base font-bold text-white">{t('expenses.matchToInventory')}</h3>
         <p className="text-sm text-neutral-400 mt-0.5">
-          Optional — skip items that aren't inventory
+          {t('expenses.matchToInventoryHint')}
         </p>
       </div>
 
@@ -165,13 +167,13 @@ const InventoryMatchStep: React.FC<Props> = ({ items, onContinue, onSkipAll }) =
           onClick={onSkipAll}
           className="flex-1 py-3 bg-neutral-800 text-white font-semibold rounded-lg hover:bg-neutral-700 transition-colors"
         >
-          Skip All
+          {t('expenses.skipAll')}
         </button>
         <button
           onClick={handleContinue}
           className="flex-1 py-3 bg-brand-600 text-white font-semibold rounded-lg hover:bg-brand-700 transition-colors"
         >
-          Continue
+          {t('expenses.continue')}
         </button>
       </div>
     </div>
@@ -199,6 +201,7 @@ const MatchRow: React.FC<MatchRowProps> = ({
   onQuantityChange,
   onToggleDropdown,
 }) => {
+  const { t } = useTranslation('admin');
   const dropdownRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -257,7 +260,7 @@ const MatchRow: React.FC<MatchRowProps> = ({
             <input
               ref={inputRef}
               type="text"
-              placeholder="Search inventory..."
+              placeholder={t('expenses.searchInventory')}
               value={state.searchQuery}
               onChange={(e) => onSearch(e.target.value)}
               onFocus={() => {
@@ -286,15 +289,15 @@ const MatchRow: React.FC<MatchRowProps> = ({
               }}
               className="w-full text-left px-3 py-2.5 text-sm text-neutral-400 hover:bg-neutral-700 transition-colors min-h-[44px]"
             >
-              -- Skip --
+              -- {t('expenses.skip')} --
             </button>
 
             {state.searching && (
-              <div className="px-3 py-2.5 text-sm text-neutral-500">Searching...</div>
+              <div className="px-3 py-2.5 text-sm text-neutral-500">{t('expenses.searching')}</div>
             )}
 
             {!state.searching && displayResults.length === 0 && state.searchQuery.trim().length > 0 && (
-              <div className="px-3 py-2.5 text-sm text-neutral-500">No matches found</div>
+              <div className="px-3 py-2.5 text-sm text-neutral-500">{t('expenses.noMatchesFound')}</div>
             )}
 
             {displayResults.map((inv) => (
@@ -305,7 +308,7 @@ const MatchRow: React.FC<MatchRowProps> = ({
               >
                 <div className="text-sm text-white">{inv.name}</div>
                 <div className="text-xs text-neutral-500">
-                  {inv.quantity} {inv.unit} in stock
+                  {inv.quantity} {inv.unit} {t('expenses.inStock')}
                   {inv.category ? ` · ${inv.category}` : ''}
                 </div>
               </button>
@@ -317,7 +320,7 @@ const MatchRow: React.FC<MatchRowProps> = ({
       {/* Quantity input — only when matched */}
       {state.selectedItem && (
         <div className="flex items-center gap-2">
-          <label className="text-xs text-neutral-400">Qty:</label>
+          <label className="text-xs text-neutral-400">{t('expenses.qty')}:</label>
           <input
             type="number"
             inputMode="decimal"

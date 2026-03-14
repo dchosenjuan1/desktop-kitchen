@@ -329,25 +329,25 @@ export default function MenuManagement() {
                   className="px-4 py-3 border border-neutral-700 text-neutral-300 rounded-lg font-medium hover:bg-neutral-800 transition-colors flex items-center gap-2 min-h-[44px] text-sm"
                 >
                   <Sparkles size={16} />
-                  AI Builder
+                  {t('admin:menu.aiBuilder')}
                 </button>
                 <button
                   onClick={() => setShowCSVImport(true)}
                   className="px-4 py-3 border border-neutral-700 text-neutral-300 rounded-lg font-medium hover:bg-neutral-800 transition-colors flex items-center gap-2 min-h-[44px] text-sm"
                 >
                   <Upload size={16} />
-                  Import CSV
+                  {t('admin:menu.importCsv')}
                 </button>
                 <button
                   onClick={() => setShowTemplatePicker(true)}
                   className="px-4 py-3 border border-neutral-700 text-neutral-300 rounded-lg font-medium hover:bg-neutral-800 transition-colors flex items-center gap-2 min-h-[44px] text-sm"
                 >
                   <FileSpreadsheet size={16} />
-                  Use Template
+                  {t('admin:menu.useTemplate')}
                 </button>
                 {limits.menuItems !== Infinity && (
                   <span className="text-sm text-neutral-400">
-                    {menuItems.filter(i => i.active).length} / {limits.menuItems} items
+                    {menuItems.filter(i => i.active).length} / {limits.menuItems} {t('admin:menu.items')}
                   </span>
                 )}
                 <button
@@ -368,7 +368,7 @@ export default function MenuManagement() {
       <div className="max-w-7xl mx-auto p-6">
         {isAtLimit('menuItems', menuItems.filter(i => i.active).length) && (
           <div className="mb-6">
-            <UpgradePrompt message={`Menu item limit reached (${limits.menuItems}). Upgrade for unlimited items.`} />
+            <UpgradePrompt message={t('admin:menu.limitReached', { limit: limits.menuItems })} />
           </div>
         )}
         {error && (

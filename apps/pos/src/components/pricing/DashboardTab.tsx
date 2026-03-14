@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { PricingDashboard } from '../../types';
 import { formatPrice } from '../../utils/currency';
 import SourceBadge from './SourceBadge';
@@ -13,20 +14,22 @@ function KPICard({ label, value, color }: { label: string; value: string | numbe
 }
 
 export default function DashboardTab({ dashboard }: { dashboard: PricingDashboard }) {
+  const { t } = useTranslation('admin');
+
   return (
     <div className="space-y-6">
       {/* KPI Row */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <KPICard label="Active Rules" value={dashboard.activeRulesCount} color="text-brand-500" />
-        <KPICard label="Changes (7d)" value={dashboard.recentChanges.length} color="text-amber-500" />
-        <KPICard label="Revenue Impact" value={formatPrice(dashboard.totalRevenueImpact)} color={dashboard.totalRevenueImpact >= 0 ? 'text-green-500' : 'text-red-500'} />
-        <KPICard label="Running Experiments" value={dashboard.runningExperiments} color="text-purple-500" />
+        <KPICard label={t('pricing.activeRules')} value={dashboard.activeRulesCount} color="text-brand-500" />
+        <KPICard label={t('pricing.changes7d')} value={dashboard.recentChanges.length} color="text-amber-500" />
+        <KPICard label={t('pricing.revenueImpact')} value={formatPrice(dashboard.totalRevenueImpact)} color={dashboard.totalRevenueImpact >= 0 ? 'text-green-500' : 'text-red-500'} />
+        <KPICard label={t('pricing.runningExperiments')} value={dashboard.runningExperiments} color="text-purple-500" />
       </div>
 
       {/* Revenue Chart */}
       {dashboard.chartData.length > 0 && (
         <div className="bg-neutral-900 p-6 rounded-lg border border-neutral-800">
-          <h3 className="text-lg font-bold text-white mb-4">Revenue & Price Changes (14 days)</h3>
+          <h3 className="text-lg font-bold text-white mb-4">{t('pricing.revenueChart')}</h3>
           <div className="flex items-end gap-1 h-40">
             {dashboard.chartData.map((d, i) => {
               const maxRev = Math.max(...dashboard.chartData.map(x => x.revenue), 1);
@@ -51,8 +54,8 @@ export default function DashboardTab({ dashboard }: { dashboard: PricingDashboar
             })}
           </div>
           <div className="flex items-center gap-4 mt-3 text-xs text-neutral-500">
-            <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-brand-600/40" /> Revenue</span>
-            <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-amber-500/60" /> Price change day</span>
+            <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-brand-600/40" /> {t('pricing.revenue')}</span>
+            <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-amber-500/60" /> {t('pricing.priceChangeDay')}</span>
           </div>
         </div>
       )}
@@ -60,7 +63,7 @@ export default function DashboardTab({ dashboard }: { dashboard: PricingDashboar
       {/* Recent Changes */}
       {dashboard.recentChanges.length > 0 && (
         <div className="bg-neutral-900 p-6 rounded-lg border border-neutral-800">
-          <h3 className="text-lg font-bold text-white mb-4">Recent Price Changes</h3>
+          <h3 className="text-lg font-bold text-white mb-4">{t('pricing.recentPriceChanges')}</h3>
           <div className="space-y-2">
             {dashboard.recentChanges.slice(0, 5).map(entry => (
               <div key={entry.id} className="flex items-center justify-between p-3 bg-neutral-800 rounded-lg">

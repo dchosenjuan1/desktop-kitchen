@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Lock, ArrowUpCircle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { usePlan } from '../context/PlanContext';
@@ -15,13 +16,14 @@ const UpgradePrompt: React.FC<UpgradePromptProps> = ({
   message,
   feature,
 }) => {
+  const { t } = useTranslation('common');
   const navigate = useNavigate();
   const { plan } = usePlan();
   const [loading, setLoading] = useState(false);
 
   const defaultMessage = feature
-    ? `${feature} requires Pro plan.`
-    : 'This feature requires Pro plan.';
+    ? t('upgrade.featureRequiresPro', { feature })
+    : t('upgrade.requiresPro');
 
   const handleUpgrade = async () => {
     const token = localStorage.getItem('owner_token');
@@ -45,7 +47,7 @@ const UpgradePrompt: React.FC<UpgradePromptProps> = ({
           <Lock className="w-10 h-10 text-neutral-500 mx-auto" />
           <h3 className="text-lg font-bold text-white">{message || defaultMessage}</h3>
           <p className="text-sm text-neutral-400">
-            You're on the <span className="text-brand-400 font-medium capitalize">{plan}</span> plan.
+            {t('upgrade.onPlanText')} <span className="text-brand-400 font-medium capitalize">{plan}</span> {t('upgrade.planSuffix')}
           </p>
           <button
             onClick={handleUpgrade}
@@ -53,7 +55,7 @@ const UpgradePrompt: React.FC<UpgradePromptProps> = ({
             className="inline-flex items-center gap-2 px-6 py-2.5 bg-brand-600 text-white font-semibold rounded-lg hover:bg-brand-700 transition-colors disabled:opacity-50"
           >
             <ArrowUpCircle className="w-4 h-4" />
-            {loading ? 'Redirecting...' : 'Upgrade to Pro — $60/mo'}
+            {loading ? t('upgrade.redirecting') : t('upgrade.ctaPrice')}
           </button>
         </div>
       </div>
@@ -70,7 +72,7 @@ const UpgradePrompt: React.FC<UpgradePromptProps> = ({
         className="flex-shrink-0 inline-flex items-center gap-1.5 px-4 py-1.5 bg-brand-600 text-white text-sm font-medium rounded-lg hover:bg-brand-700 transition-colors disabled:opacity-50"
       >
         <ArrowUpCircle className="w-3.5 h-3.5" />
-        {loading ? 'Redirecting...' : 'Upgrade to Pro'}
+        {loading ? t('upgrade.redirecting') : t('upgrade.ctaShort')}
       </button>
     </div>
   );

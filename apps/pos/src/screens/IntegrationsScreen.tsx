@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import { ArrowLeft, Lock, Eye, EyeOff, Check, AlertCircle, Trash2 } from 'lucide-react';
 import {
@@ -20,23 +21,12 @@ const SERVICE_ICONS: Record<string, string> = {
   didi_food: '\uD83D\uDE95',
 };
 
-const SERVICE_DESCRIPTIONS: Record<string, string> = {
-  mercadopago: 'Charge with Point terminal directly from the POS. Requires your own OAuth app in the MP portal.',
-  stripe: 'Process online card payments. Use your own Stripe account to receive funds directly.',
-  twilio: 'Send loyalty SMS, customer recapture messages, and automatic notifications.',
-  facturapi: 'Issue CFDI 4.0 invoices from the POS using your own FacturAPI account.',
-  xai: 'Enable AI suggestions, inventory analysis, and smart pricing with Grok.',
-  uber_eats: 'Receive Uber Eats orders directly in your POS. Requires an Uber Eats restaurant account.',
-  rappi: 'Integrate your restaurant with Rappi to receive and manage orders from the POS.',
-  didi_food: 'Connect with DiDi Food to receive orders and sync your menu automatically.',
-};
-
-const SERVICE_GROUPS: { label: string; keys: string[] }[] = [
-  { label: 'Payments', keys: ['mercadopago', 'stripe'] },
-  { label: 'Delivery', keys: ['uber_eats', 'rappi', 'didi_food'] },
-  { label: 'Communications', keys: ['twilio'] },
-  { label: 'Invoicing', keys: ['facturapi'] },
-  { label: 'Artificial Intelligence', keys: ['xai'] },
+const SERVICE_GROUP_KEYS: { labelKey: string; keys: string[] }[] = [
+  { labelKey: 'integrations.groups.payments', keys: ['mercadopago', 'stripe'] },
+  { labelKey: 'integrations.groups.delivery', keys: ['uber_eats', 'rappi', 'didi_food'] },
+  { labelKey: 'integrations.groups.communications', keys: ['twilio'] },
+  { labelKey: 'integrations.groups.invoicing', keys: ['facturapi'] },
+  { labelKey: 'integrations.groups.ai', keys: ['xai'] },
 ];
 
 interface ServiceCardProps {
@@ -45,9 +35,10 @@ interface ServiceCardProps {
   stored: Record<string, string>;
   onSave: (service: string, values: Record<string, string>) => Promise<void>;
   onDelete: (service: string) => Promise<void>;
+  t: (key: string, opts?: any) => string;
 }
 
-function ServiceCard({ serviceKey, schema, stored, onSave, onDelete }: ServiceCardProps) {
+function ServiceCard({ serviceKey, schema, stored, onSave, onDelete, t }: ServiceCardProps) {
   const [editing, setEditing] = useState(false);
   const [values, setValues] = useState<Record<string, string>>({});
   const [showSecrets, setShowSecrets] = useState<Record<string, boolean>>({});
@@ -59,7 +50,6 @@ function ServiceCard({ serviceKey, schema, stored, onSave, onDelete }: ServiceCa
   const hasStored = Object.values(stored).some(v => v && v.length > 0);
 
   useEffect(() => {
-    // Initialize form with stored values (masked secrets show as empty for re-entry)
     const init: Record<string, string> = {};
     for (const field of schema.fields) {
       init[field.key] = stored[field.key] || '';
@@ -72,11 +62,9 @@ function ServiceCard({ serviceKey, schema, stored, onSave, onDelete }: ServiceCa
     setError('');
     setSaved(false);
     try {
-      // Only send fields that were actually changed (non-masked)
       const toSend: Record<string, string> = {};
       for (const field of schema.fields) {
         const val = values[field.key] || '';
-        // Skip if the value is still the masked version (user didn't change it)
         if (field.secret && stored[field.key] && val === stored[field.key]) continue;
         toSend[field.key] = val;
       }
@@ -85,7 +73,7 @@ function ServiceCard({ serviceKey, schema, stored, onSave, onDelete }: ServiceCa
       setEditing(false);
       setTimeout(() => setSaved(false), 3000);
     } catch (err: any) {
-      setError(err.message || 'Error saving');
+      setError(err.message || t('integrations.errorSaving'));
     } finally {
       setSaving(false);
     }
@@ -102,7 +90,7 @@ function ServiceCard({ serviceKey, schema, stored, onSave, onDelete }: ServiceCa
       setConfirmDelete(false);
       setEditing(false);
     } catch (err: any) {
-      setError(err.message || 'Error deleting');
+      setError(err.message || t('integrations.errorDeleting'));
     } finally {
       setSaving(false);
     }
@@ -119,18 +107,18 @@ function ServiceCard({ serviceKey, schema, stored, onSave, onDelete }: ServiceCa
           <div className="flex items-center gap-2">
             {hasStored && (
               <span className="text-xs font-semibold text-green-400 bg-green-400/10 px-2 py-0.5 rounded-full">
-                Configured
+                {t('integrations.configured')}
               </span>
             )}
             {saved && (
               <span className="text-xs font-semibold text-teal-400 flex items-center gap-1">
-                <Check size={12} /> Saved
+                <Check size={12} /> {t('integrations.saved')}
               </span>
             )}
           </div>
         </div>
         <p className="text-neutral-500 text-sm mb-4">
-          {SERVICE_DESCRIPTIONS[serviceKey] || ''}
+          {t(`integrations.services.${serviceKey}`, '')}
         </p>
 
         {!editing ? (
@@ -139,13 +127,13 @@ function ServiceCard({ serviceKey, schema, stored, onSave, onDelete }: ServiceCa
               onClick={() => setEditing(true)}
               className="px-4 py-2 bg-neutral-800 text-neutral-200 text-sm font-semibold rounded-lg hover:bg-neutral-700 transition-colors"
             >
-              {hasStored ? 'Edit credentials' : 'Configure'}
+              {hasStored ? t('integrations.editCredentials') : t('integrations.configure')}
             </button>
             {hasStored && (
               <button
                 onClick={() => setConfirmDelete(true)}
                 className="p-2 text-neutral-600 hover:text-red-400 transition-colors"
-                title="Delete credentials"
+                title={t('integrations.deleteCredentials')}
               >
                 <Trash2 size={16} />
               </button>
@@ -192,14 +180,14 @@ function ServiceCard({ serviceKey, schema, stored, onSave, onDelete }: ServiceCa
                 disabled={saving}
                 className="px-5 py-2 bg-brand-600 text-white text-sm font-semibold rounded-lg hover:bg-brand-700 transition-colors disabled:opacity-50"
               >
-                {saving ? 'Saving...' : 'Save'}
+                {saving ? t('integrations.saving') : t('integrations.save')}
               </button>
               <button
                 onClick={() => { setEditing(false); setError(''); }}
                 disabled={saving}
                 className="px-4 py-2 text-neutral-400 text-sm font-medium hover:text-white transition-colors"
               >
-                Cancel
+                {t('common:buttons.cancel')}
               </button>
             </div>
           </div>
@@ -208,20 +196,20 @@ function ServiceCard({ serviceKey, schema, stored, onSave, onDelete }: ServiceCa
         {/* Delete confirmation */}
         {confirmDelete && (
           <div className="mt-3 bg-red-900/20 border border-red-800/40 rounded-lg p-3 flex items-center justify-between">
-            <p className="text-red-300 text-sm">Delete all credentials for {schema.label}?</p>
+            <p className="text-red-300 text-sm">{t('integrations.deleteConfirm', { service: schema.label })}</p>
             <div className="flex gap-2">
               <button
                 onClick={handleDelete}
                 disabled={saving}
                 className="px-3 py-1.5 bg-red-600 text-white text-xs font-semibold rounded-lg hover:bg-red-700 disabled:opacity-50"
               >
-                Delete
+                {t('common:buttons.delete')}
               </button>
               <button
                 onClick={() => setConfirmDelete(false)}
                 className="px-3 py-1.5 text-neutral-400 text-xs font-medium hover:text-white"
               >
-                Cancel
+                {t('common:buttons.cancel')}
               </button>
             </div>
           </div>
@@ -232,6 +220,7 @@ function ServiceCard({ serviceKey, schema, stored, onSave, onDelete }: ServiceCa
 }
 
 export default function IntegrationsScreen() {
+  const { t } = useTranslation('admin');
   const [schema, setSchema] = useState<Record<string, ServiceSchema> | null>(null);
   const [credentials, setCredentials] = useState<Record<string, Record<string, string>>>({});
   const [loading, setLoading] = useState(true);
@@ -263,7 +252,6 @@ export default function IntegrationsScreen() {
 
   const handleSave = async (service: string, values: Record<string, string>) => {
     await saveCredentials(service, values);
-    // Refresh stored credentials after save
     const fresh = await getCredentials();
     setCredentials(fresh);
   };
@@ -281,8 +269,8 @@ export default function IntegrationsScreen() {
             <ArrowLeft size={24} />
           </Link>
           <div>
-            <h1 className="text-3xl font-black tracking-tighter">Integrations</h1>
-            <p className="text-neutral-400 text-sm mt-0.5">Connect your own payment, delivery, SMS, invoicing, and AI accounts</p>
+            <h1 className="text-3xl font-black tracking-tighter">{t('integrations.title')}</h1>
+            <p className="text-neutral-400 text-sm mt-0.5">{t('integrations.subtitle')}</p>
           </div>
         </div>
       </div>
@@ -304,16 +292,16 @@ export default function IntegrationsScreen() {
           <div className="space-y-6">
             <div className="bg-neutral-800/50 border border-neutral-700/50 rounded-lg p-4">
               <p className="text-neutral-300 text-sm">
-                Each service uses your own credentials first. If not configured, platform credentials will be used (if available).
+                {t('integrations.credentialsNote')}
               </p>
             </div>
-            {SERVICE_GROUPS.map((group) => {
+            {SERVICE_GROUP_KEYS.map((group) => {
               const groupServices = group.keys.filter(k => schema[k]);
               if (groupServices.length === 0) return null;
               return (
-                <div key={group.label}>
+                <div key={group.labelKey}>
                   <h2 className="text-neutral-500 text-xs font-bold uppercase tracking-widest mb-3 px-1">
-                    {group.label}
+                    {t(group.labelKey)}
                   </h2>
                   <div className="space-y-4">
                     {groupServices.map((key) => (
@@ -324,6 +312,7 @@ export default function IntegrationsScreen() {
                         stored={credentials[key] || {}}
                         onSave={handleSave}
                         onDelete={handleDelete}
+                        t={t}
                       />
                     ))}
                   </div>

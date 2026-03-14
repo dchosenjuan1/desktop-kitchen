@@ -57,7 +57,7 @@ export default function QuickOrdersModal({
                   <p className="text-neutral-400 text-sm mt-1">{template.description}</p>
                 )}
                 <p className="text-neutral-500 text-xs mt-2">
-                  {template.items.length} {template.items.length === 1 ? 'item' : 'items'}
+                  {t('quickOrders.itemCount', { count: template.items.length })}
                 </p>
               </button>
             ))

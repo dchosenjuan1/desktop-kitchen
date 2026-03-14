@@ -171,11 +171,11 @@ export default function DeliveryScreen() {
   };
 
   const tabs: { id: Tab; icon: React.ReactNode; label: string }[] = [
-    { id: 'analytics', icon: <BarChart3 size={16} />, label: 'P&L Analytics' },
+    { id: 'analytics', icon: <BarChart3 size={16} />, label: t('delivery.tabs.analytics') },
     { id: 'orders', icon: <Truck size={16} />, label: t('delivery.tabs.orders') },
-    { id: 'markups', icon: <Tag size={16} />, label: 'Markup Rules' },
-    { id: 'brands', icon: <Store size={16} />, label: 'Virtual Brands' },
-    { id: 'recapture', icon: <MessageSquare size={16} />, label: 'Recapture' },
+    { id: 'markups', icon: <Tag size={16} />, label: t('delivery.tabs.markups') },
+    { id: 'brands', icon: <Store size={16} />, label: t('delivery.tabs.brands') },
+    { id: 'recapture', icon: <MessageSquare size={16} />, label: t('delivery.tabs.recapture') },
     { id: 'platforms', icon: <TrendingUp size={16} />, label: t('delivery.tabs.config') },
   ];
 
@@ -230,13 +230,13 @@ export default function DeliveryScreen() {
             {tab === 'analytics' && platforms.length === 0 && (
               <div className="bg-neutral-900 rounded-lg border border-neutral-800 p-12 text-center">
                 <Truck size={48} className="mx-auto text-neutral-600 mb-4" />
-                <h3 className="text-white text-lg font-bold mb-2">No delivery platforms configured</h3>
-                <p className="text-neutral-400 text-sm mb-6">Set up Uber Eats, Rappi, or DiDi Food to start tracking delivery orders and analytics.</p>
+                <h3 className="text-white text-lg font-bold mb-2">{t('delivery.noPlatforms')}</h3>
+                <p className="text-neutral-400 text-sm mb-6">{t('delivery.noPlatformsSetupHint')}</p>
                 <button
                   onClick={() => setShowDeliverySetup(true)}
                   className="px-6 py-2.5 bg-brand-600 hover:bg-brand-500 text-white rounded-xl font-bold transition-colors"
                 >
-                  Set Up Delivery Platforms
+                  {t('delivery.setupDelivery')}
                 </button>
               </div>
             )}
@@ -246,7 +246,7 @@ export default function DeliveryScreen() {
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                   <div className="bg-neutral-900 border border-neutral-800 rounded-lg p-4">
                     <div className="flex items-center gap-2 text-neutral-400 text-sm mb-1">
-                      <DollarSign size={16} /> POS Revenue
+                      <DollarSign size={16} /> {t('delivery.analytics.posRevenue')}
                     </div>
                     <p className="text-2xl font-bold text-white">
                       {formatPrice(analytics?.pos?.revenue || 0)}
@@ -255,7 +255,7 @@ export default function DeliveryScreen() {
                   </div>
                   <div className="bg-neutral-900 border border-neutral-800 rounded-lg p-4">
                     <div className="flex items-center gap-2 text-neutral-400 text-sm mb-1">
-                      <Truck size={16} /> Delivery Revenue
+                      <Truck size={16} /> {t('delivery.analytics.deliveryRevenue')}
                     </div>
                     <p className="text-2xl font-bold text-brand-400">
                       {formatPrice(analytics?.delivery?.revenue || 0)}
@@ -264,7 +264,7 @@ export default function DeliveryScreen() {
                   </div>
                   <div className="bg-neutral-900 border border-neutral-800 rounded-lg p-4">
                     <div className="flex items-center gap-2 text-neutral-400 text-sm mb-1">
-                      <TrendingUp size={16} /> Avg POS Ticket
+                      <TrendingUp size={16} /> {t('delivery.analytics.avgPosTicket')}
                     </div>
                     <p className="text-2xl font-bold text-white">
                       {formatPrice(analytics?.pos?.avg_order || 0)}
@@ -272,7 +272,7 @@ export default function DeliveryScreen() {
                   </div>
                   <div className="bg-neutral-900 border border-neutral-800 rounded-lg p-4">
                     <div className="flex items-center gap-2 text-neutral-400 text-sm mb-1">
-                      <TrendingUp size={16} /> Avg Delivery Ticket
+                      <TrendingUp size={16} /> {t('delivery.analytics.avgDeliveryTicket')}
                     </div>
                     <p className="text-2xl font-bold text-brand-400">
                       {formatPrice(analytics?.delivery?.avg_order || 0)}
@@ -283,18 +283,18 @@ export default function DeliveryScreen() {
                 {/* Per-Platform Breakdown */}
                 <div className="bg-neutral-900 border border-neutral-800 rounded-lg">
                   <div className="p-4 border-b border-neutral-800">
-                    <h3 className="font-bold text-white">Platform P&L Breakdown</h3>
+                    <h3 className="font-bold text-white">{t('delivery.analytics.platformBreakdown')}</h3>
                   </div>
                   <div className="overflow-x-auto">
                     <table className="w-full text-sm">
                       <thead>
                         <tr className="text-neutral-400 border-b border-neutral-800">
-                          <th className="text-left p-3">Platform</th>
-                          <th className="text-right p-3">Orders</th>
-                          <th className="text-right p-3">Gross Revenue</th>
-                          <th className="text-right p-3">Commission</th>
-                          <th className="text-right p-3">Net Revenue</th>
-                          <th className="text-right p-3">Avg Order</th>
+                          <th className="text-left p-3">{t('delivery.analytics.platform')}</th>
+                          <th className="text-right p-3">{t('delivery.analytics.ordersColumn')}</th>
+                          <th className="text-right p-3">{t('delivery.analytics.grossRevenue')}</th>
+                          <th className="text-right p-3">{t('delivery.analytics.commissionColumn')}</th>
+                          <th className="text-right p-3">{t('delivery.analytics.netRevenue')}</th>
+                          <th className="text-right p-3">{t('delivery.analytics.avgOrder')}</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -313,7 +313,7 @@ export default function DeliveryScreen() {
                           </tr>
                         ))}
                         {(!analytics?.platforms || analytics.platforms.length === 0) && (
-                          <tr><td colSpan={6} className="p-8 text-center text-neutral-500">No delivery data yet</td></tr>
+                          <tr><td colSpan={6} className="p-8 text-center text-neutral-500">{t('delivery.analytics.noDataYet')}</td></tr>
                         )}
                       </tbody>
                     </table>
@@ -389,12 +389,12 @@ export default function DeliveryScreen() {
               <div className="space-y-6">
                 <div className="bg-neutral-900 border border-neutral-800 rounded-lg">
                   <div className="p-4 border-b border-neutral-800 flex items-center justify-between">
-                    <h3 className="font-bold text-white">Price Markup Rules</h3>
-                    <p className="text-xs text-neutral-500">Increase delivery prices to offset platform commissions</p>
+                    <h3 className="font-bold text-white">{t('delivery.markups.title')}</h3>
+                    <p className="text-xs text-neutral-500">{t('delivery.markups.subtitle')}</p>
                   </div>
                   <div className="p-4">
                     {markupRules.length === 0 ? (
-                      <p className="text-neutral-500 text-center py-8">No markup rules yet. Delivery prices = POS prices.</p>
+                      <p className="text-neutral-500 text-center py-8">{t('delivery.markups.noRules')}</p>
                     ) : (
                       <div className="space-y-3">
                         {markupRules.map((rule: any) => (
@@ -423,7 +423,7 @@ export default function DeliveryScreen() {
                 {/* Markup Preview */}
                 <div className="bg-neutral-900 border border-neutral-800 rounded-lg">
                   <div className="p-4 border-b border-neutral-800">
-                    <h3 className="font-bold text-white mb-3">Delivery Price Preview</h3>
+                    <h3 className="font-bold text-white mb-3">{t('delivery.markups.pricePreview')}</h3>
                     <div className="flex gap-2">
                       {platforms.filter(p => p.active).map(p => (
                         <button
@@ -443,10 +443,10 @@ export default function DeliveryScreen() {
                       <table className="w-full text-sm">
                         <thead>
                           <tr className="text-neutral-400 border-b border-neutral-800">
-                            <th className="text-left p-3">Item</th>
-                            <th className="text-right p-3">POS Price</th>
-                            <th className="text-right p-3">Markup</th>
-                            <th className="text-right p-3">Delivery Price</th>
+                            <th className="text-left p-3">{t('delivery.markups.item')}</th>
+                            <th className="text-right p-3">{t('delivery.markups.posPrice')}</th>
+                            <th className="text-right p-3">{t('delivery.markups.markup')}</th>
+                            <th className="text-right p-3">{t('delivery.markups.deliveryPrice')}</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -477,16 +477,16 @@ export default function DeliveryScreen() {
                 <div className="bg-neutral-900 border border-neutral-800 rounded-lg">
                   <div className="p-4 border-b border-neutral-800 flex items-center justify-between">
                     <div>
-                      <h3 className="font-bold text-white">Virtual Brands</h3>
-                      <p className="text-xs text-neutral-500 mt-1">Present different menus on delivery platforms from the same kitchen</p>
+                      <h3 className="font-bold text-white">{t('delivery.brands.title')}</h3>
+                      <p className="text-xs text-neutral-500 mt-1">{t('delivery.brands.subtitle')}</p>
                     </div>
                   </div>
                   <div className="p-4">
                     {virtualBrands.length === 0 ? (
                       <div className="text-center py-8">
                         <Store size={40} className="mx-auto text-neutral-600 mb-3" />
-                        <p className="text-neutral-500">No virtual brands yet</p>
-                        <p className="text-neutral-600 text-sm mt-1">Create a virtual brand to offer different menus on delivery platforms</p>
+                        <p className="text-neutral-500">{t('delivery.brands.noBrands')}</p>
+                        <p className="text-neutral-600 text-sm mt-1">{t('delivery.brands.noBrandsHint')}</p>
                       </div>
                     ) : (
                       <div className="space-y-3">
@@ -498,7 +498,7 @@ export default function DeliveryScreen() {
                               {brand.description && <p className="text-neutral-400 text-sm mt-1">{brand.description}</p>}
                             </div>
                             <span className={`px-2 py-1 rounded text-xs font-medium ${brand.active ? 'bg-green-900/30 text-green-400' : 'bg-neutral-800 text-neutral-500'}`}>
-                              {brand.active ? 'Active' : 'Inactive'}
+                              {brand.active ? t('delivery.active') : t('delivery.inactive')}
                             </span>
                           </div>
                         ))}
@@ -514,15 +514,15 @@ export default function DeliveryScreen() {
               <div className="space-y-6">
                 <div className="bg-neutral-900 border border-neutral-800 rounded-lg">
                   <div className="p-4 border-b border-neutral-800">
-                    <h3 className="font-bold text-white">Customer Recapture</h3>
-                    <p className="text-xs text-neutral-500 mt-1">Win back delivery-only customers with in-store offers via SMS</p>
+                    <h3 className="font-bold text-white">{t('delivery.recapture.title')}</h3>
+                    <p className="text-xs text-neutral-500 mt-1">{t('delivery.recapture.subtitle')}</p>
                   </div>
                   <div className="p-4">
                     {recaptureCandidates.length === 0 ? (
                       <div className="text-center py-8">
                         <Users size={40} className="mx-auto text-neutral-600 mb-3" />
-                        <p className="text-neutral-500">No recapture candidates found</p>
-                        <p className="text-neutral-600 text-sm mt-1">Delivery customers will appear here after orders come in</p>
+                        <p className="text-neutral-500">{t('delivery.recapture.noCandidates')}</p>
+                        <p className="text-neutral-600 text-sm mt-1">{t('delivery.recapture.noCandidatesHint')}</p>
                       </div>
                     ) : (
                       <div className="space-y-3">
@@ -546,7 +546,7 @@ export default function DeliveryScreen() {
                                   onClick={() => handleSendRecapture(c)}
                                   className="flex items-center gap-1 px-3 py-1.5 bg-brand-600 text-white text-sm rounded-lg font-medium hover:bg-brand-700"
                                 >
-                                  <Send size={14} /> Send SMS
+                                  <Send size={14} /> {t('delivery.recapture.sendSms')}
                                 </button>
                               )}
                             </div>
@@ -583,13 +583,13 @@ export default function DeliveryScreen() {
                 {platforms.length === 0 && (
                   <div className="bg-neutral-900 rounded-lg border border-neutral-800 p-12 text-center">
                     <Truck size={48} className="mx-auto text-neutral-600 mb-4" />
-                    <h3 className="text-white text-lg font-bold mb-2">No delivery platforms configured</h3>
-                    <p className="text-neutral-400 text-sm mb-6">Add your delivery platforms to manage commissions and track orders.</p>
+                    <h3 className="text-white text-lg font-bold mb-2">{t('delivery.noPlatforms')}</h3>
+                    <p className="text-neutral-400 text-sm mb-6">{t('delivery.noPlatformsAddHint')}</p>
                     <button
                       onClick={() => setShowDeliverySetup(true)}
                       className="px-6 py-2.5 bg-brand-600 hover:bg-brand-500 text-white rounded-xl font-bold transition-colors"
                     >
-                      Set Up Delivery Platforms
+                      {t('delivery.setupDelivery')}
                     </button>
                   </div>
                 )}

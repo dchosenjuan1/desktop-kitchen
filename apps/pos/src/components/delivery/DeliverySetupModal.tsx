@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { X, Loader2, Check, Truck } from 'lucide-react';
 import { batchCreateDeliveryPlatforms } from '../../api';
 
@@ -31,6 +32,7 @@ const PLATFORM_COLORS: Record<string, string> = {
 };
 
 export default function DeliverySetupModal({ isOpen, onClose, onDeliverySetup }: Props) {
+  const { t } = useTranslation('admin');
   const [step, setStep] = useState<Step>('select');
   const [platforms, setPlatforms] = useState<PlatformOption[]>(DEFAULT_PLATFORMS.map(p => ({ ...p })));
   const [error, setError] = useState('');
@@ -87,7 +89,7 @@ export default function DeliverySetupModal({ isOpen, onClose, onDeliverySetup }:
       setStep('done');
       onDeliverySetup?.();
     } catch (err: any) {
-      setError(err.message || 'Failed to set up delivery platforms');
+      setError(err.message || t('delivery.failedSetup'));
       setStep('select');
     }
   };
@@ -106,8 +108,8 @@ export default function DeliverySetupModal({ isOpen, onClose, onDeliverySetup }:
               <Truck size={18} className="text-brand-400" />
             </div>
             <div>
-              <h2 className="text-lg font-bold text-white">Set Up Delivery Platforms</h2>
-              <p className="text-xs text-neutral-400">Select the platforms you use</p>
+              <h2 className="text-lg font-bold text-white">{t('delivery.setupTitle')}</h2>
+              <p className="text-xs text-neutral-400">{t('delivery.setupSubtitle')}</p>
             </div>
           </div>
           {step !== 'committing' && (
@@ -148,7 +150,7 @@ export default function DeliverySetupModal({ isOpen, onClose, onDeliverySetup }:
 
                     {/* Commission input */}
                     <div className="flex items-center gap-1" onClick={e => e.stopPropagation()}>
-                      <label className="text-xs text-neutral-500">Commission</label>
+                      <label className="text-xs text-neutral-500">{t('delivery.commission')}</label>
                       <input
                         type="number"
                         value={p.commission_percent}
@@ -166,7 +168,7 @@ export default function DeliverySetupModal({ isOpen, onClose, onDeliverySetup }:
                   {p.selected && (
                     <div className="px-4 pb-4 pt-0" onClick={e => e.stopPropagation()}>
                       <div className="flex items-center gap-2">
-                        <label className="text-xs text-neutral-400">Default price markup</label>
+                        <label className="text-xs text-neutral-400">{t('delivery.defaultMarkup')}</label>
                         <input
                           type="number"
                           value={p.default_markup_percent}
@@ -177,7 +179,7 @@ export default function DeliverySetupModal({ isOpen, onClose, onDeliverySetup }:
                           step={1}
                         />
                         <span className="text-xs text-neutral-500">%</span>
-                        <span className="text-xs text-neutral-600 ml-1">(optional — offset commissions)</span>
+                        <span className="text-xs text-neutral-600 ml-1">({t('delivery.markupHint')})</span>
                       </div>
                     </div>
                   )}
@@ -195,7 +197,7 @@ export default function DeliverySetupModal({ isOpen, onClose, onDeliverySetup }:
                 disabled={selectedCount === 0}
                 className="w-full mt-2 py-3 rounded-xl font-bold text-white transition-colors disabled:opacity-40 disabled:cursor-not-allowed bg-brand-600 hover:bg-brand-500"
               >
-                Set Up {selectedCount > 0 ? `${selectedCount} Platform${selectedCount > 1 ? 's' : ''}` : 'Platforms'}
+                {t('delivery.setupButton', { count: selectedCount })}
               </button>
             </div>
           )}
@@ -203,7 +205,7 @@ export default function DeliverySetupModal({ isOpen, onClose, onDeliverySetup }:
           {step === 'committing' && (
             <div className="flex flex-col items-center justify-center py-12 gap-4">
               <Loader2 size={36} className="text-brand-400 animate-spin" />
-              <p className="text-neutral-300 text-sm">Setting up delivery platforms...</p>
+              <p className="text-neutral-300 text-sm">{t('delivery.settingUp')}</p>
             </div>
           )}
 
@@ -213,18 +215,18 @@ export default function DeliverySetupModal({ isOpen, onClose, onDeliverySetup }:
                 <Check size={28} className="text-green-400" />
               </div>
               <div className="text-center">
-                <p className="text-white font-bold text-lg">Delivery Platforms Ready</p>
+                <p className="text-white font-bold text-lg">{t('delivery.platformsReady')}</p>
                 <p className="text-neutral-400 text-sm mt-1">
-                  {result.created > 0 && `${result.created} platform${result.created > 1 ? 's' : ''} created`}
+                  {result.created > 0 && t('delivery.platformsCreated', { count: result.created })}
                   {result.created > 0 && result.updated > 0 && ', '}
-                  {result.updated > 0 && `${result.updated} updated`}
+                  {result.updated > 0 && t('delivery.platformsUpdated', { count: result.updated })}
                 </p>
               </div>
               <button
                 onClick={handleDone}
                 className="px-6 py-2.5 rounded-xl font-bold text-white bg-brand-600 hover:bg-brand-500 transition-colors"
               >
-                Done
+                {t('common:buttons.done')}
               </button>
             </div>
           )}

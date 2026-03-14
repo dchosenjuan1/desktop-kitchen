@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { Sparkles, X, ArrowRight } from 'lucide-react';
 import { usePlan } from '../context/PlanContext';
@@ -6,6 +7,7 @@ import { usePlan } from '../context/PlanContext';
 const DISMISSED_KEY = 'free_banner_dismissed';
 
 const FreePlanBanner: React.FC = () => {
+  const { t } = useTranslation('common');
   const navigate = useNavigate();
   const { plan } = usePlan();
   const [dismissed, setDismissed] = useState(() => sessionStorage.getItem(DISMISSED_KEY) === '1');
@@ -17,18 +19,18 @@ const FreePlanBanner: React.FC = () => {
       <div className="flex items-center gap-3">
         <Sparkles size={16} className="text-brand-400 flex-shrink-0" />
         <span className="text-brand-200 text-sm font-medium flex-1">
-          You're on the Free-for-life plan — Upgrade to Pro for unlimited access
+          {t('freePlan.banner')}
         </span>
         <button
           onClick={() => navigate('/admin/account')}
           className="flex items-center gap-1 px-3 py-1.5 rounded-md text-xs font-semibold bg-brand-700 hover:bg-brand-600 text-white transition-colors flex-shrink-0"
         >
-          Upgrade <ArrowRight size={12} />
+          {t('freePlan.upgrade')} <ArrowRight size={12} />
         </button>
         <button
           onClick={() => { sessionStorage.setItem(DISMISSED_KEY, '1'); setDismissed(true); }}
           className="text-brand-600 hover:text-brand-400 transition-colors p-1 flex-shrink-0"
-          aria-label="Dismiss"
+          aria-label={t('demo.dismiss')}
         >
           <X size={14} />
         </button>

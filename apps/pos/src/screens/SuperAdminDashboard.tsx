@@ -1,4 +1,5 @@
 import React, { useState, useEffect, lazy, Suspense } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Shield, LogOut } from 'lucide-react';
 import { verifySecret } from '../api/superAdmin';
 import { getFeatureFlags } from '../api';
@@ -13,18 +14,19 @@ const FinancingTab = lazy(() => import('../components/super-admin/FinancingTab')
 
 type TabId = 'overview' | 'tenants' | 'revenue' | 'health' | 'financing' | 'stress-test';
 
-const BASE_TABS: { id: TabId; label: string }[] = [
-  { id: 'overview', label: 'Overview' },
-  { id: 'tenants', label: 'Tenants' },
-  { id: 'revenue', label: 'Revenue' },
-  { id: 'health', label: 'Health' },
-  { id: 'financing', label: 'Financing' },
-];
-
 export default function SuperAdminDashboard() {
+  const { t } = useTranslation('superAdmin');
   const [authed, setAuthed] = useState(false);
   const [tab, setTab] = useState<TabId>('overview');
   const [stressTestEnabled, setStressTestEnabled] = useState(false);
+
+  const BASE_TABS: { id: TabId; label: string }[] = [
+    { id: 'overview', label: t('tabs.overview') },
+    { id: 'tenants', label: t('tabs.tenants') },
+    { id: 'revenue', label: t('tabs.revenue') },
+    { id: 'health', label: t('tabs.health') },
+    { id: 'financing', label: t('tabs.financing') },
+  ];
 
   useEffect(() => {
     if (sessionStorage.getItem('admin_secret')) {
@@ -50,28 +52,28 @@ export default function SuperAdminDashboard() {
         <div className="max-w-7xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Shield className="text-teal-500" size={24} />
-            <h1 className="text-xl font-black text-white tracking-tight">Desktop Kitchen</h1>
-            <span className="text-neutral-500 text-sm font-medium">Super Admin</span>
+            <h1 className="text-xl font-black text-white tracking-tight">{t('dashboard.brandName')}</h1>
+            <span className="text-neutral-500 text-sm font-medium">{t('dashboard.superAdmin')}</span>
           </div>
           <button onClick={handleLogout} className="flex items-center gap-1.5 text-neutral-400 hover:text-white text-sm transition-colors">
-            <LogOut size={16} /> Sign Out
+            <LogOut size={16} /> {t('dashboard.signOut')}
           </button>
         </div>
       </div>
 
       <div className="bg-neutral-900/50 border-b border-neutral-800">
         <div className="max-w-7xl mx-auto flex gap-1 px-6">
-          {[...BASE_TABS, ...(stressTestEnabled ? [{ id: 'stress-test' as TabId, label: 'Stress Test' }] : [])].map(t => (
+          {[...BASE_TABS, ...(stressTestEnabled ? [{ id: 'stress-test' as TabId, label: t('tabs.stressTest') }] : [])].map(tb => (
             <button
-              key={t.id}
-              onClick={() => setTab(t.id)}
+              key={tb.id}
+              onClick={() => setTab(tb.id)}
               className={`px-4 py-3 text-sm font-medium transition-colors border-b-2 ${
-                tab === t.id
+                tab === tb.id
                   ? 'text-teal-400 border-teal-500'
                   : 'text-neutral-400 border-transparent hover:text-neutral-200'
               }`}
             >
-              {t.label}
+              {tb.label}
             </button>
           ))}
         </div>

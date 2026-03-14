@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { getGetnetSavings } from '../../api';
 import { formatPrice } from '../../utils/currency';
 import { usePlan } from '../../context/PlanContext';
 
 const GetnetUpgradePrompt: React.FC = () => {
+  const { t } = useTranslation('admin');
   const { plan } = usePlan();
   const [savings, setSavings] = useState<{
     monthlySavings: number;
@@ -27,12 +29,11 @@ const GetnetUpgradePrompt: React.FC = () => {
           <path strokeLinecap="round" strokeLinejoin="round" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
         </svg>
         <p className="text-white font-bold text-sm">
-          Ahorra {formatPrice(savings.monthlySavings)}/mes con Pro
+          {t('getnet.saveWithPro', { amount: formatPrice(savings.monthlySavings) })}
         </p>
       </div>
       <p className="text-neutral-400 text-xs">
-        Con tu volumen de {formatPrice(savings.totalVolume)} en 30 dias, la comision de plataforma baja
-        de 1.0% a 0.5% en el plan Pro, ahorrando {formatPrice(savings.monthlySavings)} mensuales.
+        {t('getnet.upgradeDescription', { volume: formatPrice(savings.totalVolume), savings: formatPrice(savings.monthlySavings) })}
       </p>
     </div>
   );

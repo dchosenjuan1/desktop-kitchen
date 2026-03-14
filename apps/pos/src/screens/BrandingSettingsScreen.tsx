@@ -178,7 +178,7 @@ export default function BrandingSettingsScreen() {
             value={restaurantName}
             onChange={(e) => setRestaurantName(e.target.value)}
             className="w-full bg-neutral-800 text-white rounded-lg px-4 py-3 border border-neutral-700 focus:border-brand-500 focus:outline-none"
-            placeholder="My Restaurant"
+            placeholder={t('branding.namePlaceholder')}
           />
         </div>
 
@@ -192,21 +192,21 @@ export default function BrandingSettingsScreen() {
             value={tagline}
             onChange={(e) => setTagline(e.target.value)}
             className="w-full bg-neutral-800 text-white rounded-lg px-4 py-3 border border-neutral-700 focus:border-brand-500 focus:outline-none"
-            placeholder="California Burritos"
+            placeholder={t('branding.taglinePlaceholder')}
           />
         </div>
 
         {/* Address */}
         <div className="bg-neutral-900 rounded-lg border border-neutral-800 p-6">
           <label className="block text-sm font-medium text-neutral-400 mb-2">
-            {t('branding.address', 'Receipt Address')}
+            {t('branding.receiptAddress')}
           </label>
           <input
             type="text"
             value={address}
             onChange={(e) => setAddress(e.target.value)}
             className="w-full bg-neutral-800 text-white rounded-lg px-4 py-3 border border-neutral-700 focus:border-brand-500 focus:outline-none"
-            placeholder="123 Main St, City, State 12345"
+            placeholder={t('branding.addressPlaceholder')}
           />
         </div>
 
@@ -268,7 +268,7 @@ export default function BrandingSettingsScreen() {
               value={customHex || primaryColor}
               onChange={(e) => handleCustomHexChange(e.target.value)}
               className="w-28 bg-neutral-800 text-white rounded-lg px-3 py-2 border border-neutral-700 focus:border-brand-500 focus:outline-none text-sm font-mono"
-              placeholder="#0d9488"
+              placeholder={t('branding.hexPlaceholder')}
               maxLength={7}
             />
             <div
@@ -294,10 +294,10 @@ export default function BrandingSettingsScreen() {
               )}
             </div>
             <h3 className="text-2xl font-black tracking-tighter text-white mb-1">
-              {restaurantName || 'Restaurant Name'}
+              {restaurantName || t('branding.namePreview')}
             </h3>
             <p className="font-semibold" style={{ color: previewPalette?.['600'] || primaryColor }}>
-              {tagline || 'Your tagline here'}
+              {tagline || t('branding.taglinePreview')}
             </p>
             <div className="mt-4 flex justify-center gap-2">
               <span

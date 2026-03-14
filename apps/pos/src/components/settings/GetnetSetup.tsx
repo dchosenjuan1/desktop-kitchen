@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { getGetnetStatus, setupGetnet, disableGetnet } from '../../api';
 import { usePlan } from '../../context/PlanContext';
 
 const GetnetSetup: React.FC = () => {
+  const { t } = useTranslation('admin');
   const { refresh } = usePlan();
   const [status, setStatus] = useState<{ configured: boolean; enabled: boolean; tapOnPhoneEnabled: boolean; environment: string } | null>(null);
   const [loading, setLoading] = useState(true);
@@ -45,11 +47,11 @@ const GetnetSetup: React.FC = () => {
         environment,
         tap_on_phone_enabled: tapOnPhone,
       });
-      setSuccess('Getnet configurado correctamente');
+      setSuccess(t('getnet.configuredSuccess'));
       await loadStatus();
       await refresh();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error al configurar Getnet');
+      setError(err instanceof Error ? err.message : t('getnet.errorConfiguring'));
     } finally {
       setSaving(false);
     }
@@ -60,30 +62,30 @@ const GetnetSetup: React.FC = () => {
     setError('');
     try {
       await disableGetnet();
-      setSuccess('Getnet desactivado');
+      setSuccess(t('getnet.disabled'));
       await loadStatus();
       await refresh();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error al desactivar Getnet');
+      setError(err instanceof Error ? err.message : t('getnet.errorDisabling'));
     } finally {
       setSaving(false);
     }
   };
 
   if (loading) {
-    return <div className="text-neutral-400 text-center py-8">Cargando...</div>;
+    return <div className="text-neutral-400 text-center py-8">{t('common:states.loading')}</div>;
   }
 
   return (
     <div className="bg-neutral-900 rounded-xl p-6 border border-neutral-800">
       <div className="flex items-center justify-between mb-4">
         <div>
-          <h3 className="text-lg font-bold text-white">Getnet (Santander)</h3>
-          <p className="text-sm text-neutral-400">Procesador de pagos con tarjeta — comisiones desde 1.8%</p>
+          <h3 className="text-lg font-bold text-white">{t('getnet.title')}</h3>
+          <p className="text-sm text-neutral-400">{t('getnet.subtitle')}</p>
         </div>
         {status?.enabled && (
           <span className="px-3 py-1 bg-green-600/20 text-green-400 text-sm font-semibold rounded-full">
-            Activo
+            {t('getnet.active')}
           </span>
         )}
       </div>
@@ -100,44 +102,42 @@ const GetnetSetup: React.FC = () => {
       )}
 
       <p className="text-sm text-neutral-400 mb-4">
-        Primero guarde sus credenciales (Client ID, Client Secret, Merchant ID) en la
-        seccion de <strong>Credenciales</strong> como servicio &quot;Getnet (Santander)&quot;.
-        Luego configure aqui abajo.
+        {t('getnet.credentialsNote')}
       </p>
 
       <form onSubmit={handleSetup} className="space-y-4">
         <div>
-          <label className="block text-sm font-medium text-neutral-300 mb-1">Merchant ID (Seller ID)</label>
+          <label className="block text-sm font-medium text-neutral-300 mb-1">{t('getnet.merchantId')}</label>
           <input
             type="text"
             value={merchantId}
             onChange={(e) => setMerchantId(e.target.value)}
-            placeholder="Ingrese su Merchant ID"
+            placeholder={t('getnet.merchantIdPlaceholder')}
             className="w-full bg-neutral-800 border border-neutral-700 rounded-lg p-3 text-white focus:outline-none focus:border-brand-600"
             required
           />
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-neutral-300 mb-1">Terminal ID (opcional)</label>
+          <label className="block text-sm font-medium text-neutral-300 mb-1">{t('getnet.terminalId')}</label>
           <input
             type="text"
             value={terminalId}
             onChange={(e) => setTerminalId(e.target.value)}
-            placeholder="Solo para terminales fisicas"
+            placeholder={t('getnet.terminalIdPlaceholder')}
             className="w-full bg-neutral-800 border border-neutral-700 rounded-lg p-3 text-white focus:outline-none focus:border-brand-600"
           />
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-neutral-300 mb-1">Ambiente</label>
+          <label className="block text-sm font-medium text-neutral-300 mb-1">{t('getnet.environment')}</label>
           <select
             value={environment}
             onChange={(e) => setEnvironment(e.target.value)}
             className="w-full bg-neutral-800 border border-neutral-700 rounded-lg p-3 text-white focus:outline-none focus:border-brand-600"
           >
-            <option value="sandbox">Sandbox (pruebas)</option>
-            <option value="production">Produccion</option>
+            <option value="sandbox">{t('getnet.sandbox')}</option>
+            <option value="production">{t('getnet.production')}</option>
           </select>
         </div>
 
@@ -148,7 +148,7 @@ const GetnetSetup: React.FC = () => {
             onChange={(e) => setTapOnPhone(e.target.checked)}
             className="w-5 h-5 rounded bg-neutral-800 border-neutral-700 text-brand-600 focus:ring-brand-600"
           />
-          <span className="text-sm text-neutral-300">Habilitar Tap on Phone (Android NFC)</span>
+          <span className="text-sm text-neutral-300">{t('getnet.enableTapOnPhone')}</span>
         </label>
 
         <div className="flex gap-3">
@@ -157,7 +157,7 @@ const GetnetSetup: React.FC = () => {
             disabled={saving || !merchantId}
             className="flex-1 py-3 bg-brand-600 text-white font-bold rounded-lg hover:bg-brand-700 disabled:bg-neutral-700 transition-all"
           >
-            {saving ? 'Guardando...' : status?.enabled ? 'Actualizar' : 'Activar Getnet'}
+            {saving ? t('common:states.loading') : status?.enabled ? t('common:buttons.update') : t('getnet.activate')}
           </button>
           {status?.enabled && (
             <button
@@ -166,7 +166,7 @@ const GetnetSetup: React.FC = () => {
               disabled={saving}
               className="px-6 py-3 bg-red-600/20 text-red-400 font-bold rounded-lg hover:bg-red-600/30 transition-all"
             >
-              Desactivar
+              {t('common:buttons.disable')}
             </button>
           )}
         </div>

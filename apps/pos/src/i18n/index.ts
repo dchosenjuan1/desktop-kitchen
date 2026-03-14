@@ -11,6 +11,7 @@ import enInventory from './locales/en/inventory.json';
 import enReports from './locales/en/reports.json';
 import enFinancing from './locales/en/financing.json';
 import enSettlement from './locales/en/settlement.json';
+import enSuperAdmin from './locales/en/superAdmin.json';
 
 // ES namespaces
 import esCommon from './locales/es/common.json';
@@ -21,6 +22,7 @@ import esInventory from './locales/es/inventory.json';
 import esReports from './locales/es/reports.json';
 import esFinancing from './locales/es/financing.json';
 import esSettlement from './locales/es/settlement.json';
+import esSuperAdmin from './locales/es/superAdmin.json';
 
 const resources = {
   en: {
@@ -32,6 +34,7 @@ const resources = {
     reports: enReports,
     financing: enFinancing,
     settlement: enSettlement,
+    superAdmin: enSuperAdmin,
   },
   es: {
     common: esCommon,
@@ -42,6 +45,7 @@ const resources = {
     reports: esReports,
     financing: esFinancing,
     settlement: esSettlement,
+    superAdmin: esSuperAdmin,
   },
 };
 
@@ -52,7 +56,7 @@ i18n
     resources,
     fallbackLng: 'en',
     defaultNS: 'common',
-    ns: ['common', 'pos', 'kitchen', 'admin', 'inventory', 'reports', 'financing', 'settlement'],
+    ns: ['common', 'pos', 'kitchen', 'admin', 'inventory', 'reports', 'financing', 'settlement', 'superAdmin'],
     interpolation: {
       escapeValue: false,
     },

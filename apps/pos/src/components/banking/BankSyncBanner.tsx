@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { AlertTriangle, X, RefreshCw } from 'lucide-react';
 import { getBankSyncHealth, syncBankConnection, type BankSyncAlert } from '../../api';
 
 const BankSyncBanner: React.FC = () => {
+  const { t } = useTranslation('admin');
   const [alerts, setAlerts] = useState<BankSyncAlert[]>([]);
   const [dismissed, setDismissed] = useState<Set<string>>(new Set());
   const [syncing, setSyncing] = useState<string | null>(null);
@@ -39,11 +41,10 @@ const BankSyncBanner: React.FC = () => {
         >
           <AlertTriangle size={18} className="text-amber-400 flex-shrink-0" />
           <p className="text-sm text-amber-200 flex-1">
-            Bank sync issue with <span className="font-semibold">{alert.institutionName || 'Unknown Bank'}</span>.{' '}
+            {t('banking.syncIssue', { institution: alert.institutionName || t('banking.unknownInstitution') })}{' '}
             <Link to="/admin/banking" className="text-amber-400 hover:text-amber-300 underline">
-              Reconnect
-            </Link>{' '}
-            to continue tracking cash flow.
+              {t('banking.reconnect')}
+            </Link>
           </p>
           <button
             onClick={() => handleRetry(alert.connectionId)}

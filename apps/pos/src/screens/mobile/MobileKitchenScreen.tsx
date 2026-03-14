@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import { getKitchenOrders, updateOrderStatus } from '../../api';
 import { Order } from '../../types';
 import MobileHeader from '../../components/mobile/MobileHeader';
@@ -9,6 +10,7 @@ interface OrderWithElapsed extends Order {
 }
 
 const MobileKitchenScreen: React.FC = () => {
+  const { t } = useTranslation('pos');
   const [orders, setOrders] = useState<OrderWithElapsed[]>([]);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState<number | null>(null);
@@ -105,7 +107,7 @@ const MobileKitchenScreen: React.FC = () => {
   return (
     <>
       <MobileHeader
-        title="Kitchen"
+        title={t('mobileKitchen.title')}
         rightAction={
           <button
             onClick={fetchOrders}
@@ -123,8 +125,8 @@ const MobileKitchenScreen: React.FC = () => {
           </div>
         ) : orders.length === 0 ? (
           <div className="text-center py-20">
-            <p className="text-2xl font-bold text-green-400">All clear!</p>
-            <p className="text-neutral-500 mt-1">No pending orders</p>
+            <p className="text-2xl font-bold text-green-400">{t('mobileKitchen.allClear')}</p>
+            <p className="text-neutral-500 mt-1">{t('mobileKitchen.noPendingOrders')}</p>
           </div>
         ) : (
           orders.map((order) => (
@@ -145,7 +147,7 @@ const MobileKitchenScreen: React.FC = () => {
                       ? 'bg-brand-600 text-white'
                       : 'bg-amber-500 text-neutral-900'
                   }`}>
-                    {order.status}
+                    {t(`common:orderStatus.${order.status}`, order.status)}
                   </span>
                 </div>
                 <div className={`flex items-center gap-1 text-sm font-semibold ${
@@ -190,7 +192,7 @@ const MobileKitchenScreen: React.FC = () => {
                     disabled={actionLoading === order.id}
                     className="w-full py-4 bg-brand-600 hover:bg-brand-700 disabled:opacity-50 text-white font-bold rounded-xl text-lg transition-colors touch-manipulation"
                   >
-                    {actionLoading === order.id ? 'Starting...' : 'Start Preparing'}
+                    {actionLoading === order.id ? t('mobileKitchen.starting') : t('mobileKitchen.startPreparing')}
                   </button>
                 )}
                 {order.status === 'preparing' && (
@@ -199,7 +201,7 @@ const MobileKitchenScreen: React.FC = () => {
                     disabled={actionLoading === order.id}
                     className="w-full py-4 bg-green-600 hover:bg-green-500 disabled:opacity-50 text-white font-bold rounded-xl text-lg transition-colors touch-manipulation"
                   >
-                    {actionLoading === order.id ? 'Marking...' : 'Ready for Pickup'}
+                    {actionLoading === order.id ? t('mobileKitchen.marking') : t('mobileKitchen.readyForPickup')}
                   </button>
                 )}
               </div>

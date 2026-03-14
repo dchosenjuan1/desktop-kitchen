@@ -1,4 +1,5 @@
 import React, { useState, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Plus, Loader2, Building2 } from 'lucide-react';
 import { getBankingWidgetToken, exchangeBankToken } from '../../api';
 
@@ -31,6 +32,7 @@ interface Props {
 }
 
 const ConnectBankButton: React.FC<Props> = ({ variant = 'button', onSuccess }) => {
+  const { t } = useTranslation('admin');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -77,9 +79,9 @@ const ConnectBankButton: React.FC<Props> = ({ variant = 'button', onSuccess }) =
       const { token, widgetJsUrl } = await getBankingWidgetToken();
       await launchPlaidWidget(token, widgetJsUrl);
     } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Failed to start connection';
+      const msg = err instanceof Error ? err.message : t('banking.failedStartConnection');
       if (msg.includes('PLAN_UPGRADE_REQUIRED')) {
-        setError('Bank connectivity requires a Pro plan.');
+        setError(t('banking.requiresPro'));
       } else {
         setError(msg);
       }
@@ -102,10 +104,10 @@ const ConnectBankButton: React.FC<Props> = ({ variant = 'button', onSuccess }) =
           )}
         </div>
         <p className="text-white font-semibold mb-1">
-          {loading ? 'Connecting...' : 'Connect a Bank Account'}
+          {loading ? t('banking.connecting') : t('banking.connectBankAccount')}
         </p>
         <p className="text-sm text-neutral-500">
-          Link your bank to track cash flow automatically
+          {t('banking.connectBankDesc')}
         </p>
         {error && (
           <p className="text-sm text-red-400 mt-2">{error}</p>
@@ -126,7 +128,7 @@ const ConnectBankButton: React.FC<Props> = ({ variant = 'button', onSuccess }) =
         ) : (
           <Plus size={16} />
         )}
-        {loading ? 'Connecting...' : 'Connect Bank'}
+        {loading ? t('banking.connecting') : t('banking.connectBank')}
       </button>
       {error && (
         <p className="text-sm text-red-400 mt-1.5">{error}</p>

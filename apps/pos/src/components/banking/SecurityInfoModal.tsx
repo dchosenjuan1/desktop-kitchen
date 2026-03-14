@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { X, Shield, Eye, Unlink, ExternalLink } from 'lucide-react';
 
 interface Props {
@@ -17,6 +18,8 @@ const BANK_LOGOS = [
 ];
 
 const SecurityInfoModal: React.FC<Props> = ({ open, onClose }) => {
+  const { t } = useTranslation('admin');
+
   if (!open) return null;
 
   return (
@@ -31,7 +34,7 @@ const SecurityInfoModal: React.FC<Props> = ({ open, onClose }) => {
             <div className="w-10 h-10 rounded-full bg-green-600/20 flex items-center justify-center">
               <Shield size={20} className="text-green-400" />
             </div>
-            <h2 className="text-lg font-bold text-white">How bank connections work</h2>
+            <h2 className="text-lg font-bold text-white">{t('banking.securityTitle')}</h2>
           </div>
           <button
             onClick={onClose}
@@ -50,9 +53,9 @@ const SecurityInfoModal: React.FC<Props> = ({ open, onClose }) => {
                 <Eye size={16} className="text-blue-400" />
               </div>
               <div>
-                <h3 className="text-white font-semibold text-sm">Read-only access</h3>
+                <h3 className="text-white font-semibold text-sm">{t('banking.readOnlyAccess')}</h3>
                 <p className="text-neutral-400 text-sm mt-0.5">
-                  Desktop Kitchen can only view your account balances and transaction history. We cannot move money, make payments, or modify your accounts in any way.
+                  {t('banking.readOnlyDesc')}
                 </p>
               </div>
             </div>
@@ -62,9 +65,9 @@ const SecurityInfoModal: React.FC<Props> = ({ open, onClose }) => {
                 <Shield size={16} className="text-green-400" />
               </div>
               <div>
-                <h3 className="text-white font-semibold text-sm">Your credentials stay private</h3>
+                <h3 className="text-white font-semibold text-sm">{t('banking.credentialsPrivate')}</h3>
                 <p className="text-neutral-400 text-sm mt-0.5">
-                  Your bank login credentials are entered directly with your bank through a secure widget. Desktop Kitchen never sees, stores, or has access to your username or password.
+                  {t('banking.credentialsPrivateDesc')}
                 </p>
               </div>
             </div>
@@ -74,9 +77,9 @@ const SecurityInfoModal: React.FC<Props> = ({ open, onClose }) => {
                 <Unlink size={16} className="text-purple-400" />
               </div>
               <div>
-                <h3 className="text-white font-semibold text-sm">Disconnect anytime</h3>
+                <h3 className="text-white font-semibold text-sm">{t('banking.disconnectAnytime')}</h3>
                 <p className="text-neutral-400 text-sm mt-0.5">
-                  You can disconnect your bank at any time from the Banking settings. This immediately revokes access and stops all data syncing.
+                  {t('banking.disconnectAnytimeDesc')}
                 </p>
               </div>
             </div>
@@ -84,23 +87,23 @@ const SecurityInfoModal: React.FC<Props> = ({ open, onClose }) => {
 
           {/* Provider */}
           <div className="bg-neutral-800/50 rounded-lg p-4">
-            <p className="text-xs text-neutral-500 uppercase tracking-wider mb-2">Powered by</p>
+            <p className="text-xs text-neutral-500 uppercase tracking-wider mb-2">{t('banking.poweredBy')}</p>
             <div className="flex items-center gap-3">
               <div className="px-3 py-1.5 bg-neutral-800 rounded-lg">
                 <span className="text-white font-bold text-sm">Plaid</span>
               </div>
               <p className="text-neutral-400 text-sm">
-                Secure bank connections for the US &amp; Mexico
+                {t('banking.plaidDesc')}
               </p>
             </div>
             <p className="text-neutral-500 text-xs mt-2">
-              Plaid is a leading financial technology platform used by thousands of apps and banks worldwide. All connections use bank-grade TLS encryption.
+              {t('banking.plaidDetails')}
             </p>
           </div>
 
           {/* Supported Banks */}
           <div>
-            <p className="text-xs text-neutral-500 uppercase tracking-wider mb-3">Supported banks include</p>
+            <p className="text-xs text-neutral-500 uppercase tracking-wider mb-3">{t('banking.supportedBanks')}</p>
             <div className="flex flex-wrap gap-2">
               {BANK_LOGOS.map(bank => (
                 <div
@@ -113,7 +116,7 @@ const SecurityInfoModal: React.FC<Props> = ({ open, onClose }) => {
                 </div>
               ))}
               <div className="px-3 py-1.5 rounded-lg border border-neutral-700 bg-neutral-800">
-                <span className="text-sm text-neutral-400">+ 12,000 more</span>
+                <span className="text-sm text-neutral-400">{t('banking.moreInstitutions')}</span>
               </div>
             </div>
           </div>
@@ -127,14 +130,14 @@ const SecurityInfoModal: React.FC<Props> = ({ open, onClose }) => {
             rel="noopener noreferrer"
             className="inline-flex items-center gap-1.5 text-sm text-brand-400 hover:text-brand-300 transition-colors"
           >
-            Learn more about Plaid security
+            {t('banking.learnMorePlaid')}
             <ExternalLink size={14} />
           </a>
           <button
             onClick={onClose}
             className="px-5 py-2 bg-neutral-800 text-white text-sm font-medium rounded-lg hover:bg-neutral-700 transition-colors"
           >
-            Got it
+            {t('banking.gotIt')}
           </button>
         </div>
       </div>

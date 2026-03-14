@@ -135,13 +135,13 @@ export default function ReportsScreen() {
   };
 
   const generateCSV = () => {
-    const headers = ['Metric', 'Value'];
+    const headers = [t('sales.csvHeaders.metric'), t('sales.csvHeaders.value')];
     const rows = [
-      ['Period', period],
-      ['Total Revenue', salesData?.total_revenue || 0],
-      ['Order Count', salesData?.order_count || 0],
-      ['Avg Ticket', salesData?.avg_ticket || 0],
-      ['Total Tips', salesData?.tip_total || 0],
+      [t('sales.csvHeaders.period'), period],
+      [t('sales.csvHeaders.totalRevenue'), salesData?.total_revenue || 0],
+      [t('sales.csvHeaders.orderCount'), salesData?.order_count || 0],
+      [t('sales.csvHeaders.avgTicket'), salesData?.avg_ticket || 0],
+      [t('sales.csvHeaders.totalTips'), salesData?.tip_total || 0],
     ];
 
     let csv = headers.join(',') + '\n';
@@ -177,7 +177,7 @@ export default function ReportsScreen() {
     { key: 'delivery', label: t('sales.tabs.delivery') },
     { key: 'fees', label: t('sales.tabs.fees') },
     { key: 'refunds', label: t('sales.tabs.refunds') },
-    { key: 'engineering', label: '⭐ Ingeniería de Menú' },
+    { key: 'engineering', label: '⭐ ' + t('sales.tabs.menuEngineering') },
     { key: 'financials', label: t('sales.tabs.financials') },
   ];
 

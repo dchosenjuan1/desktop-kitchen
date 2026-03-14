@@ -1,4 +1,5 @@
 import React, { useState, useRef, useCallback, useEffect, Suspense } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   lookupInventoryItem,
   scanRestock,
@@ -24,6 +25,7 @@ interface SessionEntry {
 type ReceiptStep = 'idle' | 'scanning' | 'results' | 'inventory-match' | 'saving' | 'done';
 
 const MobileScannerScreen: React.FC = () => {
+  const { t } = useTranslation('pos');
   const [cameraActive, setCameraActive] = useState(false);
   const [manualInput, setManualInput] = useState('');
   const [foundItem, setFoundItem] = useState<InventoryItem | null>(null);
@@ -64,13 +66,13 @@ const MobileScannerScreen: React.FC = () => {
       setRestockQty('1');
       tapFeedback();
     } catch {
-      setError(`No item found for barcode: ${barcode}`);
+      setError(t('mobileScanner.noItemFound', { barcode }));
       setFoundItem(null);
       errorFeedback();
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [t]);
 
   const startCamera = useCallback(async () => {
     try {
@@ -112,9 +114,9 @@ const MobileScannerScreen: React.FC = () => {
         }
       }
     } catch {
-      setError('Camera access denied. Use manual input below.');
+      setError(t('mobileScanner.cameraAccessDenied'));
     }
-  }, [stopCamera, handleLookup]);
+  }, [stopCamera, handleLookup, t]);
 
   // Capture photo from video stream for receipt scanning
   const captureReceipt = useCallback(async () => {
@@ -139,7 +141,7 @@ const MobileScannerScreen: React.FC = () => {
       canvas.toBlob(resolve, 'image/jpeg', 0.85)
     );
     if (!blob) {
-      setError('Failed to capture image');
+      setError(t('mobileScanner.failedCapture'));
       return;
     }
 
@@ -153,10 +155,10 @@ const MobileScannerScreen: React.FC = () => {
       setReceiptResult(result);
       setReceiptStep('results');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to scan receipt');
+      setError(err instanceof Error ? err.message : t('mobileScanner.failedScan'));
       setReceiptStep('idle');
     }
-  }, [stopCamera]);
+  }, [stopCamera, t]);
 
   // Save receipt as expense
   const saveReceiptExpense = useCallback(async () => {
@@ -185,11 +187,11 @@ const MobileScannerScreen: React.FC = () => {
       setReceiptStep('done');
       successFeedback();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to save expense');
+      setError(err instanceof Error ? err.message : t('mobileScanner.restockFailed'));
       setReceiptStep('results');
       errorFeedback();
     }
-  }, [receiptResult, receiptMatches]);
+  }, [receiptResult, receiptMatches, t]);
 
   const resetReceiptFlow = useCallback(() => {
     setReceiptStep('idle');
@@ -234,7 +236,7 @@ const MobileScannerScreen: React.FC = () => {
       setRestockQty('1');
       successFeedback();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Restock failed');
+      setError(err instanceof Error ? err.message : t('mobileScanner.restockFailed'));
       errorFeedback();
     } finally {
       setLoading(false);
@@ -252,7 +254,7 @@ const MobileScannerScreen: React.FC = () => {
   return (
     <>
       <MobileHeader
-        title="Scan & Restock"
+        title={t('mobileScanner.title')}
         rightAction={
           session.length > 0 ? (
             <button
@@ -288,7 +290,7 @@ const MobileScannerScreen: React.FC = () => {
                 className="flex flex-col items-center gap-3 p-8 touch-manipulation"
               >
                 <Camera className="w-16 h-16 text-neutral-500" />
-                <span className="text-neutral-400 font-semibold">Tap to scan barcode</span>
+                <span className="text-neutral-400 font-semibold">{t('mobileScanner.tapToScan')}</span>
               </button>
             </div>
           )}
@@ -297,7 +299,7 @@ const MobileScannerScreen: React.FC = () => {
           {!cameraActive && receiptStep === 'scanning' && (
             <div className="absolute inset-0 flex flex-col items-center justify-center bg-neutral-900 gap-3">
               <Loader2 className="w-12 h-12 text-brand-400 animate-spin" />
-              <span className="text-brand-400 font-semibold">Analyzing receipt...</span>
+              <span className="text-brand-400 font-semibold">{t('mobileScanner.analyzingReceipt')}</span>
             </div>
           )}
 
@@ -305,15 +307,15 @@ const MobileScannerScreen: React.FC = () => {
           {!cameraActive && receiptStep === 'done' && (
             <div className="absolute inset-0 flex flex-col items-center justify-center bg-neutral-900 gap-4">
               <CircleCheck className="w-16 h-16 text-green-400" />
-              <span className="text-green-400 font-bold text-lg">Expense saved!</span>
+              <span className="text-green-400 font-bold text-lg">{t('mobileScanner.expenseSaved')}</span>
               {receiptMatches && receiptMatches.length > 0 && (
-                <span className="text-neutral-400 text-sm">Inventory updated for {receiptMatches.length} item{receiptMatches.length !== 1 ? 's' : ''}</span>
+                <span className="text-neutral-400 text-sm">{t('mobileScanner.inventoryUpdated', { count: receiptMatches.length })}</span>
               )}
               <button
                 onClick={() => { resetReceiptFlow(); startCamera(); }}
                 className="mt-2 px-6 py-3 bg-brand-600 text-white font-bold rounded-xl touch-manipulation"
               >
-                Scan Another
+                {t('mobileScanner.scanAnother')}
               </button>
             </div>
           )}
@@ -356,7 +358,7 @@ const MobileScannerScreen: React.FC = () => {
           {receiptStep === 'results' && receiptResult && (
             <div className="space-y-3">
               <div className="flex items-center justify-between">
-                <h3 className="text-base font-bold text-white">Receipt Scanned</h3>
+                <h3 className="text-base font-bold text-white">{t('mobileScanner.receiptScanned')}</h3>
                 <button onClick={resetReceiptFlow} className="p-1 text-neutral-400 hover:text-white touch-manipulation">
                   <X className="w-5 h-5" />
                 </button>
@@ -366,19 +368,19 @@ const MobileScannerScreen: React.FC = () => {
                 <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-3 space-y-2 text-sm">
                   {receiptResult.parsed.vendor && (
                     <div className="flex justify-between">
-                      <span className="text-neutral-400">Vendor</span>
+                      <span className="text-neutral-400">{t('mobileScanner.vendor')}</span>
                       <span className="text-white font-medium">{receiptResult.parsed.vendor}</span>
                     </div>
                   )}
                   {receiptResult.parsed.date && (
                     <div className="flex justify-between">
-                      <span className="text-neutral-400">Date</span>
+                      <span className="text-neutral-400">{t('mobileScanner.date')}</span>
                       <span className="text-white font-medium">{receiptResult.parsed.date}</span>
                     </div>
                   )}
                   {receiptResult.parsed.items && receiptResult.parsed.items.length > 0 && (
                     <div>
-                      <span className="text-neutral-400">Items</span>
+                      <span className="text-neutral-400">{t('mobileScanner.items')}</span>
                       <div className="mt-1 space-y-1">
                         {receiptResult.parsed.items.map((item, i) => (
                           <div key={i} className="flex justify-between text-white">
@@ -390,7 +392,7 @@ const MobileScannerScreen: React.FC = () => {
                     </div>
                   )}
                   <div className="border-t border-neutral-700 pt-2 flex justify-between font-bold">
-                    <span className="text-neutral-400">Total</span>
+                    <span className="text-neutral-400">{t('mobileScanner.total')}</span>
                     <span className="text-white">${Number(receiptResult.parsed.total || 0).toFixed(2)}</span>
                   </div>
                 </div>
@@ -403,21 +405,21 @@ const MobileScannerScreen: React.FC = () => {
                   onClick={resetReceiptFlow}
                   className="flex-1 py-3 bg-neutral-800 text-white font-semibold rounded-xl hover:bg-neutral-700 transition-colors touch-manipulation"
                 >
-                  Cancel
+                  {t('common:buttons.cancel')}
                 </button>
                 {receiptResult.parsed?.items && receiptResult.parsed.items.length > 0 ? (
                   <button
                     onClick={() => setReceiptStep('inventory-match')}
                     className="flex-1 py-3 bg-brand-600 text-white font-semibold rounded-xl hover:bg-brand-700 transition-colors touch-manipulation"
                   >
-                    Match & Save
+                    {t('mobileScanner.matchAndSave')}
                   </button>
                 ) : (
                   <button
                     onClick={() => setReceiptStep('saving')}
                     className="flex-1 py-3 bg-brand-600 text-white font-semibold rounded-xl hover:bg-brand-700 transition-colors touch-manipulation"
                   >
-                    Save Expense
+                    {t('mobileScanner.saveExpense')}
                   </button>
                 )}
               </div>
@@ -429,7 +431,7 @@ const MobileScannerScreen: React.FC = () => {
             <Suspense fallback={
               <div className="flex items-center justify-center py-8 text-neutral-400">
                 <Loader2 className="w-5 h-5 animate-spin mr-2" />
-                Loading inventory...
+                {t('mobileScanner.loadingInventory')}
               </div>
             }>
               <InventoryMatchStep
@@ -452,7 +454,7 @@ const MobileScannerScreen: React.FC = () => {
           {receiptStep === 'saving' && (
             <div className="flex items-center justify-center py-8 text-brand-400">
               <Loader2 className="w-6 h-6 animate-spin mr-2" />
-              <span className="font-semibold">Saving expense...</span>
+              <span className="font-semibold">{t('mobileScanner.savingExpense')}</span>
             </div>
           )}
 
@@ -465,7 +467,7 @@ const MobileScannerScreen: React.FC = () => {
                   type="text"
                   value={manualInput}
                   onChange={(e) => setManualInput(e.target.value)}
-                  placeholder="Enter barcode or SKU..."
+                  placeholder={t('mobileScanner.barcodePlaceholder')}
                   className="flex-1 px-4 py-3 bg-neutral-900 border border-neutral-700 rounded-xl text-white placeholder-neutral-500 focus:outline-none focus:border-brand-600"
                 />
                 <button
@@ -484,19 +486,19 @@ const MobileScannerScreen: React.FC = () => {
                     <p className="text-lg font-bold text-white">{foundItem.name}</p>
                     <div className="flex items-center gap-3 mt-1">
                       <span className="text-sm text-neutral-400">
-                        Current stock: <span className="font-bold text-white">{foundItem.quantity} {foundItem.unit}</span>
+                        {t('mobileScanner.currentStock')} <span className="font-bold text-white">{foundItem.quantity} {foundItem.unit}</span>
                       </span>
                       {foundItem.low_stock_threshold && foundItem.quantity <= foundItem.low_stock_threshold && (
-                        <span className="text-xs bg-amber-600 text-white px-2 py-0.5 rounded-full font-bold">Low</span>
+                        <span className="text-xs bg-amber-600 text-white px-2 py-0.5 rounded-full font-bold">{t('lowStock')}</span>
                       )}
                     </div>
                     {foundItem.barcode && (
-                      <p className="text-xs text-neutral-500 mt-1">Barcode: {foundItem.barcode}</p>
+                      <p className="text-xs text-neutral-500 mt-1">{t('mobileScanner.barcode')} {foundItem.barcode}</p>
                     )}
                   </div>
 
                   <div className="flex items-center gap-3">
-                    <label className="text-sm text-neutral-400 font-semibold">Qty:</label>
+                    <label className="text-sm text-neutral-400 font-semibold">{t('mobileScanner.qty')}</label>
                     <div className="flex items-center gap-2">
                       <button
                         onClick={() => setRestockQty(String(Math.max(1, parseInt(restockQty) - 1)))}
@@ -526,7 +528,7 @@ const MobileScannerScreen: React.FC = () => {
                     className="w-full py-4 bg-green-600 hover:bg-green-500 disabled:opacity-50 text-white font-bold rounded-xl text-lg flex items-center justify-center gap-2 transition-colors touch-manipulation"
                   >
                     <Check className="w-5 h-5" />
-                    {loading ? 'Restocking...' : 'Restock'}
+                    {loading ? t('mobileScanner.restocking') : t('mobileScanner.restock')}
                   </button>
                 </div>
               )}
@@ -535,7 +537,7 @@ const MobileScannerScreen: React.FC = () => {
               {showSession && session.length > 0 && (
                 <div className="bg-neutral-900 border border-neutral-800 rounded-xl overflow-hidden">
                   <div className="p-3 border-b border-neutral-800">
-                    <p className="text-sm font-bold text-neutral-300">Session ({session.length} items)</p>
+                    <p className="text-sm font-bold text-neutral-300">{t('mobileScanner.session', { count: session.length })}</p>
                   </div>
                   <div className="divide-y divide-neutral-800 max-h-48 overflow-y-auto">
                     {session.map((entry, i) => (

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   LineChart, Line, BarChart, Bar, PieChart, Pie, Cell,
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -10,7 +11,7 @@ import {
 } from '../../api/superAdmin';
 import { KPICard, formatCurrency, PLAN_COLORS, PIE_COLORS } from './shared';
 
-function ActivityList({ title, icon: Icon, tenants }: { title: string; icon: any; tenants: any[] }) {
+function ActivityList({ title, icon: Icon, tenants, t_fn }: { title: string; icon: any; tenants: any[]; t_fn: (key: string) => string }) {
   return (
     <div className="bg-neutral-900 border border-neutral-800 rounded-lg p-5">
       <div className="flex items-center gap-2 mb-3">
@@ -18,25 +19,26 @@ function ActivityList({ title, icon: Icon, tenants }: { title: string; icon: any
         <h3 className="text-white font-semibold">{title}</h3>
       </div>
       <div className="space-y-2">
-        {tenants.map(t => (
-          <div key={t.id} className="flex items-center justify-between py-1.5 border-b border-neutral-800 last:border-0">
+        {tenants.map(tenant => (
+          <div key={tenant.id} className="flex items-center justify-between py-1.5 border-b border-neutral-800 last:border-0">
             <div>
-              <span className="text-white text-sm">{t.name}</span>
+              <span className="text-white text-sm">{tenant.name}</span>
               <span className="ml-2 text-xs px-1.5 py-0.5 rounded-full"
-                style={{ backgroundColor: `${PLAN_COLORS[t.plan]}20`, color: PLAN_COLORS[t.plan] }}>
-                {t.plan}
+                style={{ backgroundColor: `${PLAN_COLORS[tenant.plan]}20`, color: PLAN_COLORS[tenant.plan] }}>
+                {tenant.plan}
               </span>
             </div>
-            <span className="text-neutral-400 text-sm">{t.order_count} orders</span>
+            <span className="text-neutral-400 text-sm">{tenant.order_count} {t_fn('overview.orders')}</span>
           </div>
         ))}
-        {tenants.length === 0 && <p className="text-neutral-500 text-sm">No data</p>}
+        {tenants.length === 0 && <p className="text-neutral-500 text-sm">{t_fn('overview.noData')}</p>}
       </div>
     </div>
   );
 }
 
 export default function OverviewTab() {
+  const { t } = useTranslation('superAdmin');
   const [overview, setOverview] = useState<OverviewData | null>(null);
   const [signups, setSignups] = useState<MonthlyData[]>([]);
   const [churn, setChurn] = useState<MonthlyData[]>([]);
@@ -51,26 +53,26 @@ export default function OverviewTab() {
   }, []);
 
   if (loading || !overview) {
-    return <div className="text-neutral-400 text-center py-12">Loading overview...</div>;
+    return <div className="text-neutral-400 text-center py-12">{t('overview.loading')}</div>;
   }
 
   const pieData = [
-    { name: 'Free', value: overview.plan_breakdown.free },
-    { name: 'Pro', value: overview.plan_breakdown.pro },
+    { name: t('overview.plans.free'), value: overview.plan_breakdown.free },
+    { name: t('overview.plans.pro'), value: overview.plan_breakdown.pro },
   ].filter(d => d.value > 0);
 
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <KPICard icon={Users} label="Total Tenants" value={overview.total_tenants} sub={`${overview.active_tenants} active`} />
-        <KPICard icon={DollarSign} label="MRR" value={formatCurrency(overview.mrr)} />
-        <KPICard icon={ShoppingCart} label="Total Orders" value={overview.total_orders.toLocaleString()} />
-        <KPICard icon={Activity} label="Platform Revenue" value={formatCurrency(overview.total_revenue)} />
+        <KPICard icon={Users} label={t('overview.kpi.totalTenants')} value={overview.total_tenants} sub={t('overview.kpi.activeCount', { count: overview.active_tenants })} />
+        <KPICard icon={DollarSign} label={t('overview.kpi.mrr')} value={formatCurrency(overview.mrr)} />
+        <KPICard icon={ShoppingCart} label={t('overview.kpi.totalOrders')} value={overview.total_orders.toLocaleString()} />
+        <KPICard icon={Activity} label={t('overview.kpi.platformRevenue')} value={formatCurrency(overview.total_revenue)} />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="bg-neutral-900 border border-neutral-800 rounded-lg p-5">
-          <h3 className="text-white font-semibold mb-4">Plan Distribution</h3>
+          <h3 className="text-white font-semibold mb-4">{t('overview.planDistribution')}</h3>
           <ResponsiveContainer width="100%" height={200}>
             <PieChart>
               <Pie data={pieData} cx="50%" cy="50%" innerRadius={50} outerRadius={80} dataKey="value" label={({ name, value }) => `${name}: ${value}`}>
@@ -82,7 +84,7 @@ export default function OverviewTab() {
         </div>
 
         <div className="bg-neutral-900 border border-neutral-800 rounded-lg p-5">
-          <h3 className="text-white font-semibold mb-4">Monthly Signups</h3>
+          <h3 className="text-white font-semibold mb-4">{t('overview.monthlySignups')}</h3>
           <ResponsiveContainer width="100%" height={200}>
             <LineChart data={signups}>
               <CartesianGrid strokeDasharray="3 3" stroke="#333" />
@@ -95,9 +97,9 @@ export default function OverviewTab() {
         </div>
 
         <div className="bg-neutral-900 border border-neutral-800 rounded-lg p-5">
-          <h3 className="text-white font-semibold mb-4">Monthly Churn</h3>
+          <h3 className="text-white font-semibold mb-4">{t('overview.monthlyChurn')}</h3>
           {churn.length === 0 ? (
-            <div className="flex items-center justify-center h-[200px] text-neutral-500 text-sm">No cancellations recorded</div>
+            <div className="flex items-center justify-center h-[200px] text-neutral-500 text-sm">{t('overview.noCancellations')}</div>
           ) : (
             <ResponsiveContainer width="100%" height={200}>
               <BarChart data={churn}>
@@ -114,8 +116,8 @@ export default function OverviewTab() {
 
       {activity && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <ActivityList title="Most Active (30d)" icon={TrendingUp} tenants={activity.most_active} />
-          <ActivityList title="Least Active (30d)" icon={TrendingDown} tenants={activity.least_active} />
+          <ActivityList title={t('overview.mostActive')} icon={TrendingUp} tenants={activity.most_active} t_fn={t} />
+          <ActivityList title={t('overview.leastActive')} icon={TrendingDown} tenants={activity.least_active} t_fn={t} />
         </div>
       )}
     </div>

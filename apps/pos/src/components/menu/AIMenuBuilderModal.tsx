@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import { X, Loader2, Check, Sparkles, Trash2, ChevronDown, ChevronRight, AlertTriangle, ArrowLeft, Wand2, MessageSquare } from 'lucide-react';
 import { parseMenuWithAI, parseMenuWithAIAsOwner, commitAIMenu, commitAIMenuAsOwner } from '../../api';
 import type { AIMenuParseResult, MenuImportStats } from '../../types';
@@ -20,15 +21,16 @@ const EXAMPLE_PROMPTS = [
   'Coffee shop: espresso $35, latte $45, cappuccino $50, matcha $55, croissant $40, banana bread $35',
 ];
 
-const PARSING_MESSAGES = [
-  'Reading your menu...',
-  'Identifying items and categories...',
-  'Estimating prices...',
-  'Generating ingredients & recipes...',
-  'Building modifier groups...',
+const PARSING_MESSAGE_KEYS = [
+  'aiMenuBuilder.parsingReading',
+  'aiMenuBuilder.parsingIdentifying',
+  'aiMenuBuilder.parsingPrices',
+  'aiMenuBuilder.parsingIngredients',
+  'aiMenuBuilder.parsingModifiers',
 ];
 
 export default function AIMenuBuilderModal({ isOpen, onClose, onMenuCreated, isFirstSetup, ownerToken }: Props) {
+  const { t } = useTranslation('admin');
   const { limits } = usePlan();
   const [step, setStep] = useState<Step>('input');
   const [text, setText] = useState('');
@@ -57,7 +59,7 @@ export default function AIMenuBuilderModal({ isOpen, onClose, onMenuCreated, isF
   useEffect(() => {
     if (step !== 'parsing') return;
     const interval = setInterval(() => {
-      setParsingMsgIdx(i => (i + 1) % PARSING_MESSAGES.length);
+      setParsingMsgIdx(i => (i + 1) % PARSING_MESSAGE_KEYS.length);
     }, 1500);
     return () => clearInterval(interval);
   }, [step]);
@@ -80,11 +82,11 @@ export default function AIMenuBuilderModal({ isOpen, onClose, onMenuCreated, isF
         setParsedData(result.data);
         setStep('preview');
       } else {
-        setError(result.error || 'Failed to parse menu');
+        setError(result.error || t('aiMenuBuilder.failedParse'));
         setStep('input');
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to parse menu');
+      setError(err instanceof Error ? err.message : t('aiMenuBuilder.failedParse'));
       setStep('input');
     }
   };
@@ -104,7 +106,7 @@ export default function AIMenuBuilderModal({ isOpen, onClose, onMenuCreated, isF
       setStats(result);
       setStep('done');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to create menu');
+      setError(err instanceof Error ? err.message : t('aiMenuBuilder.failedCreate'));
       setStep('preview');
     }
   };
@@ -165,7 +167,7 @@ export default function AIMenuBuilderModal({ isOpen, onClose, onMenuCreated, isF
   const totalModGroups = parsedData?.modifier_groups?.length || 0;
 
   const limitWarning = typeof limits.menuItems === 'number' && limits.menuItems !== Infinity && totalItems > limits.menuItems
-    ? `Your plan allows ${limits.menuItems} items. Only the first ${limits.menuItems} will be imported.`
+    ? t('aiMenuBuilder.planLimitWarning', { limit: limits.menuItems })
     : null;
 
   return (
@@ -185,11 +187,11 @@ export default function AIMenuBuilderModal({ isOpen, onClose, onMenuCreated, isF
             )}
             <Sparkles size={18} className="text-brand-400" />
             <h2 className="text-lg font-bold text-white">
-              {step === 'input' && 'AI Menu Builder'}
-              {step === 'parsing' && 'Building your menu...'}
-              {step === 'preview' && 'Review Your Menu'}
-              {step === 'committing' && 'Creating menu...'}
-              {step === 'done' && 'Menu Created!'}
+              {step === 'input' && t('aiMenuBuilder.title')}
+              {step === 'parsing' && t('aiMenuBuilder.building')}
+              {step === 'preview' && t('aiMenuBuilder.reviewMenu')}
+              {step === 'committing' && t('aiMenuBuilder.creatingMenu')}
+              {step === 'done' && t('aiMenuBuilder.menuCreated')}
             </h2>
           </div>
           {step !== 'parsing' && step !== 'committing' && (
@@ -204,14 +206,14 @@ export default function AIMenuBuilderModal({ isOpen, onClose, onMenuCreated, isF
           {step === 'input' && (
             <>
               <p className="text-neutral-400 text-sm mb-4">
-                Describe your restaurant, paste a menu, or list your dishes. AI will create categories, items, prices, ingredients, and modifiers.
+                {t('aiMenuBuilder.inputDescription')}
               </p>
 
               <textarea
                 ref={textareaRef}
                 value={text}
                 onChange={e => { setText(e.target.value); setError(''); }}
-                placeholder="Paste your menu, describe your restaurant, or list your dishes..."
+                placeholder={t('aiMenuBuilder.inputPlaceholder')}
                 className="w-full h-48 bg-neutral-800/60 border border-neutral-700/60 rounded-xl p-4 text-white text-sm placeholder-neutral-500 resize-none focus:outline-none focus:border-brand-600/60 transition-colors"
                 maxLength={10000}
               />
@@ -224,7 +226,7 @@ export default function AIMenuBuilderModal({ isOpen, onClose, onMenuCreated, isF
 
               {/* Example prompts */}
               <div className="mb-5">
-                <p className="text-neutral-500 text-xs font-medium uppercase tracking-wider mb-2">Try an example</p>
+                <p className="text-neutral-500 text-xs font-medium uppercase tracking-wider mb-2">{t('aiMenuBuilder.tryExample')}</p>
                 <div className="flex flex-wrap gap-2">
                   {EXAMPLE_PROMPTS.map((prompt, i) => (
                     <button
@@ -244,7 +246,7 @@ export default function AIMenuBuilderModal({ isOpen, onClose, onMenuCreated, isF
                   <div>
                     <p className="text-red-300 text-sm">{error}</p>
                     <p className="text-neutral-400 text-xs mt-1">
-                      Try using a template or importing a CSV instead.
+                      {t('aiMenuBuilder.errorHint')}
                     </p>
                   </div>
                 </div>
@@ -255,7 +257,7 @@ export default function AIMenuBuilderModal({ isOpen, onClose, onMenuCreated, isF
                 disabled={!text.trim()}
                 className="w-full py-3 bg-brand-600 hover:bg-brand-500 disabled:opacity-40 disabled:cursor-not-allowed text-white font-semibold rounded-xl transition-colors text-sm flex items-center justify-center gap-2"
               >
-                <Sparkles size={16} /> Build My Menu
+                <Sparkles size={16} /> {t('aiMenuBuilder.buildMenu')}
               </button>
 
               <button
@@ -266,7 +268,7 @@ export default function AIMenuBuilderModal({ isOpen, onClose, onMenuCreated, isF
                 }}
                 className="w-full mt-3 py-2.5 text-violet-400 hover:text-violet-300 text-xs flex items-center justify-center gap-2 transition-colors"
               >
-                <MessageSquare size={14} /> Need help deciding? Try the AI Assistant
+                <MessageSquare size={14} /> {t('aiMenuBuilder.tryAssistant')}
               </button>
             </>
           )}
@@ -276,7 +278,7 @@ export default function AIMenuBuilderModal({ isOpen, onClose, onMenuCreated, isF
             <div className="flex flex-col items-center justify-center py-16">
               <Loader2 size={36} className="text-brand-500 animate-spin mb-4" />
               <p className="text-neutral-300 text-sm animate-pulse">
-                {PARSING_MESSAGES[parsingMsgIdx]}
+                {t(PARSING_MESSAGE_KEYS[parsingMsgIdx])}
               </p>
             </div>
           )}
@@ -288,22 +290,22 @@ export default function AIMenuBuilderModal({ isOpen, onClose, onMenuCreated, isF
               <div className="flex flex-wrap gap-3">
                 <div className="bg-neutral-800/60 rounded-lg px-3 py-2 text-center">
                   <p className="text-lg font-bold text-brand-400">{totalCategories}</p>
-                  <p className="text-neutral-400 text-xs">Categories</p>
+                  <p className="text-neutral-400 text-xs">{t('aiMenuBuilder.categories')}</p>
                 </div>
                 <div className="bg-neutral-800/60 rounded-lg px-3 py-2 text-center">
                   <p className="text-lg font-bold text-brand-400">{totalItems}</p>
-                  <p className="text-neutral-400 text-xs">Items</p>
+                  <p className="text-neutral-400 text-xs">{t('aiMenuBuilder.items')}</p>
                 </div>
                 {totalIngredients > 0 && (
                   <div className="bg-neutral-800/60 rounded-lg px-3 py-2 text-center">
                     <p className="text-lg font-bold text-brand-400">{totalIngredients}</p>
-                    <p className="text-neutral-400 text-xs">Ingredients</p>
+                    <p className="text-neutral-400 text-xs">{t('aiMenuBuilder.ingredients')}</p>
                   </div>
                 )}
                 {totalModGroups > 0 && (
                   <div className="bg-neutral-800/60 rounded-lg px-3 py-2 text-center">
                     <p className="text-lg font-bold text-brand-400">{totalModGroups}</p>
-                    <p className="text-neutral-400 text-xs">Modifier Groups</p>
+                    <p className="text-neutral-400 text-xs">{t('aiMenuBuilder.modifierGroups')}</p>
                   </div>
                 )}
               </div>
@@ -370,7 +372,7 @@ export default function AIMenuBuilderModal({ isOpen, onClose, onMenuCreated, isF
               {/* Modifier groups */}
               {parsedData.modifier_groups && parsedData.modifier_groups.length > 0 && (
                 <div>
-                  <p className="text-neutral-400 text-xs font-medium uppercase tracking-wider mb-2">Modifier Groups</p>
+                  <p className="text-neutral-400 text-xs font-medium uppercase tracking-wider mb-2">{t('aiMenuBuilder.modifierGroups')}</p>
                   <div className="flex flex-wrap gap-2">
                     {parsedData.modifier_groups.map((mg, i) => (
                       <div key={i} className="bg-neutral-800/60 border border-neutral-700/40 rounded-lg px-3 py-2">
@@ -393,8 +395,8 @@ export default function AIMenuBuilderModal({ isOpen, onClose, onMenuCreated, isF
                   <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-transform ${replaceMode ? 'left-5' : 'left-1'}`} />
                 </div>
                 <div>
-                  <span className="text-white text-sm font-medium">Replace example items</span>
-                  <p className="text-neutral-500 text-xs">Remove placeholder items and start fresh</p>
+                  <span className="text-white text-sm font-medium">{t('aiMenuBuilder.replaceItems')}</span>
+                  <p className="text-neutral-500 text-xs">{t('aiMenuBuilder.replaceItemsHint')}</p>
                 </div>
               </label>
 
@@ -415,14 +417,14 @@ export default function AIMenuBuilderModal({ isOpen, onClose, onMenuCreated, isF
                   onClick={() => { setStep('input'); setError(''); }}
                   className="flex-1 py-3 border border-neutral-700 text-neutral-300 font-semibold rounded-xl transition-colors text-sm hover:bg-neutral-800 flex items-center justify-center gap-2"
                 >
-                  <Wand2 size={14} /> Refine
+                  <Wand2 size={14} /> {t('aiMenuBuilder.refine')}
                 </button>
                 <button
                   onClick={handleCommit}
                   disabled={totalItems === 0}
                   className="flex-[2] py-3 bg-brand-600 hover:bg-brand-500 disabled:opacity-40 text-white font-semibold rounded-xl transition-colors text-sm flex items-center justify-center gap-2"
                 >
-                  Create Menu
+                  {t('aiMenuBuilder.createMenu')}
                 </button>
               </div>
             </div>
@@ -432,7 +434,7 @@ export default function AIMenuBuilderModal({ isOpen, onClose, onMenuCreated, isF
           {step === 'committing' && (
             <div className="flex flex-col items-center justify-center py-16">
               <Loader2 size={36} className="text-brand-500 animate-spin mb-4" />
-              <p className="text-neutral-300 text-sm">Creating categories, items, inventory, and recipes...</p>
+              <p className="text-neutral-300 text-sm">{t('aiMenuBuilder.creatingItems')}</p>
             </div>
           )}
 
@@ -444,37 +446,37 @@ export default function AIMenuBuilderModal({ isOpen, onClose, onMenuCreated, isF
                   <Check size={32} className="text-brand-400" />
                 </div>
               </div>
-              <h3 className="text-white text-xl font-bold text-center">Your menu is ready!</h3>
+              <h3 className="text-white text-xl font-bold text-center">{t('aiMenuBuilder.menuReady')}</h3>
 
               <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                 {stats.categoriesCreated > 0 && (
                   <div className="bg-neutral-800/60 rounded-lg p-3 text-center">
                     <p className="text-2xl font-bold text-brand-400">{stats.categoriesCreated}</p>
-                    <p className="text-neutral-400 text-xs mt-1">Categories</p>
+                    <p className="text-neutral-400 text-xs mt-1">{t('aiMenuBuilder.categories')}</p>
                   </div>
                 )}
                 {stats.itemsCreated > 0 && (
                   <div className="bg-neutral-800/60 rounded-lg p-3 text-center">
                     <p className="text-2xl font-bold text-brand-400">{stats.itemsCreated}</p>
-                    <p className="text-neutral-400 text-xs mt-1">Menu Items</p>
+                    <p className="text-neutral-400 text-xs mt-1">{t('aiMenuBuilder.menuItems')}</p>
                   </div>
                 )}
                 {stats.inventoryCreated > 0 && (
                   <div className="bg-neutral-800/60 rounded-lg p-3 text-center">
                     <p className="text-2xl font-bold text-brand-400">{stats.inventoryCreated}</p>
-                    <p className="text-neutral-400 text-xs mt-1">Ingredients</p>
+                    <p className="text-neutral-400 text-xs mt-1">{t('aiMenuBuilder.ingredients')}</p>
                   </div>
                 )}
                 {stats.recipesCreated > 0 && (
                   <div className="bg-neutral-800/60 rounded-lg p-3 text-center">
                     <p className="text-2xl font-bold text-brand-400">{stats.recipesCreated}</p>
-                    <p className="text-neutral-400 text-xs mt-1">Recipes</p>
+                    <p className="text-neutral-400 text-xs mt-1">{t('aiMenuBuilder.recipes')}</p>
                   </div>
                 )}
                 {stats.modifierGroupsCreated > 0 && (
                   <div className="bg-neutral-800/60 rounded-lg p-3 text-center">
                     <p className="text-2xl font-bold text-brand-400">{stats.modifierGroupsCreated}</p>
-                    <p className="text-neutral-400 text-xs mt-1">Modifier Groups</p>
+                    <p className="text-neutral-400 text-xs mt-1">{t('aiMenuBuilder.modifierGroups')}</p>
                   </div>
                 )}
               </div>
@@ -493,7 +495,7 @@ export default function AIMenuBuilderModal({ isOpen, onClose, onMenuCreated, isF
                 onClick={handleDone}
                 className="w-full py-3 bg-brand-600 hover:bg-brand-500 text-white font-semibold rounded-xl transition-colors text-sm"
               >
-                {isFirstSetup ? 'Continue to POS' : 'View Menu'}
+                {isFirstSetup ? t('aiMenuBuilder.continueToPOS') : t('aiMenuBuilder.viewMenu')}
               </button>
             </div>
           )}

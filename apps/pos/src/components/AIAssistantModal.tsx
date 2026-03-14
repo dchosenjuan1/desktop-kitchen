@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { X, Sparkles, ChefHat, TrendingUp, Users, Truck, Clock, Package, Heart, DollarSign, BarChart3, ShoppingCart, Loader2, ArrowLeft, MessageSquare, Send, Settings } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { askAIAssistant } from '../api';
@@ -11,28 +12,28 @@ interface Props {
 
 interface SmartQuestion {
   id: string;
-  label: string;
-  description: string;
+  labelKey: string;
+  descKey: string;
   icon: React.ReactNode;
   category: 'menu' | 'operations' | 'sales' | 'financial';
 }
 
 const ALL_QUESTIONS: SmartQuestion[] = [
-  { id: 'ingredient_ideas', label: 'Ingredient ideas', description: 'What can I create with existing ingredients?', icon: <ChefHat size={18} />, category: 'menu' },
-  { id: 'combo_ideas', label: 'Combo ideas', description: 'What sells well together?', icon: <ShoppingCart size={18} />, category: 'menu' },
-  { id: 'menu_optimization', label: 'Menu optimization', description: 'What to remove or rework?', icon: <BarChart3 size={18} />, category: 'menu' },
-  { id: 'prep_timing', label: 'Prep schedule', description: 'When should I start prepping?', icon: <Clock size={18} />, category: 'operations' },
-  { id: 'closing_time', label: 'Closing time', description: 'When does the last order come?', icon: <Clock size={18} />, category: 'operations' },
-  { id: 'waste_reduction', label: 'Reduce waste', description: 'How can I cut food waste?', icon: <Package size={18} />, category: 'operations' },
-  { id: 'employee_scheduling', label: 'Staff scheduling', description: 'Optimal staff coverage', icon: <Users size={18} />, category: 'operations' },
-  { id: 'customer_persona', label: 'Customer persona', description: 'Who is my typical customer?', icon: <Users size={18} />, category: 'sales' },
-  { id: 'delivery_promo', label: 'Delivery promos', description: 'What to promote on delivery apps?', icon: <Truck size={18} />, category: 'sales' },
-  { id: 'upsell_suggestions', label: 'Upsell suggestions', description: 'What should cashiers suggest?', icon: <TrendingUp size={18} />, category: 'sales' },
-  { id: 'loyalty_insights', label: 'Loyalty insights', description: 'Improve customer retention', icon: <Heart size={18} />, category: 'sales' },
-  { id: 'pricing_review', label: 'Price review', description: 'Are my prices competitive?', icon: <DollarSign size={18} />, category: 'financial' },
-  { id: 'top_ingredient', label: 'Top ingredient', description: 'Most used & costly ingredient', icon: <Package size={18} />, category: 'financial' },
-  { id: 'profit_margins', label: 'Profit margins', description: 'Best and worst margins', icon: <TrendingUp size={18} />, category: 'financial' },
-  { id: 'inventory_reorder', label: 'Reorder alerts', description: 'What needs restocking?', icon: <Package size={18} />, category: 'financial' },
+  { id: 'ingredient_ideas', labelKey: 'ai.assistant.questions.ingredient_ideas', descKey: 'ai.assistant.questions.ingredient_ideas_desc', icon: <ChefHat size={18} />, category: 'menu' },
+  { id: 'combo_ideas', labelKey: 'ai.assistant.questions.combo_ideas', descKey: 'ai.assistant.questions.combo_ideas_desc', icon: <ShoppingCart size={18} />, category: 'menu' },
+  { id: 'menu_optimization', labelKey: 'ai.assistant.questions.menu_optimization', descKey: 'ai.assistant.questions.menu_optimization_desc', icon: <BarChart3 size={18} />, category: 'menu' },
+  { id: 'prep_timing', labelKey: 'ai.assistant.questions.prep_timing', descKey: 'ai.assistant.questions.prep_timing_desc', icon: <Clock size={18} />, category: 'operations' },
+  { id: 'closing_time', labelKey: 'ai.assistant.questions.closing_time', descKey: 'ai.assistant.questions.closing_time_desc', icon: <Clock size={18} />, category: 'operations' },
+  { id: 'waste_reduction', labelKey: 'ai.assistant.questions.waste_reduction', descKey: 'ai.assistant.questions.waste_reduction_desc', icon: <Package size={18} />, category: 'operations' },
+  { id: 'employee_scheduling', labelKey: 'ai.assistant.questions.employee_scheduling', descKey: 'ai.assistant.questions.employee_scheduling_desc', icon: <Users size={18} />, category: 'operations' },
+  { id: 'customer_persona', labelKey: 'ai.assistant.questions.customer_persona', descKey: 'ai.assistant.questions.customer_persona_desc', icon: <Users size={18} />, category: 'sales' },
+  { id: 'delivery_promo', labelKey: 'ai.assistant.questions.delivery_promo', descKey: 'ai.assistant.questions.delivery_promo_desc', icon: <Truck size={18} />, category: 'sales' },
+  { id: 'upsell_suggestions', labelKey: 'ai.assistant.questions.upsell_suggestions', descKey: 'ai.assistant.questions.upsell_suggestions_desc', icon: <TrendingUp size={18} />, category: 'sales' },
+  { id: 'loyalty_insights', labelKey: 'ai.assistant.questions.loyalty_insights', descKey: 'ai.assistant.questions.loyalty_insights_desc', icon: <Heart size={18} />, category: 'sales' },
+  { id: 'pricing_review', labelKey: 'ai.assistant.questions.pricing_review', descKey: 'ai.assistant.questions.pricing_review_desc', icon: <DollarSign size={18} />, category: 'financial' },
+  { id: 'top_ingredient', labelKey: 'ai.assistant.questions.top_ingredient', descKey: 'ai.assistant.questions.top_ingredient_desc', icon: <Package size={18} />, category: 'financial' },
+  { id: 'profit_margins', labelKey: 'ai.assistant.questions.profit_margins', descKey: 'ai.assistant.questions.profit_margins_desc', icon: <TrendingUp size={18} />, category: 'financial' },
+  { id: 'inventory_reorder', labelKey: 'ai.assistant.questions.inventory_reorder', descKey: 'ai.assistant.questions.inventory_reorder_desc', icon: <Package size={18} />, category: 'financial' },
 ];
 
 const CONTEXT_PRIORITY: Record<string, string[]> = {
@@ -90,6 +91,7 @@ function formatInline(text: string): React.ReactNode {
 }
 
 export default function AIAssistantModal({ isOpen, onClose, screenContext }: Props) {
+  const { t } = useTranslation('common');
   const navigate = useNavigate();
   const [answer, setAnswer] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -129,10 +131,10 @@ export default function AIAssistantModal({ isOpen, onClose, screenContext }: Pro
       if (res.success) {
         setAnswer(res.answer);
       } else {
-        setError(res.error || 'Failed to get response');
+        setError(res.error || t('ai.assistant.failedResponse'));
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to connect to AI');
+      setError(err instanceof Error ? err.message : t('ai.assistant.failedConnect'));
     } finally {
       setLoading(false);
     }
@@ -166,13 +168,13 @@ export default function AIAssistantModal({ isOpen, onClose, screenContext }: Pro
               </button>
             )}
             <Sparkles size={18} className="text-violet-400" />
-            <h2 className="text-lg font-bold text-white">AI Assistant</h2>
+            <h2 className="text-lg font-bold text-white">{t('ai.assistant.title')}</h2>
           </div>
           <div className="flex items-center gap-1">
             <button
               onClick={() => { onClose(); navigate('/admin/ai'); }}
               className="p-2 hover:bg-neutral-800 rounded-lg transition-colors"
-              title="AI Settings & Config"
+              title={t('ai.assistant.settingsTooltip')}
             >
               <Settings size={18} className="text-neutral-400" />
             </button>
@@ -187,7 +189,7 @@ export default function AIAssistantModal({ isOpen, onClose, screenContext }: Pro
           {loading && (
             <div className="flex flex-col items-center justify-center py-16">
               <Loader2 size={36} className="text-violet-500 animate-spin mb-4" />
-              <p className="text-neutral-300 text-sm animate-pulse">Analyzing your data...</p>
+              <p className="text-neutral-300 text-sm animate-pulse">{t('ai.assistant.analyzing')}</p>
             </div>
           )}
 
@@ -201,7 +203,7 @@ export default function AIAssistantModal({ isOpen, onClose, screenContext }: Pro
                 onClick={handleReset}
                 className="w-full py-3 border border-neutral-700 text-neutral-300 font-semibold rounded-xl hover:bg-neutral-800 transition-colors text-sm"
               >
-                Try another question
+                {t('ai.assistant.tryAnother')}
               </button>
             </div>
           )}
@@ -216,7 +218,7 @@ export default function AIAssistantModal({ isOpen, onClose, screenContext }: Pro
                 onClick={handleReset}
                 className="w-full py-3 border border-violet-700/50 text-violet-300 font-semibold rounded-xl hover:bg-violet-900/20 transition-colors text-sm flex items-center justify-center gap-2"
               >
-                <MessageSquare size={16} /> Ask another question
+                <MessageSquare size={16} /> {t('ai.assistant.askAnother')}
               </button>
             </div>
           )}
@@ -225,7 +227,7 @@ export default function AIAssistantModal({ isOpen, onClose, screenContext }: Pro
           {!loading && !answer && !error && (
             <>
               <p className="text-neutral-400 text-sm mb-5">
-                Ask anything about your restaurant — powered by your real data
+                {t('ai.assistant.subtitle')}
               </p>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 mb-6">
@@ -239,8 +241,8 @@ export default function AIAssistantModal({ isOpen, onClose, screenContext }: Pro
                       {q.icon}
                     </div>
                     <div className="min-w-0">
-                      <p className="text-white text-sm font-medium">{q.label}</p>
-                      <p className="text-neutral-500 text-xs truncate">{q.description}</p>
+                      <p className="text-white text-sm font-medium">{t(q.labelKey)}</p>
+                      <p className="text-neutral-500 text-xs truncate">{t(q.descKey)}</p>
                     </div>
                   </button>
                 ))}
@@ -248,13 +250,13 @@ export default function AIAssistantModal({ isOpen, onClose, screenContext }: Pro
 
               {/* Custom question */}
               <div className="border-t border-neutral-800 pt-5">
-                <p className="text-neutral-500 text-xs font-medium uppercase tracking-wider mb-3">Or ask your own question</p>
+                <p className="text-neutral-500 text-xs font-medium uppercase tracking-wider mb-3">{t('ai.assistant.customLabel')}</p>
                 <div className="flex gap-2">
                   <textarea
                     ref={textareaRef}
                     value={customText}
                     onChange={e => setCustomText(e.target.value)}
-                    placeholder="e.g., How can I increase my weekend sales?"
+                    placeholder={t('ai.assistant.customPlaceholder')}
                     className="flex-1 bg-neutral-800/60 border border-neutral-700/60 rounded-xl p-3 text-white text-sm placeholder-neutral-500 resize-none focus:outline-none focus:border-violet-600/60 transition-colors h-20"
                     onKeyDown={e => {
                       if (e.key === 'Enter' && !e.shiftKey) {

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, lazy, Suspense } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   Search,
   CheckCircle,
@@ -18,12 +19,12 @@ const CancellationModal = lazy(
   () => import('../cfdi/CancellationModal')
 );
 
-function InvoiceStatusBadge({ status }: { status: CfdiInvoice['status'] }) {
+function InvoiceStatusBadge({ status, t }: { status: CfdiInvoice['status']; t: (key: string) => string }) {
   if (status === 'valid') {
     return (
       <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-green-900/30 text-green-400 border border-green-800">
         <CheckCircle size={12} />
-        Valid
+        {t('invoicing.statusValid')}
       </span>
     );
   }
@@ -31,14 +32,14 @@ function InvoiceStatusBadge({ status }: { status: CfdiInvoice['status'] }) {
     return (
       <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-red-900/30 text-red-400 border border-red-800">
         <XCircle size={12} />
-        Cancelled
+        {t('invoicing.statusCancelled')}
       </span>
     );
   }
   return (
     <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-amber-900/30 text-amber-400 border border-amber-800">
       <AlertTriangle size={12} />
-      Cancellation Pending
+      {t('invoicing.statusCancellationPending')}
     </span>
   );
 }
@@ -66,6 +67,7 @@ interface InvoiceListTabProps {
 }
 
 export default function InvoiceListTab({ catalogs, onError, onSuccess }: InvoiceListTabProps) {
+  const { t } = useTranslation('admin');
   const [invoices, setInvoices] = useState<CfdiInvoice[]>([]);
   const [invoiceSearch, setInvoiceSearch] = useState('');
   const [invoiceStatusFilter, setInvoiceStatusFilter] = useState<string>('');
@@ -84,7 +86,7 @@ export default function InvoiceListTab({ catalogs, onError, onSuccess }: Invoice
       setInvoices(res.invoices);
       setInvoiceTotal(res.total);
     } catch (err) {
-      onError(err instanceof Error ? err.message : 'Error loading invoices');
+      onError(err instanceof Error ? err.message : t('invoicing.errorLoadingInvoices'));
     }
   };
 
@@ -108,9 +110,9 @@ export default function InvoiceListTab({ catalogs, onError, onSuccess }: Invoice
         prev.map((inv) => (inv.id === updatedInvoice.id ? updatedInvoice : inv))
       );
       setCancellingInvoice(null);
-      onSuccess('Invoice cancelled successfully');
+      onSuccess(t('invoicing.invoiceCancelled'));
     } catch (err) {
-      onError(err instanceof Error ? err.message : 'Error cancelling invoice');
+      onError(err instanceof Error ? err.message : t('invoicing.errorCancellingInvoice'));
     }
   };
 
@@ -129,7 +131,7 @@ export default function InvoiceListTab({ catalogs, onError, onSuccess }: Invoice
               onKeyDown={(e) => {
                 if (e.key === 'Enter') handleInvoiceSearch();
               }}
-              placeholder="Search by RFC, folio, or order number..."
+              placeholder={t('invoicing.searchPlaceholder')}
               className="flex-1 bg-neutral-800 text-white rounded-lg px-4 py-3 border border-neutral-700 focus:border-brand-500 focus:outline-none"
             />
             <button
@@ -147,9 +149,9 @@ export default function InvoiceListTab({ catalogs, onError, onSuccess }: Invoice
             }}
             className="bg-neutral-800 text-white rounded-lg px-4 py-3 border border-neutral-700 focus:border-brand-500 focus:outline-none"
           >
-            <option value="">All statuses</option>
-            <option value="valid">Valid</option>
-            <option value="cancelled">Cancelled</option>
+            <option value="">{t('invoicing.allStatuses')}</option>
+            <option value="valid">{t('invoicing.statusValid')}</option>
+            <option value="cancelled">{t('invoicing.statusCancelled')}</option>
           </select>
         </div>
       </div>
@@ -161,28 +163,28 @@ export default function InvoiceListTab({ catalogs, onError, onSuccess }: Invoice
             <thead className="bg-neutral-800">
               <tr>
                 <th className="px-4 py-3 text-left text-sm font-semibold text-neutral-300">
-                  Folio #
+                  {t('invoicing.folio')}
                 </th>
                 <th className="px-4 py-3 text-left text-sm font-semibold text-neutral-300">
-                  Order
+                  {t('invoicing.order')}
                 </th>
                 <th className="px-4 py-3 text-left text-sm font-semibold text-neutral-300">
-                  RFC
+                  {t('invoicing.rfc')}
                 </th>
                 <th className="px-4 py-3 text-left text-sm font-semibold text-neutral-300">
-                  Recipient
+                  {t('invoicing.recipient')}
                 </th>
                 <th className="px-4 py-3 text-right text-sm font-semibold text-neutral-300">
-                  Total
+                  {t('invoicing.total')}
                 </th>
                 <th className="px-4 py-3 text-center text-sm font-semibold text-neutral-300">
-                  Status
+                  {t('invoicing.status')}
                 </th>
                 <th className="px-4 py-3 text-left text-sm font-semibold text-neutral-300">
-                  Date
+                  {t('invoicing.date')}
                 </th>
                 <th className="px-4 py-3 text-right text-sm font-semibold text-neutral-300">
-                  Actions
+                  {t('invoicing.actions')}
                 </th>
               </tr>
             </thead>
@@ -193,7 +195,7 @@ export default function InvoiceListTab({ catalogs, onError, onSuccess }: Invoice
                     colSpan={8}
                     className="px-4 py-12 text-center text-neutral-500"
                   >
-                    No invoices found
+                    {t('invoicing.noInvoicesFound')}
                   </td>
                 </tr>
               ) : (
@@ -218,7 +220,7 @@ export default function InvoiceListTab({ catalogs, onError, onSuccess }: Invoice
                       {formatPrice(inv.total)}
                     </td>
                     <td className="px-4 py-3 text-center">
-                      <InvoiceStatusBadge status={inv.status} />
+                      <InvoiceStatusBadge status={inv.status} t={t} />
                     </td>
                     <td className="px-4 py-3 text-neutral-400 text-sm">
                       {formatDate(inv.issued_at)}
@@ -230,7 +232,7 @@ export default function InvoiceListTab({ catalogs, onError, onSuccess }: Invoice
                             href={inv.pdf_url}
                             target="_blank"
                             rel="noopener noreferrer"
-                            title="Ver PDF"
+                            title={t('invoicing.viewPdf')}
                             className="p-2 hover:bg-neutral-700 rounded-lg transition-colors text-neutral-400 hover:text-white"
                           >
                             <Eye size={16} />
@@ -241,7 +243,7 @@ export default function InvoiceListTab({ catalogs, onError, onSuccess }: Invoice
                             href={inv.xml_url}
                             target="_blank"
                             rel="noopener noreferrer"
-                            title="Download XML"
+                            title={t('invoicing.downloadXml')}
                             className="p-2 hover:bg-neutral-700 rounded-lg transition-colors text-neutral-400 hover:text-white"
                           >
                             <Download size={16} />
@@ -250,7 +252,7 @@ export default function InvoiceListTab({ catalogs, onError, onSuccess }: Invoice
                         {inv.status === 'valid' && (
                           <button
                             onClick={() => setCancellingInvoice(inv)}
-                            title="Cancel invoice"
+                            title={t('invoicing.cancelInvoice')}
                             className="p-2 hover:bg-red-900/30 rounded-lg transition-colors text-neutral-400 hover:text-red-400"
                           >
                             <XCircle size={16} />
@@ -269,9 +271,7 @@ export default function InvoiceListTab({ catalogs, onError, onSuccess }: Invoice
         {totalPages > 1 && (
           <div className="flex items-center justify-between px-4 py-3 border-t border-neutral-800">
             <p className="text-sm text-neutral-400">
-              Showing {(invoicePage - 1) * INVOICES_PER_PAGE + 1} -{' '}
-              {Math.min(invoicePage * INVOICES_PER_PAGE, invoiceTotal)} of{' '}
-              {invoiceTotal} invoices
+              {t('invoicing.showing', { from: (invoicePage - 1) * INVOICES_PER_PAGE + 1, to: Math.min(invoicePage * INVOICES_PER_PAGE, invoiceTotal), total: invoiceTotal })}
             </p>
             <div className="flex items-center gap-2">
               <button
@@ -280,7 +280,7 @@ export default function InvoiceListTab({ catalogs, onError, onSuccess }: Invoice
                 className="flex items-center gap-1 px-3 py-1.5 bg-neutral-800 text-neutral-300 rounded-lg hover:bg-neutral-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm"
               >
                 <ChevronLeft size={16} />
-                Previous
+                {t('invoicing.previous')}
               </button>
               <span className="text-sm text-neutral-400">
                 {invoicePage} / {totalPages}
@@ -292,7 +292,7 @@ export default function InvoiceListTab({ catalogs, onError, onSuccess }: Invoice
                 disabled={invoicePage >= totalPages}
                 className="flex items-center gap-1 px-3 py-1.5 bg-neutral-800 text-neutral-300 rounded-lg hover:bg-neutral-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm"
               >
-                Next
+                {t('invoicing.next')}
                 <ChevronRight size={16} />
               </button>
             </div>

@@ -44,35 +44,36 @@ import TemplatePickerModal from '../components/menu/TemplatePickerModal';
 import { invalidateMenuCache } from '../lib/menuCache';
 
 /* ── Top Features by Plan (rotating carousel) ── */
-const FEATURE_GROUPS = [
-  [
-    { name: 'AI-Powered Upsell Suggestions', plans: { free: '5/day', pro: true } },
-    { name: 'Delivery Platform Intelligence', plans: { free: false, pro: true } },
-    { name: 'Dynamic Menu Pricing', plans: { free: false, pro: true } },
-    { name: 'Loyalty & Stamp Cards', plans: { free: true, pro: true } },
-  ],
-  [
-    { name: 'Bank Account Integration', plans: { free: false, pro: 'Up to 5' } },
-    { name: 'Custom Role Permissions', plans: { free: true, pro: true } },
-    { name: 'Prep Forecast & Waste Reduction', plans: { free: false, pro: true } },
-    { name: 'Data Export (CSV/JSON)', plans: { free: false, pro: true } },
-  ],
-  [
-    { name: 'Real-time Kitchen Printers', plans: { free: '1 printer', pro: 'Unlimited' } },
-    { name: 'Stress Test Simulations', plans: { free: false, pro: true } },
-    { name: 'Advanced Reports & Analytics', plans: { free: false, pro: true } },
-    { name: 'White-label Branding', plans: { free: false, pro: true } },
-  ],
-];
-
-const PLAN_COLS = [
-  { key: 'free' as const, label: 'Free', dim: true },
-  { key: 'pro' as const, label: 'Pro', dim: false },
-];
-
 function TopFeaturesByPlan({ plan: currentPlan }: { plan: string }) {
+  const { t } = useTranslation('admin');
   const [groupIdx, setGroupIdx] = useState(0);
   const [fade, setFade] = useState(true);
+
+  const FEATURE_GROUPS = [
+    [
+      { name: t('featureNames.aiUpsell'), plans: { free: t('featureNames.fivePerDay'), pro: true } },
+      { name: t('featureNames.deliveryIntelligence'), plans: { free: false, pro: true } },
+      { name: t('featureNames.dynamicPricing'), plans: { free: false, pro: true } },
+      { name: t('featureNames.loyalty'), plans: { free: true, pro: true } },
+    ],
+    [
+      { name: t('featureNames.bankIntegration'), plans: { free: false, pro: t('featureNames.upToFive') } },
+      { name: t('featureNames.rolePermissions'), plans: { free: true, pro: true } },
+      { name: t('featureNames.prepForecast'), plans: { free: false, pro: true } },
+      { name: t('featureNames.dataExport'), plans: { free: false, pro: true } },
+    ],
+    [
+      { name: t('featureNames.printers'), plans: { free: t('featureNames.onePrinter'), pro: t('featureNames.unlimited') } },
+      { name: t('featureNames.stressTest'), plans: { free: false, pro: true } },
+      { name: t('featureNames.advancedReports'), plans: { free: false, pro: true } },
+      { name: t('featureNames.whiteLabel'), plans: { free: false, pro: true } },
+    ],
+  ];
+
+  const PLAN_COLS = [
+    { key: 'free' as const, label: t('common:plan.free'), dim: true },
+    { key: 'pro' as const, label: t('common:plan.pro'), dim: false },
+  ];
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -90,7 +91,7 @@ function TopFeaturesByPlan({ plan: currentPlan }: { plan: string }) {
   return (
     <div className="mt-6">
       <div className="flex items-center justify-between mb-3">
-        <h3 className="text-sm font-semibold text-neutral-400 uppercase tracking-wider">Top Features by Plan</h3>
+        <h3 className="text-sm font-semibold text-neutral-400 uppercase tracking-wider">{t('billing.featuresByPlan')}</h3>
         <div className="flex gap-1.5">
           {FEATURE_GROUPS.map((_, i) => (
             <button
@@ -106,7 +107,7 @@ function TopFeaturesByPlan({ plan: currentPlan }: { plan: string }) {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-neutral-700">
-                <th className="text-left py-2 pr-4 text-neutral-400 font-medium">Feature</th>
+                <th className="text-left py-2 pr-4 text-neutral-400 font-medium">{t('billing.feature')}</th>
                 {PLAN_COLS.map(c => (
                   <th key={c.key} className={`text-center py-2 px-3 font-medium ${c.key === currentPlan ? 'text-brand-400' : c.dim ? 'text-neutral-500' : 'text-neutral-400'}`}>
                     {c.label}
@@ -183,7 +184,7 @@ export default function AdminPanel() {
       const { url } = await createCheckoutSession(selectedPlan);
       window.location.href = url;
     } catch (err) {
-      setBillingError(err instanceof Error ? err.message : 'Failed to start checkout');
+      setBillingError(err instanceof Error ? err.message : t('panel.failedCheckout'));
       setBillingLoading(null);
     }
   };
@@ -195,7 +196,7 @@ export default function AdminPanel() {
       const { url } = await createPortalSession();
       window.location.href = url;
     } catch (err) {
-      setBillingError(err instanceof Error ? err.message : 'Failed to open billing portal');
+      setBillingError(err instanceof Error ? err.message : t('panel.failedPortal'));
       setBillingLoading(null);
     }
   };
@@ -312,7 +313,7 @@ export default function AdminPanel() {
               <Link to="/admin/banking" className="bg-neutral-900 p-6 rounded-lg border border-neutral-800 hover:border-green-600 transition-colors">
                 <div className="flex items-center gap-1.5">
                   <Landmark size={14} className="text-green-400" />
-                  <p className="text-neutral-400 text-sm font-medium">Confirmed in Bank</p>
+                  <p className="text-neutral-400 text-sm font-medium">{t('panel.confirmedInBank')}</p>
                 </div>
                 <p className="text-3xl font-bold text-green-400 mt-2">
                   {formatPrice(confirmedInBank)}
@@ -325,7 +326,7 @@ export default function AdminPanel() {
         {/* Cancelled billing banner */}
         {showCancelledBanner && (
           <div className="flex items-center justify-between bg-neutral-900 border border-neutral-700 rounded-lg p-4 mb-6">
-            <p className="text-neutral-300 text-sm">Checkout was cancelled. You can subscribe anytime below.</p>
+            <p className="text-neutral-300 text-sm">{t('panel.checkoutCancelled')}</p>
             <button onClick={() => setShowCancelledBanner(false)} className="text-neutral-500 hover:text-neutral-300">
               <X size={18} />
             </button>
@@ -340,8 +341,8 @@ export default function AdminPanel() {
                 <Sparkles className="text-amber-500" size={22} />
               </div>
               <div>
-                <h2 className="text-lg font-bold text-white">Demo Data</h2>
-                <p className="text-xs text-neutral-400">Populate this account with realistic sample data for demos</p>
+                <h2 className="text-lg font-bold text-white">{t('demo.title')}</h2>
+                <p className="text-xs text-neutral-400">{t('demo.subtitle')}</p>
               </div>
             </div>
 
@@ -355,22 +356,22 @@ export default function AdminPanel() {
               <div>
                 <div className="flex flex-wrap gap-3 mb-4">
                   <span className="px-3 py-1.5 bg-brand-900/30 text-brand-400 text-sm rounded-lg font-medium">
-                    {demoStatus.counts.orders} orders
+                    {t('demo.orders', { count: demoStatus.counts.orders })}
                   </span>
                   <span className="px-3 py-1.5 bg-brand-900/30 text-brand-400 text-sm rounded-lg font-medium">
-                    {demoStatus.counts.customers} loyalty customers
+                    {t('demo.loyaltyCustomers', { count: demoStatus.counts.customers })}
                   </span>
                   <span className="px-3 py-1.5 bg-brand-900/30 text-brand-400 text-sm rounded-lg font-medium">
-                    {demoStatus.counts.delivery_orders} delivery orders
+                    {t('demo.deliveryOrders', { count: demoStatus.counts.delivery_orders })}
                   </span>
                   <span className="px-3 py-1.5 bg-brand-900/30 text-brand-400 text-sm rounded-lg font-medium">
-                    {demoStatus.counts.ai_snapshots} AI snapshots
+                    {t('demo.aiSnapshots', { count: demoStatus.counts.ai_snapshots })}
                   </span>
                   <span className="px-3 py-1.5 bg-brand-900/30 text-brand-400 text-sm rounded-lg font-medium">
-                    {demoStatus.counts.financial_actuals} financial records
+                    {t('demo.financialRecords', { count: demoStatus.counts.financial_actuals })}
                   </span>
                 </div>
-                <p className="text-xs text-neutral-500 mb-3">Reports, analytics, loyalty, and delivery data are populated. Clear when done.</p>
+                <p className="text-xs text-neutral-500 mb-3">{t('demo.dataPopulated')}</p>
                 <button
                   onClick={async () => {
                     setDemoAction('clear');
@@ -380,7 +381,7 @@ export default function AdminPanel() {
                       const s = await getDemoDataStatus();
                       setDemoStatus(s);
                     } catch (e) {
-                      setDemoError(e instanceof Error ? e.message : 'Failed to clear');
+                      setDemoError(e instanceof Error ? e.message : t('demo.failedClear'));
                     } finally {
                       setDemoAction(null);
                     }
@@ -388,14 +389,13 @@ export default function AdminPanel() {
                   disabled={demoAction !== null}
                   className="px-5 py-2.5 border border-red-700 text-red-400 font-medium rounded-lg hover:bg-red-900/20 transition-colors disabled:opacity-50"
                 >
-                  {demoAction === 'clear' ? 'Clearing...' : 'Clear Demo Data'}
+                  {demoAction === 'clear' ? t('demo.clearing') : t('demo.clearDemoData')}
                 </button>
               </div>
             ) : (
               <div>
                 <p className="text-sm text-neutral-400 mb-4">
-                  Generate 150 orders, loyalty customers, delivery orders, AI analytics, and financial data spanning 30 days.
-                  Perfect for showing prospects the full capabilities of the system.
+                  {t('demo.generateDesc')}
                 </p>
                 <button
                   onClick={async () => {
@@ -406,7 +406,7 @@ export default function AdminPanel() {
                       const s = await getDemoDataStatus();
                       setDemoStatus(s);
                     } catch (e) {
-                      setDemoError(e instanceof Error ? e.message : 'Failed to generate');
+                      setDemoError(e instanceof Error ? e.message : t('demo.failedGenerate'));
                     } finally {
                       setDemoAction(null);
                     }
@@ -414,7 +414,7 @@ export default function AdminPanel() {
                   disabled={demoAction !== null}
                   className="px-5 py-2.5 bg-amber-600 text-white font-semibold rounded-lg hover:bg-amber-700 transition-colors disabled:opacity-50"
                 >
-                  {demoAction === 'generate' ? 'Generating...' : 'Populate Demo Data'}
+                  {demoAction === 'generate' ? t('demo.generating') : t('demo.populateDemoData')}
                 </button>
               </div>
             )}
@@ -433,14 +433,14 @@ export default function AdminPanel() {
             >
               <div className="absolute top-3 right-3">
                 <span className="px-2 py-0.5 bg-brand-600/20 text-brand-400 text-[10px] font-bold rounded-full uppercase">
-                  Recommended
+                  {t('quickSetup.recommended')}
                 </span>
               </div>
               <div className="flex items-center justify-center w-12 h-12 bg-brand-600/20 rounded-lg mb-4">
                 <Sparkles className="text-brand-400" size={28} />
               </div>
-              <h2 className="text-xl font-bold text-white mb-2">Quick Setup</h2>
-              <p className="text-neutral-400 text-sm">Use a template to instantly set up your menu, inventory, and recipes</p>
+              <h2 className="text-xl font-bold text-white mb-2">{t('quickSetup.title')}</h2>
+              <p className="text-neutral-400 text-sm">{t('quickSetup.desc')}</p>
             </button>
           )}
 
@@ -459,8 +459,8 @@ export default function AdminPanel() {
               <div className="flex items-center justify-center w-12 h-12 bg-brand-600/10 rounded-lg mb-4">
                 <BookOpen className="text-brand-500" size={28} />
               </div>
-              <h2 className="text-xl font-bold text-white mb-2">Recipes</h2>
-              <p className="text-neutral-400 text-sm">Manage ingredients and costs per menu item</p>
+              <h2 className="text-xl font-bold text-white mb-2">{t('cards.recipes')}</h2>
+              <p className="text-neutral-400 text-sm">{t('cards.recipesDesc')}</p>
             </div>
           </Link>
 
@@ -499,8 +499,8 @@ export default function AdminPanel() {
               <div className="flex items-center justify-center w-12 h-12 bg-brand-600/10 rounded-lg mb-4">
                 <TrendingUp className="text-brand-500" size={28} />
               </div>
-              <h2 className="text-xl font-bold text-white mb-2">Dynamic Pricing</h2>
-              <p className="text-neutral-400 text-sm">AI-powered price optimization</p>
+              <h2 className="text-xl font-bold text-white mb-2">{t('cards.dynamicPricing')}</h2>
+              <p className="text-neutral-400 text-sm">{t('cards.dynamicPricingDesc')}</p>
             </div>
           </Link>
 
@@ -589,8 +589,8 @@ export default function AdminPanel() {
               <div className="flex items-center justify-center w-12 h-12 bg-green-600/10 rounded-lg mb-4">
                 <Banknote className="text-green-500" size={28} />
               </div>
-              <h2 className="text-xl font-bold text-white mb-2">Financing</h2>
-              <p className="text-neutral-400 text-sm">Revenue-based financing for your restaurant</p>
+              <h2 className="text-xl font-bold text-white mb-2">{t('cards.financing')}</h2>
+              <p className="text-neutral-400 text-sm">{t('cards.financingDesc')}</p>
             </div>
           </Link>
 
@@ -639,8 +639,8 @@ export default function AdminPanel() {
               <div className="flex items-center justify-center w-12 h-12 bg-brand-600/10 rounded-lg mb-4">
                 <Wallet className="text-brand-500" size={28} />
               </div>
-              <h2 className="text-xl font-bold text-white mb-2">Expenses</h2>
-              <p className="text-neutral-400 text-sm">Track costs, scan receipts, and export CSV for your accountant</p>
+              <h2 className="text-xl font-bold text-white mb-2">{t('cards.expenses')}</h2>
+              <p className="text-neutral-400 text-sm">{t('cards.expensesDesc')}</p>
             </div>
           </Link>
 
@@ -649,8 +649,8 @@ export default function AdminPanel() {
               <div className="flex items-center justify-center w-12 h-12 bg-brand-600/10 rounded-lg mb-4">
                 <UserCog className="text-brand-500" size={28} />
               </div>
-              <h2 className="text-xl font-bold text-white mb-2">Account</h2>
-              <p className="text-neutral-400 text-sm">Manage your account, billing, and settings</p>
+              <h2 className="text-xl font-bold text-white mb-2">{t('cards.account')}</h2>
+              <p className="text-neutral-400 text-sm">{t('cards.accountDesc')}</p>
             </div>
           </Link>
 
@@ -660,8 +660,8 @@ export default function AdminPanel() {
                 <div className="flex items-center justify-center w-12 h-12 bg-green-600/10 rounded-lg mb-4">
                   <Landmark className="text-green-500" size={28} />
                 </div>
-                <h2 className="text-xl font-bold text-white mb-2">Bank Accounts</h2>
-                <p className="text-neutral-400 text-sm">Connect your bank, track cash flow, reconcile delivery payouts</p>
+                <h2 className="text-xl font-bold text-white mb-2">{t('cards.bankAccounts')}</h2>
+                <p className="text-neutral-400 text-sm">{t('cards.bankAccountsDesc')}</p>
               </div>
             </Link>
           )}
@@ -672,8 +672,8 @@ export default function AdminPanel() {
                 <div className="flex items-center justify-center w-12 h-12 bg-orange-600/10 rounded-lg mb-4">
                   <Gauge className="text-orange-500" size={28} />
                 </div>
-                <h2 className="text-xl font-bold text-white mb-2">Stress Test</h2>
-                <p className="text-neutral-400 text-sm">Simulate rush hours, delivery surges, and find your system's breaking point</p>
+                <h2 className="text-xl font-bold text-white mb-2">{t('cards.stressTest')}</h2>
+                <p className="text-neutral-400 text-sm">{t('cards.stressTestDesc')}</p>
               </div>
             </Link>
           )}
@@ -717,7 +717,7 @@ export default function AdminPanel() {
         <div className="bg-neutral-900 border border-neutral-800 rounded-lg p-6">
           <div className="flex items-center gap-3 mb-6">
             <CreditCard className="text-brand-500" size={24} />
-            <h2 className="text-xl font-bold text-white">Plan & Billing</h2>
+            <h2 className="text-xl font-bold text-white">{t('billing.title')}</h2>
           </div>
 
           {billingError && (
@@ -728,35 +728,35 @@ export default function AdminPanel() {
 
           {!hasOwnerToken ? (
             <p className="text-neutral-400 text-sm">
-              <Link to="/admin/account" className="text-brand-400 hover:text-brand-300 underline">Sign in as account owner</Link> to manage billing.
+              <Link to="/admin/account" className="text-brand-400 hover:text-brand-300 underline">{t('billing.signInAsOwner')}</Link> {t('billing.toManageBilling')}
             </p>
           ) : plan === 'free' ? (
             <div className="max-w-md">
               <div className="border border-brand-600 rounded-xl p-6 space-y-4">
-                <h3 className="text-lg font-bold text-white">Pro</h3>
-                <p className="text-3xl font-black text-white">$60<span className="text-base font-normal text-neutral-400">/mo</span></p>
+                <h3 className="text-lg font-bold text-white">{t('billing.pro')}</h3>
+                <p className="text-3xl font-black text-white">{t('billing.priceMonthly')}<span className="text-base font-normal text-neutral-400">{t('billing.perMonth')}</span></p>
                 <ul className="space-y-2 text-sm text-neutral-300">
-                  <li className="flex items-center gap-2"><Check size={16} className="text-brand-500" /> Unlimited employees & menu items</li>
-                  <li className="flex items-center gap-2"><Check size={16} className="text-brand-500" /> Unlimited AI insights & analytics</li>
-                  <li className="flex items-center gap-2"><Check size={16} className="text-brand-500" /> Delivery platforms & virtual brands</li>
-                  <li className="flex items-center gap-2"><Check size={16} className="text-brand-500" /> Advanced reports & dynamic pricing</li>
-                  <li className="flex items-center gap-2"><Check size={16} className="text-brand-500" /> Loyalty SMS, CFDI, data export</li>
-                  <li className="flex items-center gap-2"><Check size={16} className="text-brand-500" /> Bank account integration (up to 5)</li>
+                  <li className="flex items-center gap-2"><Check size={16} className="text-brand-500" /> {t('billing.featureUnlimitedEmployees')}</li>
+                  <li className="flex items-center gap-2"><Check size={16} className="text-brand-500" /> {t('billing.featureUnlimitedAi')}</li>
+                  <li className="flex items-center gap-2"><Check size={16} className="text-brand-500" /> {t('billing.featureDelivery')}</li>
+                  <li className="flex items-center gap-2"><Check size={16} className="text-brand-500" /> {t('billing.featureReports')}</li>
+                  <li className="flex items-center gap-2"><Check size={16} className="text-brand-500" /> {t('billing.featureSms')}</li>
+                  <li className="flex items-center gap-2"><Check size={16} className="text-brand-500" /> {t('billing.featureBanking')}</li>
                 </ul>
                 <button
                   onClick={() => handleSubscribe('pro')}
                   disabled={billingLoading !== null}
                   className="w-full py-2.5 bg-brand-600 text-white font-semibold rounded-lg hover:bg-brand-700 transition-colors disabled:opacity-50"
                 >
-                  {billingLoading === 'pro' ? 'Redirecting...' : 'Upgrade to Pro'}
+                  {billingLoading === 'pro' ? t('billing.redirecting') : t('billing.upgradeToPro')}
                 </button>
               </div>
             </div>
           ) : (
             <div className="flex flex-wrap items-center gap-4">
               <div>
-                <p className="text-neutral-400 text-sm">Current plan</p>
-                <p className="text-xl font-bold text-white capitalize">Pro — $60/mo</p>
+                <p className="text-neutral-400 text-sm">{t('billing.currentPlan')}</p>
+                <p className="text-xl font-bold text-white capitalize">{t('billing.proMonthlyPrice')}</p>
               </div>
               <div className="flex gap-3 ml-auto">
                 <button
@@ -764,7 +764,7 @@ export default function AdminPanel() {
                   disabled={billingLoading !== null}
                   className="px-5 py-2.5 border border-neutral-600 text-neutral-200 font-medium rounded-lg hover:bg-neutral-800 transition-colors disabled:opacity-50"
                 >
-                  {billingLoading === 'portal' ? 'Redirecting...' : 'Manage Subscription'}
+                  {billingLoading === 'portal' ? t('billing.redirecting') : t('billing.manageSubscription')}
                 </button>
               </div>
             </div>

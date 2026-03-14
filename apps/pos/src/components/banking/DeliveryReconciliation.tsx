@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   CheckCircle2, AlertTriangle, XCircle, RefreshCw, Calendar,
 } from 'lucide-react';
@@ -9,28 +10,29 @@ function formatCurrency(amount: number | null): string {
   return new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(amount);
 }
 
-const STATUS_CONFIG: Record<string, { icon: React.ReactNode; bg: string; text: string; label: string }> = {
+const STATUS_CONFIG: Record<string, { icon: React.ReactNode; bg: string; text: string; labelKey: string }> = {
   matched: {
     icon: <CheckCircle2 size={16} />,
     bg: 'bg-green-600/20',
     text: 'text-green-400',
-    label: 'Matched',
+    labelKey: 'banking.statusMatched',
   },
   partial: {
     icon: <AlertTriangle size={16} />,
     bg: 'bg-amber-600/20',
     text: 'text-amber-400',
-    label: 'Partial',
+    labelKey: 'banking.statusPartial',
   },
   missing: {
     icon: <XCircle size={16} />,
     bg: 'bg-red-600/20',
     text: 'text-red-400',
-    label: 'Missing',
+    labelKey: 'banking.statusMissing',
   },
 };
 
 const DeliveryReconciliation: React.FC = () => {
+  const { t } = useTranslation('admin');
   const [data, setData] = useState<ReconciliationResult | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -48,11 +50,11 @@ const DeliveryReconciliation: React.FC = () => {
       const result = await getBankReconciliation(startDate, endDate);
       setData(result);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load reconciliation');
+      setError(err instanceof Error ? err.message : t('banking.failedLoadReconciliation'));
     } finally {
       setLoading(false);
     }
-  }, [startDate, endDate]);
+  }, [startDate, endDate, t]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -73,7 +75,7 @@ const DeliveryReconciliation: React.FC = () => {
     return (
       <div className="bg-neutral-900 rounded-lg border border-neutral-800 p-6 text-center">
         <p className="text-neutral-400 text-sm">{error}</p>
-        <button onClick={load} className="text-brand-400 text-sm mt-1 hover:underline">Retry</button>
+        <button onClick={load} className="text-brand-400 text-sm mt-1 hover:underline">{t('banking.retry')}</button>
       </div>
     );
   }
@@ -81,8 +83,8 @@ const DeliveryReconciliation: React.FC = () => {
   if (!data || data.items.length === 0) {
     return (
       <div className="bg-neutral-900 rounded-lg border border-neutral-800 p-6 text-center">
-        <p className="text-neutral-400">No delivery platform payouts to reconcile for this period.</p>
-        <p className="text-neutral-500 text-sm mt-1">Connect a bank and process delivery orders to see reconciliation.</p>
+        <p className="text-neutral-400">{t('banking.noPayoutsToReconcile')}</p>
+        <p className="text-neutral-500 text-sm mt-1">{t('banking.connectBankForReconciliation')}</p>
       </div>
     );
   }
@@ -94,7 +96,7 @@ const DeliveryReconciliation: React.FC = () => {
       {/* Date Filter */}
       <div className="flex flex-wrap items-end gap-3">
         <div>
-          <label className="block text-xs text-neutral-500 mb-1">From</label>
+          <label className="block text-xs text-neutral-500 mb-1">{t('banking.from')}</label>
           <div className="relative">
             <Calendar size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-500" />
             <input
@@ -106,7 +108,7 @@ const DeliveryReconciliation: React.FC = () => {
           </div>
         </div>
         <div>
-          <label className="block text-xs text-neutral-500 mb-1">To</label>
+          <label className="block text-xs text-neutral-500 mb-1">{t('banking.to')}</label>
           <input
             type="date"
             value={endDate}
@@ -120,22 +122,22 @@ const DeliveryReconciliation: React.FC = () => {
           className="inline-flex items-center gap-1.5 px-4 py-2 bg-brand-600 text-white text-sm font-medium rounded-lg hover:bg-brand-700 transition-colors disabled:opacity-50"
         >
           <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
-          Refresh
+          {t('banking.refresh')}
         </button>
       </div>
 
       {/* Summary Bar */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
         <div className="bg-neutral-900 rounded-lg border border-neutral-800 p-4">
-          <p className="text-xs text-neutral-500 mb-1">Total Expected</p>
+          <p className="text-xs text-neutral-500 mb-1">{t('banking.totalExpected')}</p>
           <p className="text-xl font-bold text-white">{formatCurrency(summary.totalExpected)}</p>
         </div>
         <div className="bg-neutral-900 rounded-lg border border-neutral-800 p-4">
-          <p className="text-xs text-green-400 mb-1">Confirmed Received</p>
+          <p className="text-xs text-green-400 mb-1">{t('banking.confirmedReceived')}</p>
           <p className="text-xl font-bold text-green-400">{formatCurrency(summary.totalConfirmed + summary.totalPartial)}</p>
         </div>
         <div className="bg-neutral-900 rounded-lg border border-neutral-800 p-4">
-          <p className="text-xs text-red-400 mb-1">Unconfirmed</p>
+          <p className="text-xs text-red-400 mb-1">{t('banking.unconfirmed')}</p>
           <p className="text-xl font-bold text-red-400">{formatCurrency(summary.totalUnconfirmed)}</p>
         </div>
       </div>
@@ -146,11 +148,11 @@ const DeliveryReconciliation: React.FC = () => {
           <table className="w-full text-sm">
             <thead>
               <tr className="text-neutral-400 border-b border-neutral-800">
-                <th className="text-left p-3">Platform</th>
-                <th className="text-right p-3">Expected Payout</th>
-                <th className="text-right p-3">Bank Deposit</th>
-                <th className="text-right p-3">Difference</th>
-                <th className="text-center p-3">Status</th>
+                <th className="text-left p-3">{t('banking.platform')}</th>
+                <th className="text-right p-3">{t('banking.expectedPayout')}</th>
+                <th className="text-right p-3">{t('banking.bankDeposit')}</th>
+                <th className="text-right p-3">{t('banking.difference')}</th>
+                <th className="text-center p-3">{t('banking.status')}</th>
               </tr>
             </thead>
             <tbody>
@@ -160,10 +162,10 @@ const DeliveryReconciliation: React.FC = () => {
                   <tr key={item.platformId} className="border-b border-neutral-800/50 hover:bg-neutral-800/30">
                     <td className="p-3">
                       <span className="text-white font-medium">{item.displayName}</span>
-                      <span className="text-neutral-500 text-xs ml-2">{item.orderCount} orders</span>
+                      <span className="text-neutral-500 text-xs ml-2">{item.orderCount} {t('banking.orders')}</span>
                       {item.matchedDate && (
                         <p className="text-neutral-600 text-xs mt-0.5">
-                          Deposit: {new Date(item.matchedDate + 'T12:00:00').toLocaleDateString('es-MX', { month: 'short', day: 'numeric' })}
+                          {t('banking.deposit')} {new Date(item.matchedDate + 'T12:00:00').toLocaleDateString('es-MX', { month: 'short', day: 'numeric' })}
                         </p>
                       )}
                     </td>
@@ -189,7 +191,7 @@ const DeliveryReconciliation: React.FC = () => {
                     <td className="p-3 text-center">
                       <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium ${cfg.bg} ${cfg.text}`}>
                         {cfg.icon}
-                        {cfg.label}
+                        {t(cfg.labelKey)}
                       </span>
                     </td>
                   </tr>

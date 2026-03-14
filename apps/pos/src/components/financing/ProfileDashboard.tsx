@@ -24,11 +24,11 @@ function formatLargeAmount(amount: number): string {
   return `$${amount.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
 }
 
-const ELIGIBILITY_BADGE: Record<string, { label: string; color: string; bg: string }> = {
-  eligible: { label: 'Eligible', color: 'text-green-400', bg: 'bg-green-600/20' },
-  pre_eligible: { label: 'Pre-Eligible', color: 'text-blue-400', bg: 'bg-blue-600/20' },
-  ineligible: { label: 'Ineligible', color: 'text-neutral-400', bg: 'bg-neutral-700/50' },
-  new: { label: 'New', color: 'text-amber-400', bg: 'bg-amber-600/20' },
+const ELIGIBILITY_BADGE: Record<string, { labelKey: string; color: string; bg: string }> = {
+  eligible: { labelKey: 'eligible', color: 'text-green-400', bg: 'bg-green-600/20' },
+  pre_eligible: { labelKey: 'preEligible', color: 'text-blue-400', bg: 'bg-blue-600/20' },
+  ineligible: { labelKey: 'ineligible', color: 'text-neutral-400', bg: 'bg-neutral-700/50' },
+  new: { labelKey: 'new', color: 'text-amber-400', bg: 'bg-amber-600/20' },
 };
 
 const ProfileDashboard: React.FC<ProfileDashboardProps> = ({ profile, offers, onRefresh }) => {
@@ -62,7 +62,7 @@ const ProfileDashboard: React.FC<ProfileDashboardProps> = ({ profile, offers, on
       setAcceptedOfferId(offerId);
       onRefresh();
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : 'Failed to accept offer');
+      setActionError(err instanceof Error ? err.message : t('errors.failedAcceptOffer'));
     } finally {
       setActionLoading(false);
     }
@@ -77,7 +77,7 @@ const ProfileDashboard: React.FC<ProfileDashboardProps> = ({ profile, offers, on
       setDeclineReason('');
       onRefresh();
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : 'Failed to decline offer');
+      setActionError(err instanceof Error ? err.message : t('errors.failedDeclineOffer'));
     } finally {
       setActionLoading(false);
     }
@@ -97,7 +97,7 @@ const ProfileDashboard: React.FC<ProfileDashboardProps> = ({ profile, offers, on
       await deleteFinancingConsent();
       onRefresh();
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : 'Failed to revoke consent');
+      setActionError(err instanceof Error ? err.message : t('errors.failedRevokeConsent'));
     } finally {
       setActionLoading(false);
       setShowRevokeConfirm(false);
@@ -114,7 +114,7 @@ const ProfileDashboard: React.FC<ProfileDashboardProps> = ({ profile, offers, on
         <div className="flex items-start justify-between mb-4">
           <h2 className="text-xl font-bold text-white">{t('profile.title')}</h2>
           <span className={`px-2.5 py-1 text-xs font-semibold rounded-full ${badge.color} ${badge.bg}`}>
-            {badge.label}
+            {t('eligibility.' + badge.labelKey)}
           </span>
         </div>
 

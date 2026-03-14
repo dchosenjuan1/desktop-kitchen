@@ -536,7 +536,7 @@ const POSScreen: React.FC = () => {
       setShowSaveTemplate(false);
       addToast(t('quickOrders.saved', { name: templateName.trim() }), 'success');
     } catch {
-      addToast('Failed to save template', 'error');
+      addToast(t('toast.failedSaveTemplate'), 'error');
     }
   }, [templateName, cart]);
 
@@ -650,9 +650,9 @@ const POSScreen: React.FC = () => {
       setShowPaymentModal(false);
       setPreCreatedOrderId(null);
       clearCart();
-      addToast('Referencia OXXO generada', 'success');
+      addToast(t('toast.oxxoGenerated'), 'success');
     } catch (error) {
-      addToast(error instanceof Error ? error.message : 'Error al crear pago OXXO', 'error');
+      addToast(error instanceof Error ? error.message : t('toast.oxxoFailed'), 'error');
     } finally {
       setIsProcessingPayment(false);
     }
@@ -673,9 +673,9 @@ const POSScreen: React.FC = () => {
       setShowPaymentModal(false);
       setPreCreatedOrderId(null);
       clearCart();
-      addToast('CLABE SPEI generada', 'success');
+      addToast(t('toast.speiGenerated'), 'success');
     } catch (error) {
-      addToast(error instanceof Error ? error.message : 'Error al crear pago SPEI', 'error');
+      addToast(error instanceof Error ? error.message : t('toast.speiFailed'), 'error');
     } finally {
       setIsProcessingPayment(false);
     }
@@ -689,10 +689,10 @@ const POSScreen: React.FC = () => {
       // For Getnet card payments, the card tokenization happens on the server side
       // In a full implementation, the card form would collect and tokenize first
       // For now, this creates the order and marks it for Getnet processing
-      addToast('Getnet payment integration ready — card form coming soon', 'info');
+      addToast(t('toast.getnetReady'), 'info');
       setPreCreatedOrderId(orderId);
     } catch (error) {
-      addToast(error instanceof Error ? error.message : 'Error al procesar pago Getnet', 'error');
+      addToast(error instanceof Error ? error.message : t('toast.getnetFailed'), 'error');
     } finally {
       setIsProcessingPayment(false);
     }
@@ -730,7 +730,7 @@ const POSScreen: React.FC = () => {
       setPaymentOrder(fullOrder);
       setShowPaymentConfirmation(true);
     } catch {
-      addToast('Error loading order', 'error');
+      addToast(t('toast.errorLoadingOrder'), 'error');
     }
   };
 
@@ -738,7 +738,7 @@ const POSScreen: React.FC = () => {
     if (paymentOrder) {
       setUnpaidOrders((prev) => prev.filter((o) => o.id !== paymentOrder.id));
       const methodLabels: Record<string, string> = { cash: '\uD83D\uDCB5', card: '\uD83D\uDCB3', transfer: '\uD83D\uDCF2' };
-      addToast(`Order #${paymentOrder.order_number} — Paid ${methodLabels[method] || ''}`, 'success');
+      addToast(t('toast.orderPaid', { number: paymentOrder.order_number }), 'success');
     }
     setPaymentOrder(null);
     setShowPaymentConfirmation(false);
@@ -976,7 +976,7 @@ const POSScreen: React.FC = () => {
             clearCart();
             setShowPaymentModal(false);
             setPreCreatedOrderId(null);
-            addToast('Payment confirmed by MP terminal', 'success');
+            addToast(t('toast.mpConfirmed'), 'success');
           }}
           onCancel={() => { setShowPaymentModal(false); setPreCreatedOrderId(null); }}
           isProcessing={isProcessingPayment}

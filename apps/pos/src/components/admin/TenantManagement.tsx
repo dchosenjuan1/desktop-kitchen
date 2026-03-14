@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { X, AlertTriangle, Download, Loader2, Check } from 'lucide-react';
 import {
   createTenant, patchTenant, resetTenantPassword, exportTenantData, deleteTenant,
@@ -57,6 +58,7 @@ function PrimaryButton({ children, disabled, loading, className = '', ...props }
 // ==================== Create Tenant Modal ====================
 
 export function CreateTenantModal({ onClose, onSuccess }: { onClose: () => void; onSuccess: () => void }) {
+  const { t } = useTranslation('superAdmin');
   const [name, setName] = useState('');
   const [slug, setSlug] = useState('');
   const [slugEdited, setSlugEdited] = useState(false);
@@ -107,11 +109,11 @@ export function CreateTenantModal({ onClose, onSuccess }: { onClose: () => void;
           <div className="w-12 h-12 bg-teal-900/50 rounded-full flex items-center justify-center mx-auto">
             <Check size={24} className="text-teal-400" />
           </div>
-          <h3 className="text-lg font-bold text-white">Tenant Created</h3>
-          <p className="text-neutral-400 text-sm">Admin employee PIN for <strong className="text-white">{name}</strong>:</p>
+          <h3 className="text-lg font-bold text-white">{t('tenantManagement.tenantCreated')}</h3>
+          <p className="text-neutral-400 text-sm">{t('tenantManagement.adminPinFor')} <strong className="text-white">{name}</strong>:</p>
           <p className="text-4xl font-mono font-bold text-teal-400 tracking-widest">{createdPin}</p>
-          <p className="text-neutral-500 text-xs">This PIN has been emailed to {email}</p>
-          <PrimaryButton onClick={onClose}>Done</PrimaryButton>
+          <p className="text-neutral-500 text-xs">{t('tenantManagement.pinEmailed', { email })}</p>
+          <PrimaryButton onClick={onClose}>{t('tenantManagement.done')}</PrimaryButton>
         </div>
       </ModalOverlay>
     );
@@ -119,34 +121,34 @@ export function CreateTenantModal({ onClose, onSuccess }: { onClose: () => void;
 
   return (
     <ModalOverlay onClose={onClose}>
-      <ModalHeader title="Create Tenant" onClose={onClose} />
+      <ModalHeader title={t('tenantManagement.createTitle')} onClose={onClose} />
       {error && <p className="text-red-400 text-sm mb-3">{error}</p>}
       <form onSubmit={handleSubmit} className="space-y-3">
-        <Input label="Restaurant Name" value={name} onChange={e => handleNameChange(e.target.value)} required />
+        <Input label={t('tenantManagement.restaurantName')} value={name} onChange={e => handleNameChange(e.target.value)} required />
         <Input
-          label="Slug (ID)"
+          label={t('tenantManagement.slugId')}
           value={slug}
           onChange={e => { setSlug(e.target.value); setSlugEdited(true); }}
           pattern="[a-z0-9-]+"
-          title="Lowercase letters, numbers, and hyphens only"
+          title={t('tenantManagement.slugPattern')}
           required
         />
-        <Input label="Owner Email" type="email" value={email} onChange={e => setEmail(e.target.value)} required />
-        <Input label="Password" type="password" value={password} onChange={e => setPassword(e.target.value)} minLength={8} required />
+        <Input label={t('tenantManagement.ownerEmail')} type="email" value={email} onChange={e => setEmail(e.target.value)} required />
+        <Input label={t('tenantManagement.password')} type="password" value={password} onChange={e => setPassword(e.target.value)} minLength={8} required />
         <div className="flex gap-3">
           <div className="flex-1">
-            <label className="block text-neutral-400 text-sm mb-1">Plan</label>
+            <label className="block text-neutral-400 text-sm mb-1">{t('tenantManagement.plan')}</label>
             <select
               value={plan}
               onChange={e => setPlan(e.target.value)}
               className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2.5 text-white text-sm focus:outline-none focus:border-teal-500"
             >
-              <option value="free">Free</option>
-              <option value="pro">Pro</option>
+              <option value="free">{t('tenantManagement.free')}</option>
+              <option value="pro">{t('tenantManagement.pro')}</option>
             </select>
           </div>
           <div>
-            <label className="block text-neutral-400 text-sm mb-1">Brand Color</label>
+            <label className="block text-neutral-400 text-sm mb-1">{t('tenantManagement.brandColor')}</label>
             <input
               type="color"
               value={color}
@@ -156,7 +158,7 @@ export function CreateTenantModal({ onClose, onSuccess }: { onClose: () => void;
           </div>
         </div>
         <PrimaryButton type="submit" loading={loading} disabled={!name || !slug || !email || !password}>
-          Create Tenant
+          {t('tenantManagement.createButton')}
         </PrimaryButton>
       </form>
     </ModalOverlay>
@@ -168,6 +170,7 @@ export function CreateTenantModal({ onClose, onSuccess }: { onClose: () => void;
 export function EditTenantModal({ tenant, onClose, onSuccess }: {
   tenant: TenantRecord; onClose: () => void; onSuccess: () => void;
 }) {
+  const { t } = useTranslation('superAdmin');
   const [name, setName] = useState(tenant.name);
   const [subdomain, setSubdomain] = useState(tenant.subdomain);
   const [ownerEmail, setOwnerEmail] = useState(tenant.owner_email);
@@ -203,26 +206,26 @@ export function EditTenantModal({ tenant, onClose, onSuccess }: {
 
   return (
     <ModalOverlay onClose={onClose}>
-      <ModalHeader title="Edit Tenant" onClose={onClose} />
+      <ModalHeader title={t('tenantManagement.editTitle')} onClose={onClose} />
       {error && <p className="text-red-400 text-sm mb-3">{error}</p>}
       <form onSubmit={handleSubmit} className="space-y-3">
-        <Input label="Restaurant Name" value={name} onChange={e => setName(e.target.value)} required />
-        <Input label="Subdomain" value={subdomain} onChange={e => setSubdomain(e.target.value)} required />
-        <Input label="Owner Email" type="email" value={ownerEmail} onChange={e => setOwnerEmail(e.target.value)} required />
+        <Input label={t('tenantManagement.restaurantName')} value={name} onChange={e => setName(e.target.value)} required />
+        <Input label={t('tenantManagement.subdomain')} value={subdomain} onChange={e => setSubdomain(e.target.value)} required />
+        <Input label={t('tenantManagement.ownerEmail')} type="email" value={ownerEmail} onChange={e => setOwnerEmail(e.target.value)} required />
         <div className="flex gap-3">
           <div className="flex-1">
-            <label className="block text-neutral-400 text-sm mb-1">Plan</label>
+            <label className="block text-neutral-400 text-sm mb-1">{t('tenantManagement.plan')}</label>
             <select
               value={plan}
               onChange={e => setPlan(e.target.value)}
               className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2.5 text-white text-sm focus:outline-none focus:border-teal-500"
             >
-              <option value="free">Free</option>
-              <option value="pro">Pro</option>
+              <option value="free">{t('tenantManagement.free')}</option>
+              <option value="pro">{t('tenantManagement.pro')}</option>
             </select>
           </div>
           <div>
-            <label className="block text-neutral-400 text-sm mb-1">Brand Color</label>
+            <label className="block text-neutral-400 text-sm mb-1">{t('tenantManagement.brandColor')}</label>
             <input
               type="color"
               value={color}
@@ -231,7 +234,7 @@ export function EditTenantModal({ tenant, onClose, onSuccess }: {
             />
           </div>
         </div>
-        <PrimaryButton type="submit" loading={loading}>Save Changes</PrimaryButton>
+        <PrimaryButton type="submit" loading={loading}>{t('tenantManagement.saveChanges')}</PrimaryButton>
       </form>
     </ModalOverlay>
   );
@@ -242,6 +245,7 @@ export function EditTenantModal({ tenant, onClose, onSuccess }: {
 export function ResetPasswordModal({ tenant, onClose }: {
   tenant: TenantRecord; onClose: () => void;
 }) {
+  const { t } = useTranslation('superAdmin');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -267,9 +271,9 @@ export function ResetPasswordModal({ tenant, onClose }: {
           <div className="w-12 h-12 bg-teal-900/50 rounded-full flex items-center justify-center mx-auto">
             <Check size={24} className="text-teal-400" />
           </div>
-          <h3 className="text-lg font-bold text-white">Password Reset</h3>
-          <p className="text-neutral-400 text-sm">Password for <strong className="text-white">{tenant.name}</strong> has been reset.</p>
-          <PrimaryButton onClick={onClose}>Done</PrimaryButton>
+          <h3 className="text-lg font-bold text-white">{t('tenantManagement.passwordReset')}</h3>
+          <p className="text-neutral-400 text-sm">{t('tenantManagement.passwordResetFor')} <strong className="text-white">{tenant.name}</strong> {t('tenantManagement.hasBeenReset')}</p>
+          <PrimaryButton onClick={onClose}>{t('tenantManagement.done')}</PrimaryButton>
         </div>
       </ModalOverlay>
     );
@@ -277,12 +281,12 @@ export function ResetPasswordModal({ tenant, onClose }: {
 
   return (
     <ModalOverlay onClose={onClose}>
-      <ModalHeader title="Reset Password" onClose={onClose} />
-      <p className="text-neutral-400 text-sm mb-4">Set a new owner password for <strong className="text-white">{tenant.name}</strong>.</p>
+      <ModalHeader title={t('tenantManagement.resetPasswordTitle')} onClose={onClose} />
+      <p className="text-neutral-400 text-sm mb-4">{t('tenantManagement.newPasswordFor')} <strong className="text-white">{tenant.name}</strong>.</p>
       {error && <p className="text-red-400 text-sm mb-3">{error}</p>}
       <form onSubmit={handleSubmit} className="space-y-3">
-        <Input label="New Password" type="password" value={password} onChange={e => setPassword(e.target.value)} minLength={8} required placeholder="Minimum 8 characters" />
-        <PrimaryButton type="submit" loading={loading} disabled={password.length < 8}>Reset Password</PrimaryButton>
+        <Input label={t('tenantManagement.newPassword')} type="password" value={password} onChange={e => setPassword(e.target.value)} minLength={8} required placeholder={t('tenantManagement.minChars')} />
+        <PrimaryButton type="submit" loading={loading} disabled={password.length < 8}>{t('tenantManagement.resetButton')}</PrimaryButton>
       </form>
     </ModalOverlay>
   );
@@ -293,6 +297,7 @@ export function ResetPasswordModal({ tenant, onClose }: {
 export function DeleteTenantModal({ tenant, onClose, onSuccess }: {
   tenant: TenantRecord; onClose: () => void; onSuccess: () => void;
 }) {
+  const { t } = useTranslation('superAdmin');
   const [confirmText, setConfirmText] = useState('');
   const [loading, setLoading] = useState(false);
   const [exporting, setExporting] = useState(false);
@@ -325,16 +330,15 @@ export function DeleteTenantModal({ tenant, onClose, onSuccess }: {
 
   return (
     <ModalOverlay onClose={onClose}>
-      <ModalHeader title="Delete Tenant" onClose={onClose} />
+      <ModalHeader title={t('tenantManagement.deleteTitle')} onClose={onClose} />
       <div className="space-y-4">
         <div className="bg-red-900/20 border border-red-900/50 rounded-lg p-4">
           <div className="flex gap-3">
             <AlertTriangle size={20} className="text-red-400 flex-shrink-0 mt-0.5" />
             <div>
-              <p className="text-red-400 font-semibold text-sm">Permanent Data Loss</p>
+              <p className="text-red-400 font-semibold text-sm">{t('tenantManagement.permanentDataLoss')}</p>
               <p className="text-red-300/70 text-xs mt-1">
-                This will permanently delete <strong>{tenant.name}</strong> and all associated data
-                (orders, menu items, employees, customers, etc.). This action cannot be undone.
+                {t('tenantManagement.deleteWarning', { name: tenant.name })}
               </p>
             </div>
           </div>
@@ -343,7 +347,7 @@ export function DeleteTenantModal({ tenant, onClose, onSuccess }: {
         {tenant.stripe_subscription_id && (
           <div className="bg-amber-900/20 border border-amber-900/50 rounded-lg p-3">
             <p className="text-amber-400 text-xs">
-              This tenant has an active Stripe subscription. Deleting will not cancel it automatically — cancel it in Stripe first.
+              {t('tenantManagement.stripeWarning')}
             </p>
           </div>
         )}
@@ -356,12 +360,12 @@ export function DeleteTenantModal({ tenant, onClose, onSuccess }: {
           className="w-full flex items-center justify-center gap-2 py-2.5 bg-neutral-800 border border-neutral-700 rounded-lg text-neutral-300 hover:text-white hover:border-neutral-600 text-sm transition-colors disabled:opacity-50"
         >
           {exporting ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
-          Export Data First
+          {t('tenantManagement.exportDataFirst')}
         </button>
 
         <div>
           <label className="block text-neutral-400 text-sm mb-1">
-            Type <strong className="text-white font-mono">{tenant.id}</strong> to confirm
+            {t('tenantManagement.typeToConfirm')} <strong className="text-white font-mono">{tenant.id}</strong> {t('tenantManagement.toConfirm')}
           </label>
           <input
             type="text"
@@ -378,7 +382,7 @@ export function DeleteTenantModal({ tenant, onClose, onSuccess }: {
           disabled={!canDelete}
           className="w-full py-2.5 rounded-lg font-semibold text-sm transition-colors disabled:opacity-50 bg-red-600 text-white hover:bg-red-700"
         >
-          Delete Permanently
+          {t('tenantManagement.deletePermanently')}
         </PrimaryButton>
       </div>
     </ModalOverlay>

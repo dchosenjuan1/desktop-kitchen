@@ -35,7 +35,7 @@ export default function FinancingScreen() {
         setOffers(offersData);
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load financing data');
+      setError(err instanceof Error ? err.message : t('errors.failedLoad'));
     } finally {
       setLoading(false);
     }

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Activity, Server, Cpu, HardDrive, RefreshCw } from 'lucide-react';
 import { getHealth, type HealthData } from '../../api/superAdmin';
 import { KPICard, formatUptime } from './shared';
@@ -19,6 +20,7 @@ function GaugeBar({ pct, label }: { pct: number; label: string }) {
 }
 
 export default function HealthTab() {
+  const { t } = useTranslation('superAdmin');
   const [health, setHealth] = useState<HealthData | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -33,7 +35,7 @@ export default function HealthTab() {
     return () => clearInterval(iv);
   }, [refresh]);
 
-  if (loading && !health) return <div className="text-neutral-400 text-center py-12">Loading health data...</div>;
+  if (loading && !health) return <div className="text-neutral-400 text-center py-12">{t('health.loading')}</div>;
   if (!health) return null;
 
   const memPct = Math.round((health.memory.heap_used_mb / health.memory.heap_total_mb) * 100);
@@ -43,25 +45,25 @@ export default function HealthTab() {
     <div className="space-y-6">
       <div className="flex justify-end">
         <button onClick={refresh} className="flex items-center gap-1.5 text-sm text-neutral-400 hover:text-white transition-colors">
-          <RefreshCw size={14} /> Refresh
+          <RefreshCw size={14} /> {t('health.refresh')}
         </button>
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <KPICard icon={Activity} label="Uptime" value={formatUptime(health.uptime_seconds)} />
-        <KPICard icon={Server} label="Node" value={health.node_version} sub={health.platform} />
-        <KPICard icon={Cpu} label="CPUs" value={health.os.cpus} />
-        <KPICard icon={HardDrive} label="Postgres" value={health.postgres_version.split(' ').slice(0, 2).join(' ')} />
+        <KPICard icon={Activity} label={t('health.kpi.uptime')} value={formatUptime(health.uptime_seconds)} />
+        <KPICard icon={Server} label={t('health.kpi.node')} value={health.node_version} sub={health.platform} />
+        <KPICard icon={Cpu} label={t('health.kpi.cpus')} value={health.os.cpus} />
+        <KPICard icon={HardDrive} label={t('health.kpi.postgres')} value={health.postgres_version.split(' ').slice(0, 2).join(' ')} />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="bg-neutral-900 border border-neutral-800 rounded-lg p-5">
-          <h3 className="text-white font-semibold mb-4">Heap Memory</h3>
+          <h3 className="text-white font-semibold mb-4">{t('health.heapMemory')}</h3>
           <GaugeBar pct={memPct} label={`${health.memory.heap_used_mb} / ${health.memory.heap_total_mb} MB`} />
-          <p className="text-neutral-500 text-xs mt-2">RSS: {health.memory.rss_mb} MB</p>
+          <p className="text-neutral-500 text-xs mt-2">{t('health.rss', { value: health.memory.rss_mb })}</p>
         </div>
         <div className="bg-neutral-900 border border-neutral-800 rounded-lg p-5">
-          <h3 className="text-white font-semibold mb-4">OS Memory</h3>
+          <h3 className="text-white font-semibold mb-4">{t('health.osMemory')}</h3>
           <GaugeBar pct={osPct} label={`${health.os.total_mem_mb - health.os.free_mem_mb} / ${health.os.total_mem_mb} MB`} />
         </div>
       </div>
