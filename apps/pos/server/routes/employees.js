@@ -6,12 +6,69 @@ import { all, get, run, getTenantId } from '../db/index.js';
 import { requireAuth } from '../middleware/auth.js';
 import { checkLimit, planUpgradeError } from '../planLimits.js';
 import { audit } from '../lib/auditLog.js';
-import { sendPinEmail } from '../helpers/email.js';
+import { sendPinEmail, sendSecurityAlertEmail } from '../helpers/email.js';
 import { BCRYPT_ROUNDS, JWT_SECRET } from '../lib/constants.js';
+
+// ---------------------------------------------------------------------------
+// Brute-force protection: per-IP+tenant lockout with exponential backoff
+// ---------------------------------------------------------------------------
+const MAX_FAILED_ATTEMPTS = 5;
+const LOCKOUT_DURATION_MS = 30 * 60 * 1000; // 30 minutes
+const BACKOFF_DELAYS = [0, 0, 1000, 2000, 5000]; // delays after 1st–5th attempt
+
+// Map key: `${ip}:${tenantId}` → { attempts, firstAttempt, lockedUntil }
+const loginAttempts = new Map();
+
+// Cleanup stale entries every 10 minutes
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, entry] of loginAttempts) {
+    if (entry.lockedUntil && now > entry.lockedUntil) {
+      loginAttempts.delete(key);
+    } else if (now - entry.firstAttempt > LOCKOUT_DURATION_MS) {
+      loginAttempts.delete(key);
+    }
+  }
+}, 10 * 60 * 1000);
+
+function getAttemptKey(req) {
+  return `${req.ip}:${req.tenant?.id || 'unknown'}`;
+}
+
+function checkLockout(req) {
+  const key = getAttemptKey(req);
+  const entry = loginAttempts.get(key);
+  if (!entry) return { locked: false, attempts: 0 };
+  if (entry.lockedUntil) {
+    const remaining = entry.lockedUntil - Date.now();
+    if (remaining > 0) {
+      return { locked: true, retryAfterMs: remaining, attempts: entry.attempts };
+    }
+    // Lockout expired — clear it
+    loginAttempts.delete(key);
+    return { locked: false, attempts: 0 };
+  }
+  return { locked: false, attempts: entry.attempts };
+}
+
+function recordFailedAttempt(req) {
+  const key = getAttemptKey(req);
+  const entry = loginAttempts.get(key) || { attempts: 0, firstAttempt: Date.now(), lockedUntil: null };
+  entry.attempts += 1;
+  if (entry.attempts >= MAX_FAILED_ATTEMPTS) {
+    entry.lockedUntil = Date.now() + LOCKOUT_DURATION_MS;
+  }
+  loginAttempts.set(key, entry);
+  return entry;
+}
+
+function clearAttempts(req) {
+  loginAttempts.delete(getAttemptKey(req));
+}
 
 const pinLoginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 15,
+  max: 10,
   keyGenerator: (req) => `pin-login:${ipKeyGenerator(req.ip)}:${req.tenant?.id || 'unknown'}`,
   standardHeaders: true,
   legacyHeaders: false,
@@ -102,6 +159,20 @@ router.post('/login', pinLoginLimiter, async (req, res) => {
       return res.status(400).json({ error: 'PIN required' });
     }
 
+    const tenantId = req.tenant?.id || 'default';
+
+    // Check lockout status BEFORE attempting login
+    const lockoutStatus = checkLockout(req);
+    if (lockoutStatus.locked) {
+      const retryAfterSec = Math.ceil(lockoutStatus.retryAfterMs / 1000);
+      res.set('Retry-After', String(retryAfterSec));
+      return res.status(429).json({
+        error: `Account locked due to too many failed attempts. Try again in ${Math.ceil(retryAfterSec / 60)} minutes.`,
+        locked: true,
+        retryAfterSec,
+      });
+    }
+
     // Fetch all active employees and compare PIN with bcrypt
     const employees = await all(`
       SELECT id, name, pin, role, active, created_at
@@ -119,8 +190,65 @@ router.post('/login', pinLoginLimiter, async (req, res) => {
     }
 
     if (!employee) {
-      return res.status(401).json({ error: 'Invalid PIN' });
+      // Record the failed attempt
+      const entry = recordFailedAttempt(req);
+
+      // Audit log the failed attempt
+      audit({
+        tenantId,
+        actorType: 'system',
+        actorId: null,
+        action: 'login_failed',
+        resource: 'employee',
+        resourceId: null,
+        details: {
+          ip: req.ip,
+          attempts: entry.attempts,
+          locked: !!entry.lockedUntil,
+          user_agent: req.headers['user-agent'] || null,
+        },
+        ip: req.ip,
+      });
+
+      // If just got locked out, send security alert email to owner
+      if (entry.lockedUntil && entry.attempts === MAX_FAILED_ATTEMPTS) {
+        const ownerEmail = req.tenant?.owner_email;
+        if (ownerEmail) {
+          sendSecurityAlertEmail(
+            ownerEmail,
+            req.tenant?.name || 'Your restaurant',
+            req.ip,
+            entry.attempts,
+          ).catch(() => {});
+        }
+      }
+
+      // Apply exponential backoff delay
+      const backoffDelay = BACKOFF_DELAYS[Math.min(entry.attempts - 1, BACKOFF_DELAYS.length - 1)];
+      if (backoffDelay > 0) {
+        await new Promise(resolve => setTimeout(resolve, backoffDelay));
+      }
+
+      // Response based on lockout state
+      if (entry.lockedUntil) {
+        const retryAfterSec = Math.ceil(LOCKOUT_DURATION_MS / 1000);
+        res.set('Retry-After', String(retryAfterSec));
+        return res.status(429).json({
+          error: `Too many failed attempts. Account locked for 30 minutes.`,
+          locked: true,
+          retryAfterSec,
+        });
+      }
+
+      const remaining = MAX_FAILED_ATTEMPTS - entry.attempts;
+      return res.status(401).json({
+        error: `Invalid PIN. ${remaining} attempt${remaining !== 1 ? 's' : ''} remaining before lockout.`,
+        attemptsRemaining: remaining,
+      });
     }
+
+    // Successful login — clear failed attempts
+    clearAttempts(req);
 
     // Fetch permissions for this role
     const perms = await all(
@@ -129,7 +257,6 @@ router.post('/login', pinLoginLimiter, async (req, res) => {
     );
     const permissions = perms.map(p => p.permission);
 
-    const tenantId = req.tenant?.id || 'default';
     const token = jwt.sign(
       { tenantId, employeeId: employee.id, role: employee.role, type: 'employee' },
       JWT_SECRET,

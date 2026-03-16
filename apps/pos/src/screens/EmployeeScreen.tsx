@@ -81,7 +81,7 @@ export default function EmployeeScreen() {
 
     if (!formData.pin) {
       errors.pin = t('employees.pinRequired');
-    } else if (!/^\d{4}$/.test(formData.pin)) {
+    } else if (!/^\d{4,6}$/.test(formData.pin)) {
       errors.pin = t('employees.pinFormat');
     }
 
@@ -138,7 +138,7 @@ export default function EmployeeScreen() {
   };
 
   const handleResetPin = async (employee: Employee) => {
-    const newPin = String(Math.floor(1000 + Math.random() * 9000));
+    const newPin = String(Math.floor(100000 + Math.random() * 900000));
     try {
       setError(null);
       await updateEmployee(employee.id, { pin: newPin });
@@ -385,11 +385,11 @@ export default function EmployeeScreen() {
                   type="text"
                   value={formData.pin}
                   onChange={(e) => {
-                    const value = e.target.value.replace(/\D/g, '').slice(0, 4);
+                    const value = e.target.value.replace(/\D/g, '').slice(0, 6);
                     setFormData({ ...formData, pin: value });
                   }}
                   placeholder={t('employees.pinPlaceholder')}
-                  maxLength={4}
+                  maxLength={6}
                   className="w-full px-4 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white placeholder-neutral-500 focus:outline-none focus:border-brand-600 tracking-widest text-center text-lg"
                 />
                 {formErrors.pin && (

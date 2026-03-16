@@ -33,7 +33,7 @@ const LoginScreen: React.FC = () => {
     setPin(newPin);
     setLocalError('');
 
-    if (newPin.length === 4) {
+    if (newPin.length === 6) {
       try {
         await login(newPin);
         navigate('/pos');
@@ -85,16 +85,16 @@ const LoginScreen: React.FC = () => {
           shake ? 'scale-95 translate-x-2' : 'scale-100'
         }`}
       >
-        <div className="flex gap-4 justify-center mb-6">
-          {[0, 1, 2, 3].map((index) => (
+        <div className="flex gap-3 justify-center mb-6">
+          {[0, 1, 2, 3, 4, 5].map((index) => (
             <div
               key={index}
-              className="w-16 h-16 bg-neutral-900 rounded-full flex items-center justify-center border-2 border-neutral-700"
+              className="w-12 h-12 bg-neutral-900 rounded-full flex items-center justify-center border-2 border-neutral-700"
             >
               {pin.length > index ? (
-                <div className="w-6 h-6 bg-brand-600 rounded-full"></div>
+                <div className="w-5 h-5 bg-brand-600 rounded-full"></div>
               ) : (
-                <div className="w-6 h-6 bg-neutral-800 rounded-full"></div>
+                <div className="w-5 h-5 bg-neutral-800 rounded-full"></div>
               )}
             </div>
           ))}
@@ -114,7 +114,7 @@ const LoginScreen: React.FC = () => {
             <button
               key={digit}
               onClick={() => handlePinInput(digit)}
-              disabled={isLoading || pin.length === 4}
+              disabled={isLoading || pin.length === 6}
               className="w-20 h-20 bg-neutral-900 text-2xl font-bold text-white rounded-xl hover:bg-neutral-800 active:bg-neutral-700 transition-all duration-75 disabled:opacity-50 disabled:cursor-not-allowed border border-neutral-700 touch-manipulation"
             >
               {digit}

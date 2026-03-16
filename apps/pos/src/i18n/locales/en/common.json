@@ -64,7 +64,7 @@
   },
   "login": {
     "employeeLogin": "Employee Login",
-    "tapPin": "Tap a 4-digit PIN to login",
+    "tapPin": "Enter your 6-digit PIN to login",
     "loggingIn": "Logging in...",
     "kitchenDisplay": "Kitchen Display",
     "posVersion": "POS System v1.0"

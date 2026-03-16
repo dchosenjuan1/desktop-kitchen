@@ -90,7 +90,7 @@ function EmployeePinRow({ emp, tenantId }: { emp: TenantEmployee; tenantId: stri
           />
           <button
             onClick={handleSave}
-            disabled={saving || pin.length < 4}
+            disabled={saving || pin.length < 4 || pin.length > 6}
             className="p-1 text-teal-400 hover:bg-teal-900/30 rounded disabled:opacity-50"
           >
             {saving ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />}

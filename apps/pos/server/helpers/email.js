@@ -174,6 +174,41 @@ export async function sendSalesRepWelcomeEmail(email, fullName, password) {
   }
 }
 
+export async function sendSecurityAlertEmail(email, restaurantName, ip, attempts) {
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey) {
+    console.log(`[Email] No RESEND_API_KEY — security alert for ${email} skipped`);
+    return;
+  }
+  const timestamp = new Date().toLocaleString('en-US', { timeZone: 'America/Mexico_City' });
+  try {
+    await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        from: 'Desktop Kitchen <noreply@desktop.kitchen>',
+        to: [email],
+        subject: `Security Alert — ${restaurantName}`,
+        html: `
+          <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:24px">
+            <h2 style="color:#dc2626">Security Alert</h2>
+            <p>Multiple failed PIN login attempts were detected on your POS system <strong>${restaurantName}</strong>.</p>
+            <div style="background:#fef2f2;border:1px solid #fca5a5;border-radius:8px;padding:16px;margin:20px 0">
+              <p style="margin:0 0 8px"><strong>Failed attempts:</strong> ${attempts}</p>
+              <p style="margin:0 0 8px"><strong>IP address:</strong> ${ip || 'Unknown'}</p>
+              <p style="margin:0"><strong>Time:</strong> ${timestamp}</p>
+            </div>
+            <p>The account has been <strong>temporarily locked for 30 minutes</strong> to prevent unauthorized access.</p>
+            <p style="color:#666;font-size:14px">If this was you, wait 30 minutes and try again. If you don't recognize this activity, consider changing your employee PINs immediately.</p>
+          </div>
+        `,
+      }),
+    });
+  } catch (err) {
+    console.error('[Email] Failed to send security alert email:', err.message);
+  }
+}
+
 export async function sendPinEmail(email, pin, restaurantName, subdomain) {
   const apiKey = process.env.RESEND_API_KEY;
   if (!apiKey) {

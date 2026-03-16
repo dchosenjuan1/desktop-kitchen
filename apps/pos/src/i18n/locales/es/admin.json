@@ -135,8 +135,8 @@
     "noEmployees": "Aún no hay empleados",
     "name": "Nombre",
     "namePlaceholder": "Nombre del empleado",
-    "pin": "PIN (4 dígitos)",
-    "pinPlaceholder": "0000",
+    "pin": "PIN (6 dígitos)",
+    "pinPlaceholder": "000000",
     "role": "Rol",
     "inactive": "Inactivo",
     "deactivate": "Desactivar",
@@ -145,7 +145,7 @@
     "save": "Guardar",
     "nameRequired": "El nombre es obligatorio",
     "pinRequired": "El PIN es obligatorio",
-    "pinFormat": "El PIN debe ser exactamente 4 dígitos",
+    "pinFormat": "El PIN debe ser de 4–6 dígitos",
     "failedFetch": "Error al cargar empleados",
     "failedAdd": "Error al agregar empleado",
     "failedUpdate": "Error al actualizar empleado",
@@ -470,7 +470,7 @@
     "addedThisSession": "Agregados en esta sesión:",
     "addAnother": "Agregar Otro",
     "errorNameRequired": "Ingresa el nombre del empleado",
-    "errorPinFormat": "El PIN debe ser de 4 dígitos",
+    "errorPinFormat": "El PIN debe ser de 4–6 dígitos",
     "errorCreating": "Error al crear empleado"
   },
   "menuImport": {

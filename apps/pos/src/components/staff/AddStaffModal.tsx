@@ -29,7 +29,7 @@ const ROLE_COLORS: Record<RoleType, string> = {
 };
 
 function generatePin(): string {
-  return String(Math.floor(1000 + Math.random() * 9000));
+  return String(Math.floor(100000 + Math.random() * 900000));
 }
 
 export default function AddStaffModal({ isOpen, onClose, onStaffAdded }: Props) {
@@ -64,7 +64,7 @@ export default function AddStaffModal({ isOpen, onClose, onStaffAdded }: Props) 
       setError(t('staff.errorNameRequired'));
       return;
     }
-    if (!/^\d{4}$/.test(pin)) {
+    if (!/^\d{4,6}$/.test(pin)) {
       setError(t('staff.errorPinFormat'));
       return;
     }
@@ -178,10 +178,10 @@ export default function AddStaffModal({ isOpen, onClose, onStaffAdded }: Props) 
                     type="text"
                     value={pin}
                     onChange={e => {
-                      const v = e.target.value.replace(/\D/g, '').slice(0, 4);
+                      const v = e.target.value.replace(/\D/g, '').slice(0, 6);
                       setPin(v);
                     }}
-                    maxLength={4}
+                    maxLength={6}
                     className="flex-1 px-4 py-2.5 bg-neutral-800 border border-neutral-700 rounded-lg text-white text-center text-lg tracking-[0.3em] font-bold focus:outline-none focus:border-brand-600"
                   />
                   <button
