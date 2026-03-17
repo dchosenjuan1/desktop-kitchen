@@ -223,7 +223,9 @@ export default function MenuBoardManagement() {
         template_slug: brand.template_slug || '',
         board_settings: {
           ...DEFAULT_BOARD_SETTINGS,
-          ...(brand.board_settings || {}),
+          ...(typeof brand.board_settings === 'object' && brand.board_settings !== null
+            ? Object.fromEntries(Object.entries(brand.board_settings).filter(([k]) => !/^\d+$/.test(k)))
+            : {}),
         },
       });
 
