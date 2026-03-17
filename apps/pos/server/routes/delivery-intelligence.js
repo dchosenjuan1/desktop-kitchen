@@ -6,6 +6,29 @@ import { sendSMS } from '../helpers/twilio.js';
 
 const router = Router();
 
+/**
+ * Safely convert a board_settings value to a JSON string for JSONB storage.
+ * Prevents double-stringify: if the value is already a string, unwrap it
+ * to a real object first, then re-stringify once.
+ */
+function toJsonbString(value) {
+  if (value === undefined || value === null) return '{}';
+  // Already an object — stringify once
+  if (typeof value === 'object') return JSON.stringify(value);
+  // String — likely already-serialized JSON; unwrap to object
+  if (typeof value === 'string') {
+    try {
+      let parsed = JSON.parse(value);
+      // Keep unwrapping if double/triple-stringified
+      while (typeof parsed === 'string') parsed = JSON.parse(parsed);
+      return typeof parsed === 'object' && parsed !== null ? JSON.stringify(parsed) : value;
+    } catch {
+      return '{}';
+    }
+  }
+  return '{}';
+}
+
 // Gate all delivery intelligence endpoints behind the delivery plan feature
 router.use(requirePlanFeature('delivery'));
 
@@ -262,7 +285,7 @@ router.post('/virtual-brands', requireAuth('manage_delivery'), async (req, res) 
     const result = await run(
       `INSERT INTO virtual_brands (tenant_id, name, platform_id, description, logo_url, display_type, primary_color, secondary_color, font_family, dark_bg, slug, show_in_pos, template_slug, board_settings)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`,
-      [tid, name, platform_id || null, description || null, logo_url || null, display_type || 'delivery', primary_color || null, secondary_color || null, font_family || null, dark_bg || null, slug || null, show_in_pos !== undefined ? show_in_pos : true, template_slug || null, board_settings ? JSON.stringify(board_settings) : '{}']
+      [tid, name, platform_id || null, description || null, logo_url || null, display_type || 'delivery', primary_color || null, secondary_color || null, font_family || null, dark_bg || null, slug || null, show_in_pos !== undefined ? show_in_pos : true, template_slug || null, toJsonbString(board_settings)]
     );
 
     res.status(201).json({ id: result.lastInsertRowid });
@@ -283,6 +306,8 @@ router.put('/virtual-brands/:id', requireAuth('manage_delivery'), async (req, re
     const brand = await get('SELECT * FROM virtual_brands WHERE id = $1', [id]);
     if (!brand) return res.status(404).json({ error: 'Virtual brand not found' });
 
+    const settingsValue = toJsonbString(board_settings !== undefined ? board_settings : brand.board_settings);
+
     await run(
       `UPDATE virtual_brands SET name = $1, description = $2, logo_url = $3, active = $4, display_type = $5, primary_color = $6, secondary_color = $7, font_family = $8, dark_bg = $9, slug = $10, show_in_pos = $11, template_slug = $12, board_settings = $13 WHERE id = $14`,
       [
@@ -298,7 +323,7 @@ router.put('/virtual-brands/:id', requireAuth('manage_delivery'), async (req, re
         slug ?? brand.slug,
         show_in_pos !== undefined ? show_in_pos : brand.show_in_pos,
         template_slug !== undefined ? template_slug : brand.template_slug,
-        board_settings !== undefined ? JSON.stringify(board_settings) : JSON.stringify(brand.board_settings || {}),
+        settingsValue,
         id
       ]
     );
