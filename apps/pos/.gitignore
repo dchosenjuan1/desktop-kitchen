@@ -21,3 +21,6 @@ build/
 *.dSYM.zip
 *.dSYM
 tests/.test-state.json
+
+# Android native (large C++ deps, not needed for Railway deploy)
+native-android/
