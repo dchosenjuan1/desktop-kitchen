@@ -369,12 +369,19 @@ const PlatformRoutes: React.FC = () => (
 
 /* ==================== Tenant Routes ({slug}.desktop.kitchen / localhost) ==================== */
 
+// Public routes that should never be intercepted by the mobile POS shell
+const PUBLIC_PATHS = ['/order', '/menu-board', '/invoice/'];
+
 const TenantRoutes: React.FC = () => {
   const { currentEmployee } = useAuth();
   const { deviceType } = useDeviceType();
 
-  // Phone + authenticated → mobile POS mode
-  if (deviceType === 'phone' && currentEmployee) {
+  // Check if the current hash path is a public route (customer-facing, no auth)
+  const hashPath = window.location.hash.replace('#', '') || '/';
+  const isPublicRoute = PUBLIC_PATHS.some(p => hashPath.startsWith(p));
+
+  // Phone + authenticated → mobile POS mode (but not for public customer pages)
+  if (deviceType === 'phone' && currentEmployee && !isPublicRoute) {
     return (
       <MobileCartProvider>
         <MobileShell>

@@ -4,7 +4,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { Sparkles, ArrowRight } from 'lucide-react';
 import { usePlan } from '../context/PlanContext';
 
-const HIDDEN_ROUTES = ['/', '/onboarding', '/menu-board', '/super-admin', '/admin/account'];
+const HIDDEN_ROUTES = ['/', '/onboarding', '/menu-board', '/order', '/super-admin', '/admin/account'];
 
 const UpgradeCTABar: React.FC = () => {
   const { t } = useTranslation('common');
