@@ -1,7 +1,23 @@
 import React, { useState, useEffect, useReducer, useCallback, useRef } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useBranding } from '../context/BrandingContext';
-import { getCustomerOrderSettings, placeCustomerOrder, type CustomerOrderItem } from '../api/customerOrder';
-import { ShoppingCart, Plus, Minus, X, ChevronDown, Check, Loader2 } from 'lucide-react';
+import {
+  getCustomerOrderSettings,
+  placeCustomerOrder,
+  getCustomerOrderStatus,
+  createCustomerPaymentIntent,
+  confirmCustomerPayment,
+  type CustomerOrderItem,
+  type CustomerOrderStatus,
+} from '../api/customerOrder';
+import { loadStripe } from '@stripe/stripe-js';
+import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js';
+import { ShoppingCart, Plus, Minus, X, Check, Loader2, Clock, ChefHat, Bell, ArrowLeft, RefreshCw } from 'lucide-react';
+
+/* ==================== Stripe setup ==================== */
+
+const stripeKey = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY;
+const stripePromise = stripeKey ? loadStripe(stripeKey) : null;
 
 /* ==================== Types ==================== */
 
@@ -52,6 +68,36 @@ interface CartItem {
   modifiers: ModifierData[];
 }
 
+/* ==================== localStorage helpers ==================== */
+
+const ACTIVE_ORDER_KEY = 'qr_active_order';
+
+function saveActiveOrder(orderId: number) {
+  try {
+    localStorage.setItem(ACTIVE_ORDER_KEY, JSON.stringify({ orderId, ts: Date.now() }));
+  } catch { /* ignore */ }
+}
+
+function loadActiveOrder(): number | null {
+  try {
+    const raw = localStorage.getItem(ACTIVE_ORDER_KEY);
+    if (!raw) return null;
+    const data = JSON.parse(raw);
+    // Expire after 4 hours
+    if (Date.now() - data.ts > 4 * 60 * 60 * 1000) {
+      localStorage.removeItem(ACTIVE_ORDER_KEY);
+      return null;
+    }
+    return data.orderId;
+  } catch {
+    return null;
+  }
+}
+
+function clearActiveOrder() {
+  try { localStorage.removeItem(ACTIVE_ORDER_KEY); } catch { /* ignore */ }
+}
+
 /* ==================== Cart Reducer ==================== */
 
 type CartAction =
@@ -77,16 +123,230 @@ function cartReducer(state: CartItem[], action: CartAction): CartItem[] {
   }
 }
 
-/* ==================== Component ==================== */
+/* ==================== Payment Form (Stripe Elements) ==================== */
+
+function PaymentForm({ orderId, onSuccess, onError }: {
+  orderId: number;
+  onSuccess: () => void;
+  onError: (msg: string) => void;
+}) {
+  const stripe = useStripe();
+  const elements = useElements();
+  const [processing, setProcessing] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!stripe || !elements) return;
+
+    setProcessing(true);
+    try {
+      const { error } = await stripe.confirmPayment({
+        elements,
+        redirect: 'if_required',
+      });
+
+      if (error) {
+        onError(error.message || 'Payment failed');
+        setProcessing(false);
+        return;
+      }
+
+      // Confirm on our backend
+      await confirmCustomerPayment(orderId);
+      onSuccess();
+    } catch (err) {
+      onError(err instanceof Error ? err.message : 'Payment failed');
+      setProcessing(false);
+    }
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <PaymentElement />
+      <button
+        type="submit"
+        disabled={!stripe || processing}
+        className="w-full bg-brand-600 hover:bg-brand-700 disabled:bg-brand-800 disabled:opacity-50 text-white font-bold py-4 rounded-xl transition-colors flex items-center justify-center gap-2"
+      >
+        {processing ? (
+          <>
+            <Loader2 size={18} className="animate-spin" />
+            Processing...
+          </>
+        ) : (
+          'Pay Now'
+        )}
+      </button>
+    </form>
+  );
+}
+
+/* ==================== Status Tracker ==================== */
+
+const STATUS_STEPS = [
+  { key: 'placed', label: 'Order Placed', icon: Check },
+  { key: 'preparing', label: 'Preparing', icon: ChefHat },
+  { key: 'ready', label: 'Ready!', icon: Bell },
+] as const;
+
+function getStepIndex(status: string): number {
+  if (status === 'ready' || status === 'completed') return 2;
+  if (status === 'preparing' || status === 'confirmed') return 1;
+  return 0; // pending
+}
+
+function OrderStatusTracker({ orderId, onNewOrder }: {
+  orderId: number;
+  onNewOrder: () => void;
+}) {
+  const [status, setStatus] = useState<CustomerOrderStatus | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const fetchStatus = useCallback(async () => {
+    try {
+      const data = await getCustomerOrderStatus(orderId);
+      setStatus(data);
+      setError(null);
+
+      // Stop polling when order is ready/completed/cancelled
+      if (['ready', 'completed', 'cancelled'].includes(data.status)) {
+        if (pollRef.current) clearInterval(pollRef.current);
+      }
+
+      // Clear localStorage if completed
+      if (data.status === 'completed' || data.status === 'cancelled') {
+        clearActiveOrder();
+      }
+    } catch (err) {
+      setError('Unable to check status');
+    }
+  }, [orderId]);
+
+  useEffect(() => {
+    fetchStatus();
+    pollRef.current = setInterval(fetchStatus, 5000);
+    return () => {
+      if (pollRef.current) clearInterval(pollRef.current);
+    };
+  }, [fetchStatus]);
+
+  const stepIndex = status ? getStepIndex(status.status) : 0;
+  const isReady = status && (status.status === 'ready' || status.status === 'completed');
+
+  return (
+    <div className="min-h-screen bg-neutral-950 flex flex-col items-center justify-center p-6">
+      <div className="bg-neutral-900 rounded-2xl p-6 max-w-sm w-full border border-neutral-800">
+        {/* Order number */}
+        <div className="text-center mb-6">
+          <p className="text-neutral-500 text-sm mb-1">Your order</p>
+          <p className="text-5xl font-black text-brand-500 tracking-tight">
+            #{status?.order_number || '...'}
+          </p>
+        </div>
+
+        {/* Status stepper */}
+        <div className="flex items-center justify-between mb-8 px-2">
+          {STATUS_STEPS.map((step, i) => {
+            const Icon = step.icon;
+            const isActive = i <= stepIndex;
+            const isCurrent = i === stepIndex;
+            return (
+              <React.Fragment key={step.key}>
+                {i > 0 && (
+                  <div className={`flex-1 h-0.5 mx-1 transition-colors duration-500 ${
+                    i <= stepIndex ? 'bg-brand-500' : 'bg-neutral-700'
+                  }`} />
+                )}
+                <div className="flex flex-col items-center gap-1.5">
+                  <div className={`w-12 h-12 rounded-full flex items-center justify-center transition-all duration-500 ${
+                    isActive
+                      ? isCurrent && isReady
+                        ? 'bg-green-600 scale-110'
+                        : 'bg-brand-600'
+                      : 'bg-neutral-800 border border-neutral-700'
+                  }`}>
+                    <Icon size={20} className={isActive ? 'text-white' : 'text-neutral-500'} />
+                  </div>
+                  <span className={`text-xs font-medium ${
+                    isActive ? 'text-white' : 'text-neutral-600'
+                  }`}>
+                    {step.label}
+                  </span>
+                </div>
+              </React.Fragment>
+            );
+          })}
+        </div>
+
+        {/* Ready state */}
+        {isReady && (
+          <div className="bg-green-900/30 border border-green-700/50 rounded-xl p-4 text-center mb-4 animate-pulse">
+            <p className="text-green-400 font-bold text-lg">Your order is ready!</p>
+            <p className="text-green-500/70 text-sm mt-1">Please pick it up at the counter</p>
+          </div>
+        )}
+
+        {/* Estimated time */}
+        {!isReady && status?.estimated_ready_minutes && (
+          <div className="flex items-center justify-center gap-2 text-neutral-400 mb-4">
+            <Clock size={16} />
+            <span className="text-sm">
+              Estimated ~{status.estimated_ready_minutes} min
+            </span>
+          </div>
+        )}
+
+        {/* Error */}
+        {error && (
+          <p className="text-red-400 text-sm text-center mb-4">{error}</p>
+        )}
+
+        {/* Actions */}
+        <div className="space-y-3">
+          {!isReady && (
+            <button
+              onClick={fetchStatus}
+              className="w-full bg-neutral-800 hover:bg-neutral-700 text-neutral-300 font-medium py-3 rounded-xl transition-colors flex items-center justify-center gap-2 text-sm"
+            >
+              <RefreshCw size={14} />
+              Refresh Status
+            </button>
+          )}
+          <button
+            onClick={() => {
+              clearActiveOrder();
+              onNewOrder();
+            }}
+            className="w-full bg-brand-600 hover:bg-brand-700 text-white font-bold py-3 rounded-xl transition-colors"
+          >
+            {isReady ? 'Order Again' : 'Place Another Order'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ==================== Main Component ==================== */
+
+type Stage = 'menu' | 'payment' | 'tracking';
 
 export default function CustomerOrderScreen() {
   const { branding } = useBranding();
+  const [searchParams] = useSearchParams();
+  const tableNumber = searchParams.get('table') || undefined;
 
   // Data
   const [brands, setBrands] = useState<BrandData[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [requirePayment, setRequirePayment] = useState(false);
+
+  // Stage + order state
+  const [stage, setStage] = useState<Stage>('menu');
+  const [orderId, setOrderId] = useState<number | null>(null);
+  const [clientSecret, setClientSecret] = useState<string | null>(null);
 
   // UI state
   const [activeCategory, setActiveCategory] = useState<number | null>(null);
@@ -99,18 +359,27 @@ export default function CustomerOrderScreen() {
   const [cartOpen, setCartOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
-  // Order confirmation
-  const [orderResult, setOrderResult] = useState<{
-    order_number: number;
-    estimated_ready_minutes: number;
-  } | null>(null);
-
   // Cart
   const [cart, dispatch] = useReducer(cartReducer, []);
   const categoryScrollRef = useRef<HTMLDivElement>(null);
+  const activePillRef = useRef<HTMLButtonElement>(null);
+
+  // Scroll-spy refs
+  const categoryRefs = useRef<Map<number, HTMLDivElement>>(new Map());
+  const isManualScroll = useRef(false);
+
+  // Check for existing active order on mount
+  useEffect(() => {
+    const existingOrderId = loadActiveOrder();
+    if (existingOrderId) {
+      setOrderId(existingOrderId);
+      setStage('tracking');
+    }
+  }, []);
 
   // Load menu data + settings
   useEffect(() => {
+    if (stage !== 'menu') return;
     Promise.all([
       fetch('/api/customer-order/menu').then(r => r.json()),
       getCustomerOrderSettings().catch(() => ({ requirePayment: false })),
@@ -126,11 +395,37 @@ export default function CustomerOrderScreen() {
       setError('Failed to load menu');
       console.error(err);
     }).finally(() => setLoading(false));
-  }, []);
+  }, [stage]);
+
+  // Auto-scroll active category pill into view
+  useEffect(() => {
+    if (activePillRef.current) {
+      activePillRef.current.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+    }
+  }, [activeCategory]);
+
+  // Scroll-spy: update active category as user scrolls
+  useEffect(() => {
+    if (stage !== 'menu') return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (isManualScroll.current) return;
+        for (const entry of entries) {
+          if (entry.isIntersecting) {
+            const catId = Number(entry.target.getAttribute('data-cat-id'));
+            if (catId) setActiveCategory(catId);
+          }
+        }
+      },
+      { threshold: 0.3, rootMargin: '-120px 0px -50% 0px' }
+    );
+
+    categoryRefs.current.forEach(el => observer.observe(el));
+    return () => observer.disconnect();
+  }, [stage, brands]);
 
   // All categories flattened
   const allCategories = brands.flatMap(b => b.categories);
-  const activeCategoryData = allCategories.find(c => c.id === activeCategory);
   const brandName = branding?.restaurantName || brands[0]?.name || 'Menu';
 
   // Cart totals
@@ -148,6 +443,9 @@ export default function CustomerOrderScreen() {
     setSelectedModifiers({});
     setModifierGroups([]);
     setLoadingModifiers(true);
+
+    // Haptic feedback
+    try { navigator.vibrate?.(10); } catch { /* ignore */ }
 
     try {
       const res = await fetch(`/api/modifiers/groups/item/${item.id}`);
@@ -214,6 +512,8 @@ export default function CustomerOrderScreen() {
       },
     });
 
+    // Haptic feedback
+    try { navigator.vibrate?.(15); } catch { /* ignore */ }
     setSelectedItem(null);
   }, [selectedItem, modifierGroups, selectedModifiers, itemQty, itemNotes]);
 
@@ -231,53 +531,108 @@ export default function CustomerOrderScreen() {
         modifiers: ci.modifiers.length > 0 ? ci.modifiers.map(m => m.id) : undefined,
       }));
 
-      const result = await placeCustomerOrder(items);
-      setOrderResult(result);
+      const result = await placeCustomerOrder(items, tableNumber);
+      setOrderId(result.order_id);
+      saveActiveOrder(result.order_id);
       dispatch({ type: 'CLEAR' });
       setCartOpen(false);
+
+      if (requirePayment && stripePromise) {
+        // Create payment intent
+        try {
+          const { clientSecret: secret } = await createCustomerPaymentIntent(result.order_id);
+          setClientSecret(secret);
+          setStage('payment');
+        } catch {
+          // Payment setup failed — go to tracking anyway
+          setStage('tracking');
+        }
+      } else {
+        setStage('tracking');
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to place order');
     } finally {
       setSubmitting(false);
     }
-  }, [cart]);
+  }, [cart, tableNumber, requirePayment]);
+
+  // Handle category click with manual scroll
+  const handleCategoryClick = useCallback((catId: number) => {
+    setActiveCategory(catId);
+    isManualScroll.current = true;
+    const el = categoryRefs.current.get(catId);
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      setTimeout(() => { isManualScroll.current = false; }, 1000);
+    }
+  }, []);
 
   // Format price
   const fmt = (n: number) => `$${n.toFixed(2)}`;
 
-  /* ==================== Order Confirmation ==================== */
-  if (orderResult) {
+  /* ==================== Payment Stage ==================== */
+  if (stage === 'payment' && clientSecret && orderId && stripePromise) {
     return (
-      <div className="min-h-screen bg-neutral-950 flex flex-col items-center justify-center p-6 text-center">
-        <div className="bg-neutral-900 rounded-2xl p-8 max-w-sm w-full border border-neutral-800">
-          <div className="w-20 h-20 bg-green-600 rounded-full flex items-center justify-center mx-auto mb-6">
-            <Check size={40} className="text-white" />
-          </div>
-          <h1 className="text-2xl font-bold text-white mb-2">Order Placed!</h1>
-          <p className="text-neutral-400 mb-6">Your order has been sent to the kitchen</p>
-
-          <div className="bg-neutral-800 rounded-xl p-6 mb-6">
-            <p className="text-neutral-500 text-sm mb-1">Your order number</p>
-            <p className="text-5xl font-black text-brand-500 tracking-tight">
-              #{orderResult.order_number}
-            </p>
-          </div>
-
-          <p className="text-neutral-400 text-sm mb-8">
-            Estimated ready in{' '}
-            <span className="text-white font-semibold">
-              ~{orderResult.estimated_ready_minutes} min
-            </span>
+      <div className="min-h-screen bg-neutral-950 flex flex-col items-center justify-center p-6">
+        <div className="bg-neutral-900 rounded-2xl p-6 max-w-sm w-full border border-neutral-800">
+          <h2 className="text-xl font-bold text-white mb-2 text-center">Payment</h2>
+          <p className="text-neutral-400 text-sm text-center mb-6">
+            Complete your payment to confirm the order
           </p>
 
-          <button
-            onClick={() => setOrderResult(null)}
-            className="w-full bg-brand-600 hover:bg-brand-700 text-white font-bold py-3 px-6 rounded-xl transition-colors"
+          {error && (
+            <div className="mb-4 px-3 py-2 bg-red-900/50 border border-red-800 rounded-lg text-red-200 text-sm">
+              {error}
+            </div>
+          )}
+
+          <Elements
+            stripe={stripePromise}
+            options={{
+              clientSecret,
+              appearance: {
+                theme: 'night',
+                variables: {
+                  colorPrimary: '#0d9488',
+                  colorBackground: '#171717',
+                  colorText: '#ffffff',
+                  colorTextSecondary: '#a3a3a3',
+                  borderRadius: '12px',
+                },
+              },
+            }}
           >
-            Order Again
+            <PaymentForm
+              orderId={orderId}
+              onSuccess={() => setStage('tracking')}
+              onError={(msg) => setError(msg)}
+            />
+          </Elements>
+
+          <button
+            onClick={() => setStage('tracking')}
+            className="w-full mt-3 text-neutral-500 hover:text-neutral-300 text-sm py-2 transition-colors"
+          >
+            Skip — pay at counter
           </button>
         </div>
       </div>
+    );
+  }
+
+  /* ==================== Tracking Stage ==================== */
+  if (stage === 'tracking' && orderId) {
+    return (
+      <OrderStatusTracker
+        orderId={orderId}
+        onNewOrder={() => {
+          setOrderId(null);
+          setClientSecret(null);
+          setStage('menu');
+          setLoading(true);
+        }}
+      />
     );
   }
 
@@ -338,7 +693,8 @@ export default function CustomerOrderScreen() {
         {allCategories.map(cat => (
           <button
             key={cat.id}
-            onClick={() => setActiveCategory(cat.id)}
+            ref={activeCategory === cat.id ? activePillRef : undefined}
+            onClick={() => handleCategoryClick(cat.id)}
             className={`whitespace-nowrap px-4 py-1.5 rounded-full text-sm font-medium transition-colors flex-shrink-0 ${
               activeCategory === cat.id
                 ? 'bg-brand-600 text-white'
@@ -357,38 +713,51 @@ export default function CustomerOrderScreen() {
         </div>
       )}
 
-      {/* Menu items */}
-      <div className="flex-1 p-4 space-y-3 pb-24">
-        {activeCategoryData?.items.map(item => (
-          <button
-            key={item.id}
-            onClick={() => openItem(item)}
-            className="w-full bg-neutral-900 border border-neutral-800 rounded-xl p-4 flex gap-4 text-left hover:border-neutral-700 transition-colors"
+      {/* Menu items — all categories rendered for scroll-spy */}
+      <div className="flex-1 p-4 space-y-6 pb-24">
+        {allCategories.map(cat => (
+          <div
+            key={cat.id}
+            ref={el => { if (el) categoryRefs.current.set(cat.id, el); }}
+            data-cat-id={cat.id}
           >
-            {item.imageUrl && (
-              <img
-                src={item.imageUrl}
-                alt=""
-                className="w-20 h-20 rounded-lg object-cover flex-shrink-0"
-              />
-            )}
-            <div className="flex-1 min-w-0">
-              <h3 className="text-white font-semibold truncate">{item.name}</h3>
-              {item.description && (
-                <p className="text-neutral-500 text-sm line-clamp-2 mt-0.5">{item.description}</p>
-              )}
-              <p className="text-brand-400 font-bold mt-1.5">{fmt(item.price)}</p>
+            <h2 className="text-lg font-bold text-white mb-3 sticky top-[110px] bg-neutral-950 py-1 z-10">
+              {cat.name}
+            </h2>
+            <div className="space-y-3">
+              {cat.items.map(item => (
+                <button
+                  key={item.id}
+                  onClick={() => openItem(item)}
+                  className="w-full bg-neutral-900 border border-neutral-800 rounded-xl p-4 flex gap-4 text-left hover:border-neutral-700 transition-colors active:scale-[0.98]"
+                >
+                  {item.imageUrl && (
+                    <img
+                      src={item.imageUrl}
+                      alt=""
+                      className="w-20 h-20 rounded-lg object-cover flex-shrink-0"
+                    />
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <h3 className="text-white font-semibold truncate">{item.name}</h3>
+                    {item.description && (
+                      <p className="text-neutral-500 text-sm line-clamp-2 mt-0.5">{item.description}</p>
+                    )}
+                    <p className="text-brand-400 font-bold mt-1.5">{fmt(item.price)}</p>
+                  </div>
+                  <div className="flex items-center">
+                    <div className="w-8 h-8 rounded-full bg-brand-600/20 text-brand-400 flex items-center justify-center">
+                      <Plus size={18} />
+                    </div>
+                  </div>
+                </button>
+              ))}
             </div>
-            <div className="flex items-center">
-              <div className="w-8 h-8 rounded-full bg-brand-600/20 text-brand-400 flex items-center justify-center">
-                <Plus size={18} />
-              </div>
-            </div>
-          </button>
+          </div>
         ))}
 
-        {activeCategoryData?.items.length === 0 && (
-          <p className="text-neutral-600 text-center py-12">No items in this category</p>
+        {allCategories.length === 0 && (
+          <p className="text-neutral-600 text-center py-12">No menu items available</p>
         )}
       </div>
 
@@ -410,8 +779,11 @@ export default function CustomerOrderScreen() {
 
       {/* Item Detail Modal */}
       {selectedItem && (
-        <div className="fixed inset-0 z-50 bg-black/80 flex items-end sm:items-center justify-center">
-          <div className="bg-neutral-900 w-full max-w-lg rounded-t-2xl sm:rounded-2xl max-h-[85vh] flex flex-col">
+        <div
+          className="fixed inset-0 z-50 bg-black/80 flex items-end sm:items-center justify-center"
+          onClick={(e) => { if (e.target === e.currentTarget) setSelectedItem(null); }}
+        >
+          <div className="bg-neutral-900 w-full max-w-lg rounded-t-2xl sm:rounded-2xl max-h-[85vh] flex flex-col animate-slide-up">
             {/* Modal header */}
             <div className="flex items-center justify-between p-4 border-b border-neutral-800">
               <h2 className="text-lg font-bold text-white truncate pr-4">{selectedItem.name}</h2>
@@ -523,7 +895,7 @@ export default function CustomerOrderScreen() {
 
               <button
                 onClick={addToCart}
-                className="w-full bg-brand-600 hover:bg-brand-700 text-white font-bold py-3.5 rounded-xl transition-colors flex items-center justify-center gap-2"
+                className="w-full bg-brand-600 hover:bg-brand-700 text-white font-bold py-3.5 rounded-xl transition-colors flex items-center justify-center gap-2 active:scale-[0.98]"
               >
                 <Plus size={18} />
                 Add to Cart — {fmt(
@@ -547,8 +919,11 @@ export default function CustomerOrderScreen() {
 
       {/* Cart Sheet */}
       {cartOpen && (
-        <div className="fixed inset-0 z-50 bg-black/80 flex items-end sm:items-center justify-center">
-          <div className="bg-neutral-900 w-full max-w-lg rounded-t-2xl sm:rounded-2xl max-h-[85vh] flex flex-col">
+        <div
+          className="fixed inset-0 z-50 bg-black/80 flex items-end sm:items-center justify-center"
+          onClick={(e) => { if (e.target === e.currentTarget) setCartOpen(false); }}
+        >
+          <div className="bg-neutral-900 w-full max-w-lg rounded-t-2xl sm:rounded-2xl max-h-[85vh] flex flex-col animate-slide-up">
             {/* Cart header */}
             <div className="flex items-center justify-between p-4 border-b border-neutral-800">
               <h2 className="text-lg font-bold text-white">Your Cart</h2>
@@ -626,7 +1001,7 @@ export default function CustomerOrderScreen() {
                 <button
                   onClick={handlePlaceOrder}
                   disabled={submitting}
-                  className="w-full bg-brand-600 hover:bg-brand-700 disabled:bg-brand-800 disabled:opacity-50 text-white font-bold py-4 rounded-xl transition-colors flex items-center justify-center gap-2"
+                  className="w-full bg-brand-600 hover:bg-brand-700 disabled:bg-brand-800 disabled:opacity-50 text-white font-bold py-4 rounded-xl transition-colors flex items-center justify-center gap-2 active:scale-[0.98]"
                 >
                   {submitting ? (
                     <>
@@ -634,7 +1009,7 @@ export default function CustomerOrderScreen() {
                       Placing order...
                     </>
                   ) : (
-                    requirePayment ? 'Pay & Order' : 'Place Order'
+                    requirePayment ? 'Continue to Payment' : 'Place Order'
                   )}
                 </button>
               </div>
@@ -642,6 +1017,19 @@ export default function CustomerOrderScreen() {
           </div>
         </div>
       )}
+
+      {/* CSS for slide-up animation */}
+      <style>{`
+        @keyframes slide-up {
+          from { transform: translateY(100%); opacity: 0; }
+          to { transform: translateY(0); opacity: 1; }
+        }
+        .animate-slide-up {
+          animation: slide-up 0.3s ease-out;
+        }
+        .scrollbar-hide::-webkit-scrollbar { display: none; }
+        .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+      `}</style>
     </div>
   );
 }

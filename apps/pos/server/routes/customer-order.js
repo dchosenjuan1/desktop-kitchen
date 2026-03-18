@@ -4,6 +4,7 @@ import { all, get, run, getConn, getTenantId } from '../db/index.js';
 import { insertOrderWithNumber, estimatePrepTime } from './orders.js';
 import { audit } from '../lib/auditLog.js';
 import { cleanBoardSettings } from '../lib/boardSettings.js';
+import { createPaymentIntent, getPaymentIntent } from '../stripe.js';
 
 const router = Router();
 
@@ -16,6 +17,15 @@ const customerOrderLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: 'Too many orders. Please try again later.' },
+});
+
+// Rate limiting: 60 status checks per IP per minute
+const statusLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 60,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many requests. Please try again later.' },
 });
 
 /**
@@ -175,7 +185,7 @@ router.get('/menu', async (_req, res) => {
 // POST /api/customer-order — public, rate-limited, creates an order
 router.post('/', customerOrderLimiter, async (req, res) => {
   try {
-    const { items } = req.body;
+    const { items, table_number } = req.body;
 
     if (!items || !Array.isArray(items) || items.length === 0) {
       return res.status(400).json({ error: 'Items are required' });
@@ -184,6 +194,11 @@ router.post('/', customerOrderLimiter, async (req, res) => {
     if (items.length > 50) {
       return res.status(400).json({ error: 'Too many items in order' });
     }
+
+    // Sanitize table_number
+    const sanitizedTable = typeof table_number === 'string'
+      ? table_number.trim().slice(0, 20) || null
+      : null;
 
     // Find system employee for FK
     const employee = await findSystemEmployee();
@@ -253,10 +268,10 @@ router.post('/', customerOrderLimiter, async (req, res) => {
       tenantId,
     });
 
-    // Set source to qr_order
+    // Set source and table_number
     await conn.unsafe(
-      `UPDATE orders SET source = 'qr_order' WHERE id = $1`,
-      [orderId]
+      `UPDATE orders SET source = 'qr_order', table_number = $1 WHERE id = $2`,
+      [sanitizedTable, orderId]
     );
 
     // Calculate estimated prep time
@@ -325,6 +340,7 @@ router.post('/', customerOrderLimiter, async (req, res) => {
     });
 
     res.status(201).json({
+      order_id: orderId,
       order_number: orderNumber,
       estimated_ready_minutes: prepEstimate.estimate,
       estimated_ready_range: { low: prepEstimate.low, high: prepEstimate.high },
@@ -332,6 +348,134 @@ router.post('/', customerOrderLimiter, async (req, res) => {
   } catch (error) {
     console.error('Error creating customer order:', error);
     res.status(500).json({ error: 'Failed to create order' });
+  }
+});
+
+// GET /api/customer-order/:orderId/status — public, rate-limited
+router.get('/:orderId/status', statusLimiter, async (req, res) => {
+  try {
+    const { orderId } = req.params;
+
+    const order = await get(`
+      SELECT id, order_number, status, table_number, estimated_ready_minutes,
+             created_at, ready_at, total
+      FROM orders
+      WHERE id = $1 AND source = 'qr_order'
+    `, [orderId]);
+
+    if (!order) {
+      return res.status(404).json({ error: 'Order not found' });
+    }
+
+    res.json({
+      order_id: order.id,
+      order_number: order.order_number,
+      status: order.status,
+      table_number: order.table_number,
+      estimated_ready_minutes: order.estimated_ready_minutes,
+      created_at: order.created_at,
+      ready_at: order.ready_at,
+      total: order.total,
+    });
+  } catch (error) {
+    console.error('Error fetching order status:', error);
+    res.status(500).json({ error: 'Failed to fetch order status' });
+  }
+});
+
+// POST /api/customer-order/:orderId/payment-intent — creates Stripe PaymentIntent for QR order
+router.post('/:orderId/payment-intent', statusLimiter, async (req, res) => {
+  try {
+    const { orderId } = req.params;
+
+    const order = await get(`
+      SELECT id, total, payment_status, source
+      FROM orders
+      WHERE id = $1 AND source = 'qr_order'
+    `, [orderId]);
+
+    if (!order) {
+      return res.status(404).json({ error: 'Order not found' });
+    }
+
+    if (order.payment_status === 'paid' || order.payment_status === 'completed') {
+      return res.status(400).json({ error: 'Order is already paid' });
+    }
+
+    const paymentIntent = await createPaymentIntent(order.total, {
+      order_id: String(order.id),
+      source: 'qr_order',
+    });
+
+    // Store payment_intent_id on order
+    const conn = getConn();
+    await conn.unsafe(
+      `UPDATE orders SET payment_intent_id = $1, payment_status = 'processing' WHERE id = $2`,
+      [paymentIntent.id, orderId]
+    );
+
+    res.json({ clientSecret: paymentIntent.client_secret });
+  } catch (error) {
+    console.error('Error creating payment intent:', error);
+    res.status(500).json({ error: 'Failed to create payment' });
+  }
+});
+
+// POST /api/customer-order/:orderId/confirm-payment — confirms payment after Stripe success
+router.post('/:orderId/confirm-payment', statusLimiter, async (req, res) => {
+  try {
+    const { orderId } = req.params;
+
+    const order = await get(`
+      SELECT id, payment_intent_id, payment_status, source, status
+      FROM orders
+      WHERE id = $1 AND source = 'qr_order'
+    `, [orderId]);
+
+    if (!order) {
+      return res.status(404).json({ error: 'Order not found' });
+    }
+
+    if (!order.payment_intent_id) {
+      return res.status(400).json({ error: 'No payment intent found for this order' });
+    }
+
+    if (order.payment_status === 'paid' || order.payment_status === 'completed') {
+      return res.json({ success: true, already_paid: true });
+    }
+
+    // Verify with Stripe
+    const intent = await getPaymentIntent(order.payment_intent_id);
+    if (intent.status !== 'succeeded') {
+      return res.status(400).json({ error: 'Payment has not been completed' });
+    }
+
+    // Update order: mark paid, advance status to preparing
+    const conn = getConn();
+    const now = new Date().toISOString();
+    await conn.unsafe(`
+      UPDATE orders
+      SET payment_status = 'paid',
+          payment_method = 'card',
+          paid_at = $1,
+          status = CASE WHEN status = 'pending' THEN 'confirmed' ELSE status END
+      WHERE id = $2
+    `, [now, orderId]);
+
+    audit({
+      tenantId: getTenantId() || 'default',
+      actorType: 'customer',
+      actorId: 'qr_order',
+      action: 'payment',
+      resource: 'order',
+      resourceId: String(orderId),
+      ip: req.ip,
+    });
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error confirming payment:', error);
+    res.status(500).json({ error: 'Failed to confirm payment' });
   }
 });
 

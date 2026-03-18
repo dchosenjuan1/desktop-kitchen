@@ -402,6 +402,11 @@ function OrderCard({
               QR
             </span>
           )}
+          {order.table_number && (
+            <span className="bg-sky-600 text-white px-2.5 py-1.5 rounded-full font-bold text-xs whitespace-nowrap">
+              Table {order.table_number}
+            </span>
+          )}
           <span
             className={`${getStatusBadgeColor(order.status)} px-4 py-2 rounded-full font-bold text-sm whitespace-nowrap`}
           >

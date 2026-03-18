@@ -4,8 +4,9 @@ import { useTranslation } from 'react-i18next';
 import {
   ArrowLeft, Tv, Plus, Pencil, Eye, Save, X, Trash2, RefreshCw, Image, ImageOff,
   Monitor, Copy, Check, ExternalLink, Settings2, QrCode, Clock, DollarSign,
-  MessageSquare, Type, Layers,
+  MessageSquare, Type, Layers, Printer,
 } from 'lucide-react';
+import { QRCodeSVG } from 'qrcode.react';
 import {
   getVirtualBrands,
   createVirtualBrand,
@@ -153,6 +154,139 @@ const DEFAULT_FORM: FormData = {
   template_slug: '',
   board_settings: { ...DEFAULT_BOARD_SETTINGS },
 };
+
+/* ==================== Table QR Code Generator ==================== */
+
+function TableQRGenerator() {
+  const [tableCount, setTableCount] = useState(0);
+  const [expanded, setExpanded] = useState(false);
+  const baseUrl = `${window.location.origin}/#/order`;
+
+  const handlePrint = () => {
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) return;
+
+    const qrHtml = Array.from({ length: tableCount }, (_, i) => {
+      const tableNum = i + 1;
+      const url = `${baseUrl}?table=${tableNum}`;
+      return `
+        <div style="display:inline-block;text-align:center;margin:16px;page-break-inside:avoid;">
+          <div id="qr-${tableNum}" style="width:200px;height:200px;"></div>
+          <p style="font-weight:bold;font-size:18px;margin:8px 0 2px;">Table ${tableNum}</p>
+          <p style="font-size:10px;color:#666;">${url}</p>
+        </div>
+      `;
+    }).join('');
+
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Table QR Codes</title>
+        <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.4/build/qrcode.min.js"><\/script>
+        <style>
+          body { font-family: system-ui, sans-serif; padding: 20px; }
+          @media print {
+            body { padding: 0; }
+            h1 { font-size: 16px; margin-bottom: 8px; }
+          }
+        </style>
+      </head>
+      <body>
+        <h1>Table QR Codes</h1>
+        <div style="display:flex;flex-wrap:wrap;">${qrHtml}</div>
+        <script>
+          document.querySelectorAll('[id^="qr-"]').forEach(el => {
+            const num = el.id.split('-')[1];
+            QRCode.toCanvas(document.createElement('canvas'), '${baseUrl}?table=' + num, { width: 200 }, (err, canvas) => {
+              if (!err) el.appendChild(canvas);
+            });
+          });
+          setTimeout(() => window.print(), 500);
+        <\/script>
+      </body>
+      </html>
+    `);
+    printWindow.document.close();
+  };
+
+  return (
+    <div className="mt-8 bg-neutral-900 rounded-lg border border-neutral-800 overflow-hidden">
+      <button
+        onClick={() => setExpanded(!expanded)}
+        className="w-full px-6 py-4 flex items-center justify-between text-left hover:bg-neutral-800/50 transition-colors"
+      >
+        <div className="flex items-center gap-3">
+          <QrCode size={20} className="text-brand-500" />
+          <h2 className="text-lg font-bold text-white">Table QR Codes</h2>
+        </div>
+        <ChevronDown
+          size={20}
+          className={`text-neutral-400 transition-transform ${expanded ? 'rotate-180' : ''}`}
+        />
+      </button>
+
+      {expanded && (
+        <div className="px-6 pb-6 border-t border-neutral-800 pt-4">
+          <p className="text-sm text-neutral-400 mb-4">
+            Generate QR codes for each table. Customers scan to open the ordering page with their table number pre-filled.
+          </p>
+
+          <div className="flex items-center gap-4 mb-6">
+            <div>
+              <label className="block text-xs font-medium text-neutral-500 mb-1">Number of tables</label>
+              <input
+                type="number"
+                min={1}
+                max={100}
+                value={tableCount || ''}
+                onChange={e => setTableCount(Math.min(100, Math.max(0, parseInt(e.target.value) || 0)))}
+                className="w-28 bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-brand-500"
+                placeholder="e.g. 10"
+              />
+            </div>
+            {tableCount > 0 && (
+              <button
+                onClick={handlePrint}
+                className="flex items-center gap-2 px-4 py-2 mt-4 bg-brand-600 text-white text-sm font-medium rounded-lg hover:bg-brand-700 transition-colors"
+              >
+                <Printer size={16} />
+                Print All ({tableCount})
+              </button>
+            )}
+          </div>
+
+          {tableCount > 0 && (
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+              {Array.from({ length: tableCount }, (_, i) => {
+                const tableNum = i + 1;
+                const url = `${baseUrl}?table=${tableNum}`;
+                return (
+                  <div key={tableNum} className="bg-neutral-800 rounded-lg p-4 flex flex-col items-center">
+                    <div className="bg-white rounded-lg p-2 mb-2">
+                      <QRCodeSVG value={url} size={120} />
+                    </div>
+                    <p className="text-white font-bold text-sm">Table {tableNum}</p>
+                    <p className="text-neutral-500 text-[10px] truncate max-w-full mt-0.5">{url}</p>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ==================== Chevron icon for QR section ==================== */
+function ChevronDown({ size = 24, className = '' }: { size?: number; className?: string }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <polyline points="6 9 12 15 18 9" />
+    </svg>
+  );
+}
 
 export default function MenuBoardManagement() {
   const { t } = useTranslation('admin');
@@ -569,6 +703,9 @@ export default function MenuBoardManagement() {
             </button>
           </div>
         )}
+
+        {/* QR Code Table Generator */}
+        <TableQRGenerator />
       </div>
 
       {/* Connect to Screen Modal */}

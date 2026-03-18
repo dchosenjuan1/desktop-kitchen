@@ -17,10 +17,21 @@ export interface CustomerOrderItem {
 }
 
 export interface CustomerOrderResult {
+  order_id: number;
   order_number: number;
   estimated_ready_minutes: number;
   estimated_ready_range: { low: number; high: number };
-  payment_client_secret?: string;
+}
+
+export interface CustomerOrderStatus {
+  order_id: number;
+  order_number: number;
+  status: string;
+  table_number: string | null;
+  estimated_ready_minutes: number | null;
+  created_at: string;
+  ready_at: string | null;
+  total: number;
 }
 
 export async function getCustomerOrderSettings(): Promise<CustomerOrderSettings> {
@@ -33,16 +44,50 @@ export async function getCustomerOrderSettings(): Promise<CustomerOrderSettings>
 }
 
 export async function placeCustomerOrder(
-  items: CustomerOrderItem[]
+  items: CustomerOrderItem[],
+  table_number?: string
 ): Promise<CustomerOrderResult> {
   const res = await fetch(API_BASE, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ items }),
+    body: JSON.stringify({ items, table_number }),
   });
   if (!res.ok) {
     const data = await res.json().catch(() => ({}));
     throw new Error(data.error || `Failed to place order: ${res.status}`);
+  }
+  return res.json();
+}
+
+export async function getCustomerOrderStatus(orderId: number): Promise<CustomerOrderStatus> {
+  const res = await fetch(`${API_BASE}/${orderId}/status`);
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.error || `Failed to fetch status: ${res.status}`);
+  }
+  return res.json();
+}
+
+export async function createCustomerPaymentIntent(orderId: number): Promise<{ clientSecret: string }> {
+  const res = await fetch(`${API_BASE}/${orderId}/payment-intent`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.error || `Failed to create payment: ${res.status}`);
+  }
+  return res.json();
+}
+
+export async function confirmCustomerPayment(orderId: number): Promise<{ success: boolean }> {
+  const res = await fetch(`${API_BASE}/${orderId}/confirm-payment`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.error || `Failed to confirm payment: ${res.status}`);
   }
   return res.json();
 }

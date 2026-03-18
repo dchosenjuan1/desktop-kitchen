@@ -17,6 +17,7 @@ import { useDeviceType } from './hooks/useDeviceType';
 import { setCurrentEmployeeId, setCurrentEmployeeToken } from './api';
 import { MobileCartProvider } from './context/MobileCartContext';
 import DemoLoadingScreen from './components/DemoLoadingScreen';
+import CustomerOrderErrorBoundary from './components/CustomerOrderErrorBoundary';
 import UpgradeCTABar from './components/UpgradeCTABar';
 import AIAssistantFAB from './components/AIAssistantFAB';
 
@@ -729,8 +730,8 @@ const TenantRoutes: React.FC = () => {
       {/* Menu Board — public, no auth */}
       <Route path="/menu-board" element={<MenuBoardScreen />} />
 
-      {/* Customer QR Ordering — public, no auth */}
-      <Route path="/order" element={<CustomerOrderScreen />} />
+      {/* Customer QR Ordering — public, no auth, error boundary */}
+      <Route path="/order" element={<CustomerOrderErrorBoundary><CustomerOrderScreen /></CustomerOrderErrorBoundary>} />
 
       {/* Public invoice self-service — no auth */}
       <Route path="/invoice/:token" element={<PublicInvoiceScreen />} />

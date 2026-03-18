@@ -140,15 +140,21 @@ const MobileKitchenScreen: React.FC = () => {
             >
               {/* Order header */}
               <div className="p-4 flex items-center justify-between">
-                <div>
+                <div className="flex items-center gap-2 flex-wrap">
                   <span className="text-2xl font-black text-white">#{order.order_number}</span>
-                  <span className={`ml-3 px-2.5 py-1 rounded-full text-xs font-bold ${
+                  <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${
                     order.status === 'pending'
                       ? 'bg-brand-600 text-white'
                       : 'bg-amber-500 text-neutral-900'
                   }`}>
                     {t(`common:orderStatus.${order.status}`, order.status)}
                   </span>
+                  {order.source === 'qr_order' && (
+                    <span className="bg-violet-600 text-white px-2 py-0.5 rounded-full text-xs font-bold">QR</span>
+                  )}
+                  {order.table_number && (
+                    <span className="bg-sky-600 text-white px-2 py-0.5 rounded-full text-xs font-bold">Table {order.table_number}</span>
+                  )}
                 </div>
                 <div className={`flex items-center gap-1 text-sm font-semibold ${
                   isUrgent(order.elapsedSeconds) ? 'text-brand-400' : 'text-neutral-400'

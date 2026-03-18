@@ -486,7 +486,7 @@ router.get('/kitchen/active', async (req, res) => {
     // Single query: fetch orders + items + modifiers in one round trip
     const rows = await all(`
       SELECT o.id AS order_id, o.order_number, o.status, o.payment_method, o.source, o.created_at,
-             o.estimated_ready_minutes,
+             o.estimated_ready_minutes, o.table_number,
              e.name AS employee_name,
              oi.id AS item_id, oi.item_name, oi.quantity, oi.notes, oi.combo_instance_id,
              oi.virtual_brand_id, vb.name AS brand_name, vb.primary_color AS brand_color,
@@ -512,6 +512,7 @@ router.get('/kitchen/active', async (req, res) => {
           source: row.source,
           created_at: row.created_at,
           estimated_ready_minutes: row.estimated_ready_minutes,
+          table_number: row.table_number,
           employee_name: row.employee_name,
           items: new Map(),
         });
