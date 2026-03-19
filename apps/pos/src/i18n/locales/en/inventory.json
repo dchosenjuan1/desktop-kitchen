@@ -307,6 +307,11 @@
     "form": {
       "vendor": "Vendor",
       "selectVendor": "Select vendor...",
+      "addVendor": "New Vendor",
+      "vendorName": "Vendor name",
+      "vendorContact": "Contact (optional)",
+      "vendorPhone": "Phone (optional)",
+      "savingVendor": "Saving...",
       "notes": "Notes",
       "notesPlaceholder": "Optional notes...",
       "lineItems": "Line Items",

@@ -40,6 +40,13 @@ export default function PurchaseOrderScreen() {
   const [newItems, setNewItems] = useState<Array<{ inventory_item_id: number; quantity_ordered: number; unit_cost: number }>>([]);
   const [creating, setCreating] = useState(false);
 
+  // Add vendor inline
+  const [showAddVendor, setShowAddVendor] = useState(false);
+  const [newVendorName, setNewVendorName] = useState('');
+  const [newVendorContact, setNewVendorContact] = useState('');
+  const [newVendorPhone, setNewVendorPhone] = useState('');
+  const [savingVendor, setSavingVendor] = useState(false);
+
   // Receive state
   const [receiveItems, setReceiveItems] = useState<Record<number, number>>({});
   const [receiving, setReceiving] = useState(false);
@@ -160,6 +167,30 @@ export default function PurchaseOrderScreen() {
     }
   };
 
+  const handleAddVendor = async () => {
+    if (!newVendorName.trim()) return;
+    try {
+      setSavingVendor(true);
+      const vendor = await createVendor({
+        name: newVendorName.trim(),
+        contact_name: newVendorContact.trim() || undefined,
+        phone: newVendorPhone.trim() || undefined,
+        active: true,
+      });
+      const vendorsData = await getVendors();
+      setVendors(vendorsData);
+      setNewVendorId(vendor.id);
+      setShowAddVendor(false);
+      setNewVendorName('');
+      setNewVendorContact('');
+      setNewVendorPhone('');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Error creating vendor');
+    } finally {
+      setSavingVendor(false);
+    }
+  };
+
   const addLineItem = () => {
     setNewItems((prev) => [...prev, { inventory_item_id: 0, quantity_ordered: 1, unit_cost: 0 }]);
   };
@@ -269,16 +300,68 @@ export default function PurchaseOrderScreen() {
           <div className="space-y-6">
             <div>
               <label className="block text-sm font-bold text-white mb-2">{t('purchaseOrders.form.vendor')}</label>
-              <select
-                value={newVendorId}
-                onChange={(e) => setNewVendorId(Number(e.target.value) || '')}
-                className="w-full bg-neutral-800 border border-neutral-700 rounded-lg p-3 text-white focus:outline-none focus:border-brand-600"
-              >
-                <option value="">{t('purchaseOrders.form.selectVendor')}</option>
-                {vendors.filter((v) => v.active).map((v) => (
-                  <option key={v.id} value={v.id}>{v.name}</option>
-                ))}
-              </select>
+              <div className="flex gap-2">
+                <select
+                  value={newVendorId}
+                  onChange={(e) => setNewVendorId(Number(e.target.value) || '')}
+                  className="flex-1 bg-neutral-800 border border-neutral-700 rounded-lg p-3 text-white focus:outline-none focus:border-brand-600"
+                >
+                  <option value="">{t('purchaseOrders.form.selectVendor')}</option>
+                  {vendors.filter((v) => v.active).map((v) => (
+                    <option key={v.id} value={v.id}>{v.name}</option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  onClick={() => setShowAddVendor(!showAddVendor)}
+                  className="px-3 bg-brand-600 text-white font-bold rounded-lg hover:bg-brand-700 flex items-center gap-1"
+                >
+                  <Plus size={18} />
+                </button>
+              </div>
+              {showAddVendor && (
+                <div className="mt-3 bg-neutral-800 border border-neutral-700 rounded-lg p-4 space-y-3">
+                  <input
+                    type="text"
+                    value={newVendorName}
+                    onChange={(e) => setNewVendorName(e.target.value)}
+                    className="w-full bg-neutral-700 border border-neutral-600 rounded-lg p-2 text-white text-sm focus:outline-none focus:border-brand-600"
+                    placeholder={t('purchaseOrders.form.vendorName')}
+                    autoFocus
+                  />
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={newVendorContact}
+                      onChange={(e) => setNewVendorContact(e.target.value)}
+                      className="flex-1 bg-neutral-700 border border-neutral-600 rounded-lg p-2 text-white text-sm focus:outline-none focus:border-brand-600"
+                      placeholder={t('purchaseOrders.form.vendorContact')}
+                    />
+                    <input
+                      type="text"
+                      value={newVendorPhone}
+                      onChange={(e) => setNewVendorPhone(e.target.value)}
+                      className="flex-1 bg-neutral-700 border border-neutral-600 rounded-lg p-2 text-white text-sm focus:outline-none focus:border-brand-600"
+                      placeholder={t('purchaseOrders.form.vendorPhone')}
+                    />
+                  </div>
+                  <div className="flex gap-2 justify-end">
+                    <button
+                      onClick={() => { setShowAddVendor(false); setNewVendorName(''); setNewVendorContact(''); setNewVendorPhone(''); }}
+                      className="px-3 py-1.5 bg-neutral-700 text-neutral-300 text-sm font-bold rounded-lg hover:bg-neutral-600"
+                    >
+                      {t('common:buttons.cancel')}
+                    </button>
+                    <button
+                      onClick={handleAddVendor}
+                      disabled={!newVendorName.trim() || savingVendor}
+                      className="px-4 py-1.5 bg-brand-600 text-white text-sm font-bold rounded-lg hover:bg-brand-700 disabled:opacity-50"
+                    >
+                      {savingVendor ? t('purchaseOrders.form.savingVendor') : t('purchaseOrders.form.addVendor')}
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
 
             <div>
