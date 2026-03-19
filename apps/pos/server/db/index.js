@@ -6,6 +6,9 @@ export const tenantContext = new AsyncLocalStorage();
 
 // ==================== Connection Pools ====================
 
+export const TENANT_POOL_MAX = 30;
+export const ADMIN_POOL_MAX = 10;
+
 const DATABASE_URL = process.env.DATABASE_URL;
 if (!DATABASE_URL) {
   console.error('FATAL: DATABASE_URL environment variable is required.');
@@ -17,7 +20,7 @@ if (!DATABASE_URL) {
  * Used by: admin routes, auth routes, AI scheduler, tenant CRUD, migrations, seeds.
  */
 export const adminSql = postgres(DATABASE_URL, {
-  max: 10,
+  max: ADMIN_POOL_MAX,
   idle_timeout: 20,
   connect_timeout: 10,
 });
@@ -61,7 +64,7 @@ function buildTenantUrl() {
 }
 
 export const tenantSql = postgres(buildTenantUrl(), {
-  max: 30,
+  max: TENANT_POOL_MAX,
   idle_timeout: 20,
   connect_timeout: 10,
 });

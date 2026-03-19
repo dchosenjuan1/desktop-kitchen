@@ -1,5 +1,6 @@
 import { tenantContext, tenantSql } from '../db/index.js';
 import { getTenant, getTenantBySubdomain } from '../tenants.js';
+import { onReserveStart, onReserveSuccess, onReserveFailure, onRelease } from '../lib/poolMetrics.js';
 
 // Subdomains that belong to the platform itself and should NOT be resolved as tenants.
 const RESERVED_SUBDOMAINS = new Set([
@@ -81,6 +82,7 @@ export async function tenantMiddleware(req, res, next) {
 
     // Reserve a dedicated connection from the tenant pool (with timeout)
     let conn;
+    const reserveStart = onReserveStart('tenant');
     try {
       conn = await Promise.race([
         tenantSql.reserve(),
@@ -88,7 +90,9 @@ export async function tenantMiddleware(req, res, next) {
           setTimeout(() => reject(new Error('Connection pool exhausted')), 5000)
         ),
       ]);
+      onReserveSuccess(reserveStart, 'tenant');
     } catch (poolErr) {
+      onReserveFailure('tenant');
       console.error('[Tenant] Connection pool exhausted:', poolErr.message);
       return res.status(503).json({ error: 'Service temporarily unavailable. Please try again.' });
     }
@@ -99,6 +103,7 @@ export async function tenantMiddleware(req, res, next) {
     const releaseConn = (shouldCommit) => {
       if (!released) {
         released = true;
+        onRelease('tenant');
         const finish = shouldCommit
           ? conn`COMMIT`.catch(() => conn`ROLLBACK`.catch(() => {}))
           : conn`ROLLBACK`.catch(() => {});

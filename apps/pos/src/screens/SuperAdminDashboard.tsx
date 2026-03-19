@@ -1,7 +1,7 @@
 import React, { useState, useEffect, lazy, Suspense } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Shield, LogOut } from 'lucide-react';
-import { verifySecret } from '../api/superAdmin';
+import { verifySecret, getUnacknowledgedAlertCount } from '../api/superAdmin';
 import { getFeatureFlags } from '../api';
 import LoginGate from '../components/super-admin/LoginGate';
 import OverviewTab from '../components/super-admin/OverviewTab';
@@ -19,6 +19,7 @@ export default function SuperAdminDashboard() {
   const [authed, setAuthed] = useState(false);
   const [tab, setTab] = useState<TabId>('overview');
   const [stressTestEnabled, setStressTestEnabled] = useState(false);
+  const [alertCount, setAlertCount] = useState(0);
 
   const BASE_TABS: { id: TabId; label: string }[] = [
     { id: 'overview', label: t('tabs.overview') },
@@ -30,12 +31,26 @@ export default function SuperAdminDashboard() {
 
   useEffect(() => {
     if (sessionStorage.getItem('admin_secret')) {
-      verifySecret().then(ok => setAuthed(ok));
+      verifySecret().then(ok => {
+        setAuthed(ok);
+        if (ok) {
+          getUnacknowledgedAlertCount().then(r => setAlertCount(r.count)).catch(() => {});
+        }
+      });
     }
     getFeatureFlags()
       .then(f => setStressTestEnabled(f.stressTest))
       .catch(() => {});
   }, []);
+
+  // Poll alert count every 60s when authed
+  useEffect(() => {
+    if (!authed) return;
+    const iv = setInterval(() => {
+      getUnacknowledgedAlertCount().then(r => setAlertCount(r.count)).catch(() => {});
+    }, 60000);
+    return () => clearInterval(iv);
+  }, [authed]);
 
   if (!authed) {
     return <LoginGate onAuth={() => setAuthed(true)} />;
@@ -66,14 +81,25 @@ export default function SuperAdminDashboard() {
           {[...BASE_TABS, ...(stressTestEnabled ? [{ id: 'stress-test' as TabId, label: t('tabs.stressTest') }] : [])].map(tb => (
             <button
               key={tb.id}
-              onClick={() => setTab(tb.id)}
-              className={`px-4 py-3 text-sm font-medium transition-colors border-b-2 ${
+              onClick={() => {
+                setTab(tb.id);
+                if (tb.id === 'health') {
+                  // Refresh alert count when switching to health tab
+                  getUnacknowledgedAlertCount().then(r => setAlertCount(r.count)).catch(() => {});
+                }
+              }}
+              className={`px-4 py-3 text-sm font-medium transition-colors border-b-2 relative ${
                 tab === tb.id
                   ? 'text-teal-400 border-teal-500'
                   : 'text-neutral-400 border-transparent hover:text-neutral-200'
               }`}
             >
               {tb.label}
+              {tb.id === 'health' && alertCount > 0 && (
+                <span className="absolute -top-0.5 -right-0.5 bg-red-500 text-white text-[10px] font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1">
+                  {alertCount > 99 ? '99+' : alertCount}
+                </span>
+              )}
             </button>
           ))}
         </div>

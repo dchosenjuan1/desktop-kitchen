@@ -61,6 +61,9 @@ import { initAI, shutdownAI } from './ai/index.js';
 import { startBankingSyncScheduler } from './services/banking/SyncScheduler.js';
 import { startFinancingScheduler, stopFinancingScheduler } from './services/financing/scheduler.js';
 import { shutdown as shutdownDb } from './db/index.js';
+import { requestMetricsMiddleware, recordErrorDetail } from './lib/requestMetrics.js';
+import { startMetricsCollector, stopMetricsCollector } from './lib/metricsCollector.js';
+import { startAlertEvaluator, stopAlertEvaluator } from './lib/alertEvaluator.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -81,6 +84,9 @@ app.use((req, _res, next) => {
   req.id = req.headers['x-request-id'] || crypto.randomUUID();
   next();
 });
+
+// Request metrics middleware — track throughput, error rates, latency
+app.use(requestMetricsMiddleware);
 
 // CORS — allow *.desktop.kitchen and localhost dev
 const CORS_ORIGIN_REGEX = /^(https?:\/\/(.*\.desktop\.kitchen|localhost(:\d+)?)|capacitor:\/\/localhost)$/;
@@ -252,6 +258,7 @@ app.use((err, req, res, _next) => {
   console.error(`[${req.id}] ${req.method} ${req.path} tenant=${req.tenant?.id || 'none'}:`, err.message || err);
   if (err.stack) console.error(`[${req.id}] Stack:`, err.stack);
   if (err.type) console.error(`[${req.id}] Type: ${err.type}, Status: ${err.status || err.statusCode}`);
+  recordErrorDetail(req, err);
   res.status(err.status || err.statusCode || 500).json({ error: err.expose ? err.message : 'Internal server error' });
 });
 
@@ -291,6 +298,10 @@ async function gracefulShutdown(signal) {
   // 2c. Stop settlement scheduler
   stopSettlementScheduler();
 
+  // 2d. Stop metrics collector and alert evaluator
+  stopMetricsCollector();
+  stopAlertEvaluator();
+
   // 3. Close database connection pools
   await shutdownDb();
   console.log('[Shutdown] Database pools closed');
@@ -327,6 +338,8 @@ process.on('SIGINT', () => shutdownWithTimeout('SIGINT'));
       startBankingSyncScheduler();
       startFinancingScheduler();
       startSettlementScheduler();
+      startMetricsCollector();
+      startAlertEvaluator();
     }
 
     server = app.listen(PORT, '0.0.0.0', () => {

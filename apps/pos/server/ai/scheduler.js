@@ -2,6 +2,14 @@ import { adminSql, tenantContext } from '../db/index.js';
 
 const jobs = [];
 let isRunning = false;
+let loopTimer = null;
+
+/**
+ * Mutex — ensures only one job runs at a time so we never
+ * exhaust the admin connection pool (max 10) with concurrent
+ * scheduler jobs all iterating over tenants.
+ */
+let jobRunning = false;
 
 /**
  * Register a scheduled job
@@ -11,27 +19,58 @@ export function registerJob(name, fn, intervalMs) {
     name,
     fn,
     intervalMs,
-    timerId: null,
     lastRun: null,
+    nextRunAt: Date.now(), // run immediately on first tick
     lastError: null,
     runCount: 0,
+    running: false,
   });
 }
 
 /**
- * Start all registered jobs
+ * Start the scheduler — single loop checks all jobs every 30s.
+ * Jobs are serialized: only one runs at a time to prevent
+ * admin pool exhaustion when multiple jobs fire simultaneously.
  */
 export function startScheduler() {
   if (isRunning) return;
   isRunning = true;
 
-  console.log(`[AI Scheduler] Starting ${jobs.length} jobs...`);
-
+  console.log(`[AI Scheduler] Starting ${jobs.length} jobs (serialized)...`);
   for (const job of jobs) {
-    // Run immediately, then on interval
-    runJob(job);
-    job.timerId = setInterval(() => runJob(job), job.intervalMs);
     console.log(`[AI Scheduler]   - ${job.name}: every ${Math.round(job.intervalMs / 1000)}s`);
+  }
+
+  // Check for due jobs every 30 seconds
+  tick();
+  loopTimer = setInterval(tick, 30_000);
+}
+
+/**
+ * Scheduler tick — find the next due job and run it (one at a time).
+ */
+async function tick() {
+  if (!isRunning || jobRunning) return;
+
+  const now = Date.now();
+  // Find the most overdue job
+  const due = jobs
+    .filter(j => !j.running && now >= j.nextRunAt)
+    .sort((a, b) => a.nextRunAt - b.nextRunAt);
+
+  if (due.length === 0) return;
+
+  const job = due[0];
+  jobRunning = true;
+  job.running = true;
+
+  try {
+    await runJob(job);
+  } finally {
+    job.running = false;
+    jobRunning = false;
+    // Schedule next run from now (not from when it was due, to prevent catch-up storms)
+    job.nextRunAt = Date.now() + job.intervalMs;
   }
 }
 
@@ -39,14 +78,12 @@ export function startScheduler() {
  * Stop all jobs
  */
 export function stopScheduler() {
-  for (const job of jobs) {
-    if (job.timerId) {
-      clearInterval(job.timerId);
-      job.timerId = null;
-    }
+  if (loopTimer) {
+    clearInterval(loopTimer);
+    loopTimer = null;
   }
   isRunning = false;
-  console.log('[AI Scheduler] Stopped all jobs');
+  console.log('[AI Scheduler] Stopped');
 }
 
 /**
@@ -76,6 +113,9 @@ async function runJob(job) {
     const tenants = await adminSql`SELECT id FROM tenants WHERE active = true`;
 
     for (const tenant of tenants) {
+      // Bail out early if scheduler was stopped during iteration
+      if (!isRunning) break;
+
       try {
         await adminSql.begin(async (tx) => {
           await tx`SELECT set_config('app.tenant_id', ${tenant.id}, true)`;

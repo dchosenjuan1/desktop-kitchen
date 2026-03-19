@@ -124,6 +124,124 @@ export function getActivity() {
   return adminRequest<ActivityData>('/analytics/activity');
 }
 
+// ==================== Detailed Health / Monitoring ====================
+
+export interface PoolMetrics {
+  active: number;
+  totalReserves: number;
+  successes: number;
+  failures: number;
+  avgWaitMs: number;
+  peakActive: number;
+  max: number;
+}
+
+export interface ServiceStatus {
+  status: 'ok' | 'degraded' | 'down' | 'unconfigured';
+  latency_ms: number;
+  message?: string;
+}
+
+export interface SchedulerJob {
+  name: string;
+  intervalMs: number;
+  lastRun: string | null;
+  lastError: string | null;
+  runCount: number;
+}
+
+export interface RequestMetrics {
+  totalRequests: number;
+  totalErrors: number;
+  errorRate: number;
+  errorsByStatus: Record<string, number>;
+  errorsByTenant: Record<string, number>;
+  latencyBuckets: Record<string, number>;
+  recentErrors: Array<{
+    timestamp: string;
+    method: string;
+    path: string;
+    status: number;
+    tenant: string;
+    message?: string;
+  }>;
+}
+
+export interface DetailedHealthData {
+  uptime_seconds: number;
+  node_version: string;
+  platform: string;
+  memory: { rss_mb: number; heap_used_mb: number; heap_total_mb: number; external_mb: number };
+  os: { total_mem_mb: number; free_mem_mb: number; cpus: number; load_avg: number[] };
+  postgres_version: string;
+  pools: { tenant: PoolMetrics; admin: PoolMetrics };
+  requests: RequestMetrics;
+  services: {
+    postgres: ServiceStatus;
+    stripe: ServiceStatus;
+    twilio: ServiceStatus;
+    grok: ServiceStatus;
+    dns: Record<string, ServiceStatus>;
+  };
+  scheduler: { running: boolean; jobs: SchedulerJob[] };
+}
+
+export interface MetricsSnapshot {
+  timestamp: string;
+  pool: { tenant: Omit<PoolMetrics, 'max'>; admin: Omit<PoolMetrics, 'max'> };
+  requests: { totalRequests: number; totalErrors: number; errorRate: number; latencyBuckets: Record<string, number> };
+  memory: { heapUsedMb: number; heapTotalMb: number; rssMb: number };
+}
+
+export interface PlatformAlert {
+  id: number;
+  created_at: string;
+  severity: 'warning' | 'critical';
+  category: string;
+  title: string;
+  message: string;
+  metadata: string;
+  acknowledged: boolean;
+  acknowledged_at: string | null;
+}
+
+export interface AlertRule {
+  id: number;
+  name: string;
+  metric_type: string;
+  metric_name: string;
+  condition: string;
+  threshold: number;
+  severity: string;
+  cooldown_minutes: number;
+  webhook_url: string | null;
+  enabled: boolean;
+}
+
+export function getDetailedHealth() {
+  return adminRequest<DetailedHealthData>('/analytics/health/detailed');
+}
+
+export function getMetricsHistory(minutes = 60) {
+  return adminRequest<MetricsSnapshot[]>(`/analytics/metrics/history?minutes=${minutes}`);
+}
+
+export function getAlerts(limit = 50) {
+  return adminRequest<PlatformAlert[]>(`/analytics/alerts?limit=${limit}`);
+}
+
+export function getUnacknowledgedAlertCount() {
+  return adminRequest<{ count: number }>('/analytics/alerts/unacknowledged/count');
+}
+
+export function acknowledgeAlert(id: number) {
+  return adminRequest<PlatformAlert>(`/analytics/alerts/${id}/acknowledge`, { method: 'PATCH' });
+}
+
+export function getAlertRules() {
+  return adminRequest<AlertRule[]>('/analytics/alerts/rules');
+}
+
 // ==================== Tenants ====================
 
 export function getTenants(params?: { search?: string; plan?: string; status?: string; sort?: string; order?: string }) {

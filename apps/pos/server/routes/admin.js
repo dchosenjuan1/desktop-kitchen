@@ -3,11 +3,17 @@ import bcrypt from 'bcrypt';
 import rateLimit, { ipKeyGenerator } from 'express-rate-limit';
 import { createTenant, getTenant, listTenants, updateTenant } from '../tenants.js';
 import { tenantCache } from '../lib/tenantCache.js';
-import { run, adminSql } from '../db/index.js';
+import { run, adminSql, TENANT_POOL_MAX, ADMIN_POOL_MAX } from '../db/index.js';
 import { sendPinEmail, sendWelcomeEmail } from '../helpers/email.js';
 import { audit } from '../lib/auditLog.js';
 import { BCRYPT_ROUNDS } from '../lib/constants.js';
 import os from 'os';
+import { getPoolMetrics } from '../lib/poolMetrics.js';
+import { getRequestMetrics } from '../lib/requestMetrics.js';
+import { runServiceChecks } from '../lib/serviceChecks.js';
+import { getMetricsHistory } from '../lib/metricsCollector.js';
+import { invalidateRulesCache } from '../lib/alertEvaluator.js';
+import { getAIStatus } from '../ai/index.js';
 
 const router = Router();
 
@@ -170,6 +176,164 @@ router.get('/analytics/health', async (req, res) => {
   } catch (error) {
     console.error('Analytics health error:', error);
     res.status(500).json({ error: 'Failed to fetch health data' });
+  }
+});
+
+// GET /admin/analytics/health/detailed — Comprehensive system health with pool, request, service metrics
+router.get('/analytics/health/detailed', async (req, res) => {
+  try {
+    const mem = process.memoryUsage();
+    const [pgVersion] = await adminSql`SELECT version() AS v`;
+    const poolMetrics = getPoolMetrics();
+    const requestMetrics = getRequestMetrics();
+    const serviceChecks = await runServiceChecks();
+    const aiStatus = getAIStatus();
+
+    res.json({
+      uptime_seconds: Math.floor(process.uptime()),
+      node_version: process.version,
+      platform: process.platform,
+      memory: {
+        rss_mb: Math.round(mem.rss / 1048576),
+        heap_used_mb: Math.round(mem.heapUsed / 1048576),
+        heap_total_mb: Math.round(mem.heapTotal / 1048576),
+        external_mb: Math.round((mem.external || 0) / 1048576),
+      },
+      os: {
+        total_mem_mb: Math.round(os.totalmem() / 1048576),
+        free_mem_mb: Math.round(os.freemem() / 1048576),
+        cpus: os.cpus().length,
+        load_avg: os.loadavg(),
+      },
+      postgres_version: pgVersion?.v || 'unknown',
+      pools: {
+        tenant: { ...poolMetrics.tenant, max: TENANT_POOL_MAX },
+        admin: { ...poolMetrics.admin, max: ADMIN_POOL_MAX },
+      },
+      requests: requestMetrics,
+      services: serviceChecks,
+      scheduler: aiStatus.scheduler,
+    });
+  } catch (error) {
+    console.error('Detailed health error:', error);
+    res.status(500).json({ error: 'Failed to fetch detailed health data' });
+  }
+});
+
+// GET /admin/analytics/metrics/history?minutes=60 — Ring buffer for charts
+router.get('/analytics/metrics/history', (req, res) => {
+  try {
+    const minutes = Math.min(parseInt(req.query.minutes) || 60, 1440);
+    const history = getMetricsHistory(minutes);
+    res.json(history);
+  } catch (error) {
+    console.error('Metrics history error:', error);
+    res.status(500).json({ error: 'Failed to fetch metrics history' });
+  }
+});
+
+// GET /admin/analytics/alerts?limit=50 — Recent platform alerts
+router.get('/analytics/alerts', async (req, res) => {
+  try {
+    const limit = Math.min(parseInt(req.query.limit) || 50, 200);
+    const rows = await adminSql`
+      SELECT * FROM platform_alerts
+      ORDER BY created_at DESC
+      LIMIT ${limit}
+    `;
+    res.json(Array.from(rows));
+  } catch (error) {
+    console.error('Alerts error:', error);
+    res.status(500).json({ error: 'Failed to fetch alerts' });
+  }
+});
+
+// GET /admin/analytics/alerts/unacknowledged/count — Count of unacknowledged alerts
+router.get('/analytics/alerts/unacknowledged/count', async (req, res) => {
+  try {
+    const [row] = await adminSql`
+      SELECT COUNT(*)::int AS count FROM platform_alerts WHERE acknowledged = false
+    `;
+    res.json({ count: row?.count || 0 });
+  } catch (error) {
+    res.json({ count: 0 });
+  }
+});
+
+// PATCH /admin/analytics/alerts/:id/acknowledge — Acknowledge an alert
+router.patch('/analytics/alerts/:id/acknowledge', async (req, res) => {
+  try {
+    const [updated] = await adminSql`
+      UPDATE platform_alerts
+      SET acknowledged = true, acknowledged_at = NOW()
+      WHERE id = ${req.params.id}
+      RETURNING *
+    `;
+    if (!updated) return res.status(404).json({ error: 'Alert not found' });
+    res.json(updated);
+  } catch (error) {
+    console.error('Acknowledge alert error:', error);
+    res.status(500).json({ error: 'Failed to acknowledge alert' });
+  }
+});
+
+// GET /admin/analytics/alerts/rules — List alert rules
+router.get('/analytics/alerts/rules', async (req, res) => {
+  try {
+    const rows = await adminSql`SELECT * FROM platform_alert_rules ORDER BY id`;
+    res.json(Array.from(rows));
+  } catch (error) {
+    console.error('Alert rules error:', error);
+    res.status(500).json({ error: 'Failed to fetch alert rules' });
+  }
+});
+
+// POST /admin/analytics/alerts/rules — Create alert rule
+router.post('/analytics/alerts/rules', async (req, res) => {
+  try {
+    const { name, metric_type, metric_name, condition, threshold, severity, cooldown_minutes, webhook_url } = req.body;
+    if (!name || !metric_type || !metric_name || threshold == null) {
+      return res.status(400).json({ error: 'Required: name, metric_type, metric_name, threshold' });
+    }
+    const [rule] = await adminSql`
+      INSERT INTO platform_alert_rules (name, metric_type, metric_name, condition, threshold, severity, cooldown_minutes, webhook_url)
+      VALUES (${name}, ${metric_type}, ${metric_name}, ${condition || '>'}, ${threshold}, ${severity || 'warning'}, ${cooldown_minutes || 5}, ${webhook_url || null})
+      RETURNING *
+    `;
+    invalidateRulesCache();
+    res.status(201).json(rule);
+  } catch (error) {
+    console.error('Create alert rule error:', error);
+    res.status(500).json({ error: 'Failed to create alert rule' });
+  }
+});
+
+// PATCH /admin/analytics/alerts/rules/:id — Update alert rule
+router.patch('/analytics/alerts/rules/:id', async (req, res) => {
+  try {
+    const allowed = ['name', 'metric_type', 'metric_name', 'condition', 'threshold', 'severity', 'cooldown_minutes', 'webhook_url', 'enabled'];
+    const sets = [];
+    const vals = [];
+    for (const key of allowed) {
+      if (req.body[key] !== undefined) {
+        sets.push(`${key} = $${vals.length + 1}`);
+        vals.push(req.body[key]);
+      }
+    }
+    if (sets.length === 0) return res.status(400).json({ error: 'No valid fields to update' });
+
+    vals.push(req.params.id);
+    const result = await adminSql.unsafe(
+      `UPDATE platform_alert_rules SET ${sets.join(', ')} WHERE id = $${vals.length} RETURNING *`,
+      vals
+    );
+    if (result.length === 0) return res.status(404).json({ error: 'Rule not found' });
+
+    invalidateRulesCache();
+    res.json(result[0]);
+  } catch (error) {
+    console.error('Update alert rule error:', error);
+    res.status(500).json({ error: 'Failed to update alert rule' });
   }
 });
 
