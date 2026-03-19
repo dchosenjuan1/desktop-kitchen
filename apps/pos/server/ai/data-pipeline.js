@@ -48,50 +48,61 @@ export async function captureHourlySnapshot() {
  */
 export async function updateItemPairs() {
   try {
-    // Get orders from the last 2 hours
-    const recentOrders = await all(`
-      SELECT DISTINCT order_id
-      FROM order_items
-      WHERE order_id IN (
-        SELECT id FROM orders
-        WHERE created_at >= NOW() - INTERVAL '2 hours'
-          AND status != 'cancelled'
-      )
+    // Fetch all order items from recent orders in ONE query
+    const orderItems = await all(`
+      SELECT oi.order_id, oi.menu_item_id
+      FROM order_items oi
+      JOIN orders o ON oi.order_id = o.id
+      WHERE o.created_at >= NOW() - INTERVAL '2 hours'
+        AND o.status != 'cancelled'
+      ORDER BY oi.order_id
     `);
 
-    for (const { order_id } of recentOrders) {
-      const items = await all(
-        `SELECT menu_item_id FROM order_items WHERE order_id = $1`,
-        [order_id]
-      );
+    if (orderItems.length === 0) return;
 
-      // Generate all pairs
+    // Group items by order
+    const orderMap = new Map();
+    for (const { order_id, menu_item_id } of orderItems) {
+      if (!orderMap.has(order_id)) orderMap.set(order_id, []);
+      orderMap.get(order_id).push(menu_item_id);
+    }
+
+    // Build pair counts in JS
+    const pairCounts = new Map(); // "a:b" -> count
+    for (const items of orderMap.values()) {
       for (let i = 0; i < items.length; i++) {
         for (let j = i + 1; j < items.length; j++) {
-          const a = Math.min(items[i].menu_item_id, items[j].menu_item_id);
-          const b = Math.max(items[i].menu_item_id, items[j].menu_item_id);
-
-          const existing = await get(
-            `SELECT id, pair_count FROM ai_item_pairs WHERE item_a_id = $1 AND item_b_id = $2`,
-            [a, b]
-          );
-
-          if (existing) {
-            await run(
-              `UPDATE ai_item_pairs SET pair_count = pair_count + 1, last_seen = NOW() WHERE id = $1`,
-              [existing.id]
-            );
-          } else {
-            await run(
-              `INSERT INTO ai_item_pairs (item_a_id, item_b_id, pair_count) VALUES ($1, $2, 1)`,
-              [a, b]
-            );
-          }
+          const a = Math.min(items[i], items[j]);
+          const b = Math.max(items[i], items[j]);
+          const key = `${a}:${b}`;
+          pairCounts.set(key, (pairCounts.get(key) || 0) + 1);
         }
       }
     }
 
-    if (recentOrders.length > 0) console.log(`[AI Pipeline] Item pairs updated from ${recentOrders.length} orders`);
+    // Batch upsert all pairs in chunks of 100
+    const pairs = Array.from(pairCounts.entries());
+    for (let i = 0; i < pairs.length; i += 100) {
+      const chunk = pairs.slice(i, i + 100);
+      const values = [];
+      const params = [];
+      for (let k = 0; k < chunk.length; k++) {
+        const [key, count] = chunk[k];
+        const [a, b] = key.split(':').map(Number);
+        const offset = k * 3;
+        values.push(`($${offset + 1}, $${offset + 2}, $${offset + 3})`);
+        params.push(a, b, count);
+      }
+      await run(`
+        INSERT INTO ai_item_pairs (item_a_id, item_b_id, pair_count)
+        VALUES ${values.join(', ')}
+        ON CONFLICT (tenant_id, item_a_id, item_b_id) DO UPDATE
+        SET pair_count = ai_item_pairs.pair_count + EXCLUDED.pair_count,
+            last_seen = NOW()
+      `, params);
+    }
+
+    console.log(`[AI Pipeline] Item pairs updated from ${orderMap.size} orders (${pairs.length} pairs)`);
   } catch (error) {
     console.error('[AI Pipeline] Error updating item pairs:', error.message);
   }
@@ -118,23 +129,24 @@ export async function updateInventoryVelocity() {
       GROUP BY mii.inventory_item_id
     `, [today]);
 
-    for (const row of consumption) {
-      const existing = await get(
-        `SELECT id FROM ai_inventory_velocity WHERE inventory_item_id = $1 AND date = $2`,
-        [row.inventory_item_id, today]
-      );
-
-      if (existing) {
-        await run(
-          `UPDATE ai_inventory_velocity SET quantity_used = $1, orders_count = $2 WHERE id = $3`,
-          [row.total_used, row.orders_count, existing.id]
-        );
-      } else {
-        await run(
-          `INSERT INTO ai_inventory_velocity (inventory_item_id, date, quantity_used, orders_count) VALUES ($1, $2, $3, $4)`,
-          [row.inventory_item_id, today, row.total_used, row.orders_count]
-        );
+    // Batch upsert all velocity data in chunks of 100
+    for (let i = 0; i < consumption.length; i += 100) {
+      const chunk = consumption.slice(i, i + 100);
+      const values = [];
+      const params = [];
+      for (let k = 0; k < chunk.length; k++) {
+        const row = chunk[k];
+        const offset = k * 4;
+        values.push(`($${offset + 1}, $${offset + 2}, $${offset + 3}, $${offset + 4})`);
+        params.push(row.inventory_item_id, today, row.total_used, row.orders_count);
       }
+      await run(`
+        INSERT INTO ai_inventory_velocity (inventory_item_id, date, quantity_used, orders_count)
+        VALUES ${values.join(', ')}
+        ON CONFLICT (tenant_id, inventory_item_id, date) DO UPDATE
+        SET quantity_used = EXCLUDED.quantity_used,
+            orders_count = EXCLUDED.orders_count
+      `, params);
     }
 
     if (consumption.length > 0) console.log(`[AI Pipeline] Inventory velocity updated for ${consumption.length} items`);
@@ -202,6 +214,7 @@ export async function logRestockEvent(inventoryItemId, quantityBefore, quantityA
  */
 export async function detectShrinkagePatterns() {
   try {
+    // Single query with LEFT JOIN to filter out items that already have unacknowledged alerts
     const patterns = await all(`
       SELECT
         ic.inventory_item_id,
@@ -214,21 +227,20 @@ export async function detectShrinkagePatterns() {
         MAX(ic.created_at) as last_occurrence
       FROM inventory_counts ic
       JOIN inventory_items ii ON ic.inventory_item_id = ii.id
+      LEFT JOIN shrinkage_alerts sa
+        ON sa.inventory_item_id = ic.inventory_item_id
+        AND sa.acknowledged = false
+        AND sa.alert_type = 'pattern'
       WHERE ABS(ic.variance_percent) > 5
         AND ic.created_at >= NOW() - INTERVAL '30 days'
+        AND sa.id IS NULL
       GROUP BY ic.inventory_item_id, ii.name, ii.unit
       HAVING COUNT(*) >= 2
       ORDER BY ABS(AVG(ic.variance_percent)) DESC
+      LIMIT 100
     `);
 
     for (const pattern of patterns) {
-      const existingAlert = await get(`
-        SELECT id FROM shrinkage_alerts
-        WHERE inventory_item_id = $1 AND acknowledged = false AND alert_type = 'pattern'
-      `, [pattern.inventory_item_id]);
-
-      if (existingAlert) continue;
-
       const severity = Math.abs(pattern.avg_variance_percent) > 15 ? 'high' : 'medium';
       const direction = pattern.avg_variance < 0 ? 'shrinkage' : 'surplus';
 

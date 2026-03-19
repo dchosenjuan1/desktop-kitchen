@@ -82,14 +82,32 @@ export async function cleanExpiredCache() {
  */
 export async function refreshSuggestions(type, suggestions, ttlMinutes = 5) {
   await clearSuggestions(type);
-  for (const suggestion of suggestions) {
-    await writeSuggestion({
-      type,
-      context: suggestion.context || null,
-      data: suggestion.data,
-      priority: suggestion.priority || 50,
-      ttlMinutes,
-    });
+
+  if (suggestions.length === 0) return;
+
+  const expiresAt = new Date(Date.now() + ttlMinutes * 60 * 1000).toISOString();
+
+  // Batch insert all suggestions in chunks of 100
+  for (let i = 0; i < suggestions.length; i += 100) {
+    const chunk = suggestions.slice(i, i + 100);
+    const values = [];
+    const params = [];
+    for (let k = 0; k < chunk.length; k++) {
+      const s = chunk[k];
+      const data = typeof s.data === 'string' ? s.data : JSON.stringify(s.data);
+      const context = s.context ? (typeof s.context === 'string' ? s.context : JSON.stringify(s.context)) : null;
+      const offset = k * 5;
+      values.push(`($${offset + 1}, $${offset + 2}, $${offset + 3}, $${offset + 4}, $${offset + 5})`);
+      params.push(type, context, data, s.priority || 50, expiresAt);
+    }
+    await run(`
+      INSERT INTO ai_suggestion_cache (suggestion_type, trigger_context, suggestion_data, priority, expires_at)
+      VALUES ${values.join(', ')}
+      ON CONFLICT (tenant_id, suggestion_type, trigger_context)
+      DO UPDATE SET suggestion_data = EXCLUDED.suggestion_data,
+                    priority = EXCLUDED.priority,
+                    expires_at = EXCLUDED.expires_at
+    `, params);
   }
 }
 

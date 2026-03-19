@@ -92,6 +92,18 @@ export function getRequestMetrics() {
 }
 
 /**
+ * Reset cumulative counters (errorsByStatus, errorsByTenant).
+ * Called every 24h to prevent unbounded growth.
+ * Preserves recentErrors circular buffer and latency buckets.
+ */
+export function resetCounters() {
+  state.totalRequests = 0;
+  state.totalErrors = 0;
+  state.errorsByStatus = {};
+  state.errorsByTenant = {};
+}
+
+/**
  * Get snapshot suitable for time-series (smaller footprint).
  */
 export function getRequestMetricsSnapshot() {

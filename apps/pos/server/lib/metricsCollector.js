@@ -1,15 +1,15 @@
 /**
  * Metrics collector — 24h in-memory ring buffer + periodic DB persistence.
- * Snapshots every 60s, persists every 5m, auto-cleans rows older than 90 days.
+ * Snapshots every 120s, persists every 5m, auto-cleans rows older than 90 days.
  */
 
 import { getPoolMetrics, resetPeaks } from './poolMetrics.js';
-import { getRequestMetricsSnapshot } from './requestMetrics.js';
+import { getRequestMetricsSnapshot, resetCounters } from './requestMetrics.js';
 import { adminSql } from '../db/index.js';
 
-const SNAPSHOT_INTERVAL = 60_000;    // 60 seconds
+const SNAPSHOT_INTERVAL = 120_000;   // 120 seconds
 const PERSIST_INTERVAL = 5 * 60_000; // 5 minutes
-const BUFFER_SIZE = 1440;            // 24h of 60s snapshots
+const BUFFER_SIZE = 720;             // 24h of 120s snapshots
 const RETENTION_DAYS = 90;
 
 const ringBuffer = [];
@@ -50,8 +50,8 @@ async function persistMetrics() {
   if (ringBuffer.length === 0) return;
 
   try {
-    // Persist last 5 minutes of snapshots (5 entries)
-    const recentSnapshots = ringBuffer.slice(-5);
+    // Persist last 5 minutes of snapshots (~3 entries at 120s intervals)
+    const recentSnapshots = ringBuffer.slice(-3);
     for (const snap of recentSnapshots) {
       await adminSql`
         INSERT INTO platform_metrics (recorded_at, metric_type, metric_name, value, metadata)
@@ -79,6 +79,9 @@ async function cleanupOldMetrics() {
       DELETE FROM platform_metrics
       WHERE recorded_at < NOW() - MAKE_INTERVAL(days => ${RETENTION_DAYS})
     `;
+    // Reset request metrics counters daily to prevent unbounded growth
+    resetCounters();
+    console.log('[MetricsCollector] Daily cleanup complete, request counters reset');
   } catch (err) {
     console.error('[MetricsCollector] Cleanup failed:', err.message);
   }
@@ -88,7 +91,7 @@ async function cleanupOldMetrics() {
  * Start the metrics collector.
  */
 export function startMetricsCollector() {
-  console.log('[MetricsCollector] Starting (60s snapshots, 5m persistence, 90d retention)');
+  console.log('[MetricsCollector] Starting (120s snapshots, 5m persistence, 90d retention)');
 
   // Immediate first snapshot
   takeSnapshot();

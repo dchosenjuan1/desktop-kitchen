@@ -126,9 +126,17 @@ async function fireWebhook(url, alert) {
 /**
  * Evaluate all enabled rules against current metrics.
  */
+let lastPruneTime = 0;
+
 async function evaluateRules() {
   const rules = await loadRules();
   const now = Date.now();
+
+  // Prune cooldownMap every hour
+  if (now - lastPruneTime > 60 * 60_000) {
+    pruneCooldownMap();
+    lastPruneTime = now;
+  }
 
   for (const rule of rules) {
     try {
@@ -192,4 +200,15 @@ export function stopAlertEvaluator() {
 export function invalidateRulesCache() {
   rulesCache = null;
   rulesCacheTime = 0;
+  pruneCooldownMap();
+}
+
+/**
+ * Remove cooldownMap entries older than 1 hour.
+ */
+function pruneCooldownMap() {
+  const cutoff = Date.now() - 60 * 60_000;
+  for (const [ruleId, lastFired] of cooldownMap) {
+    if (lastFired < cutoff) cooldownMap.delete(ruleId);
+  }
 }

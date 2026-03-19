@@ -214,12 +214,20 @@ export async function evaluateActiveRules() {
   if (!(await getConfigBool('dynamic_pricing_enabled'))) return;
 
   const rules = await all(`
-    SELECT * FROM pricing_rules WHERE active = true ORDER BY priority DESC
+    SELECT * FROM pricing_rules WHERE active = true ORDER BY priority DESC LIMIT 50
   `);
 
   const now = new Date();
   const currentHour = now.getHours();
   const currentDay = now.getDay(); // 0=Sunday
+
+  // Cache guardrails and daily change count once per evaluation cycle
+  const cachedGuardrails = await getOrCreateGuardrails();
+  const todayChanges = await get(`
+    SELECT COUNT(*) as cnt FROM price_history
+    WHERE created_at::date = CURRENT_DATE AND reverted_at IS NULL
+  `);
+  const dailyChangeCount = todayChanges?.cnt || 0;
 
   for (const rule of rules) {
     const conditions = rule.conditions || {};
@@ -260,7 +268,6 @@ export async function evaluateActiveRules() {
       case 'demand_based': {
         const threshold = conditions.demand_threshold || 0.5;
         const direction = conditions.direction || 'below';
-        // Check current vs historical traffic
         const historical = await get(`
           SELECT AVG(order_count) as avg_orders FROM ai_hourly_snapshots
           WHERE day_of_week = $1 AND SUBSTRING(snapshot_hour FROM 12 FOR 2)::int = $2
@@ -279,13 +286,11 @@ export async function evaluateActiveRules() {
         break;
       }
       case 'custom':
-        // Custom rules are manually triggered, skip auto-evaluation
         break;
     }
 
     if (!matches) continue;
 
-    // Get affected items
     const items = await getItemsForRule(rule);
     for (const item of items) {
       const currentPrice = parseFloat(item.price);
@@ -297,8 +302,22 @@ export async function evaluateActiveRules() {
       }
       if (newPrice < 0) newPrice = 0;
 
-      const guardrailResult = await checkGuardrails(item.id, currentPrice, newPrice);
+      // Use cached guardrails instead of re-querying per item
+      const guardrailResult = checkGuardrailsCached(cachedGuardrails, dailyChangeCount, item.id, currentPrice, newPrice);
       if (!guardrailResult.allowed) continue;
+
+      // Cooldown check still needs per-item query (but only for items that pass other checks)
+      if (cachedGuardrails.cooldown_hours > 0) {
+        const lastChange = await get(`
+          SELECT created_at FROM price_history
+          WHERE menu_item_id = $1 AND reverted_at IS NULL
+          ORDER BY created_at DESC LIMIT 1
+        `, [item.id]);
+        if (lastChange) {
+          const hoursSince = (Date.now() - new Date(lastChange.created_at).getTime()) / 3600000;
+          if (hoursSince < cachedGuardrails.cooldown_hours) continue;
+        }
+      }
 
       if (rule.auto_apply && !guardrailResult.requiresApproval) {
         await applyPriceChange({
@@ -310,9 +329,34 @@ export async function evaluateActiveRules() {
           employeeId: null,
         });
       }
-      // Non-auto rules are surfaced as suggestions via the pricing suggestions endpoint
     }
   }
+}
+
+/**
+ * Check guardrails using cached values (no DB queries).
+ */
+function checkGuardrailsCached(guardrails, dailyChangeCount, menuItemId, currentPrice, proposedPrice) {
+  const violations = [];
+  const changePercent = ((proposedPrice - currentPrice) / currentPrice) * 100;
+
+  const protectedIds = guardrails.protected_item_ids || [];
+  if (protectedIds.includes(menuItemId)) {
+    return { allowed: false, requiresApproval: true, violations: ['Item is protected'] };
+  }
+
+  if (changePercent < guardrails.min_change_percent) {
+    violations.push(`Discount ${changePercent.toFixed(1)}% exceeds minimum ${guardrails.min_change_percent}%`);
+  }
+  if (changePercent > guardrails.max_change_percent) {
+    violations.push(`Markup ${changePercent.toFixed(1)}% exceeds maximum ${guardrails.max_change_percent}%`);
+  }
+  if (dailyChangeCount >= guardrails.max_daily_changes) {
+    violations.push(`Daily change limit reached (${guardrails.max_daily_changes})`);
+  }
+
+  const requiresApproval = Math.abs(changePercent) > guardrails.require_approval_above;
+  return { allowed: violations.length === 0, requiresApproval, violations };
 }
 
 /**
